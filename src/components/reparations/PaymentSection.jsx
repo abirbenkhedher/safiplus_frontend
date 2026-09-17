@@ -1,20 +1,23 @@
 import React from 'react';
-import { FaMoneyBillWave } from 'react-icons/fa';
+import { FaMoneyBillWave, FaPlusCircle } from 'react-icons/fa';
 import { PAYMENT_TYPES } from '../../constants/reparations';
 
-/**
- * ✅ Section paiement intelligente
- * - Calcul auto du type
- * - Reste calculé en temps réel
- */
 const PaymentSection = ({ formData, onChange }) => {
-  const reste = Math.max(0, (formData.prix || 0) - (formData.acompte || 0));
+  // ✅ Calcul des imprévus acceptés
+  const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
+    .filter(i => i.accepte === true)
+    .reduce((sum, i) => sum + (Number(i.prixSupplementaire) || 0), 0);
+
+  const prixBase = Number(formData.prix) || 0;
+  const prixTotal = prixBase + imprevusAcceptes;
+  const acompte = Number(formData.acompte) || 0;
+  const reste = Math.max(0, prixTotal - acompte);
 
   const handlePaymentTypeChange = (type) => {
     let newAcompte = formData.acompte;
-    
+
     if (type === 'unpaid') newAcompte = 0;
-    else if (type === 'paid') newAcompte = formData.prix;
+    else if (type === 'paid') newAcompte = prixTotal;
 
     onChange({ ...formData, paymentType: type, acompte: newAcompte });
   };
@@ -23,28 +26,28 @@ const PaymentSection = ({ formData, onChange }) => {
     const prix = parseFloat(value) || 0;
     let type = 'unpaid';
     let acompte = formData.acompte;
+    const newPrixTotal = prix + imprevusAcceptes;
 
-    if (acompte >= prix && prix > 0) type = 'paid';
+    if (acompte >= newPrixTotal && newPrixTotal > 0) type = 'paid';
     else if (acompte > 0) type = 'partial';
 
     onChange({ ...formData, prix, paymentType: type });
   };
 
   const handleAcompteChange = (value) => {
-    const acompte = parseFloat(value) || 0;
-    const prix = formData.prix || 0;
+    const newAcompte = parseFloat(value) || 0;
     let type = 'unpaid';
 
-    if (acompte >= prix && prix > 0) type = 'paid';
-    else if (acompte > 0) type = 'partial';
+    if (newAcompte >= prixTotal && prixTotal > 0) type = 'paid';
+    else if (newAcompte > 0) type = 'partial';
 
-    onChange({ ...formData, acompte, paymentType: type });
+    onChange({ ...formData, acompte: newAcompte, paymentType: type });
   };
 
   return (
     <div className="row g-3">
       <div className="col-12 col-sm-4">
-        <label className="form-label-modern">Prix (DT)</label>
+        <label className="form-label-modern">Prix de base (DT)</label>
         <input
           type="number"
           value={formData.prix}
@@ -89,6 +92,45 @@ const PaymentSection = ({ formData, onChange }) => {
         />
       </div>
 
+      {/* ✅ Détail du prix */}
+      {imprevusAcceptes > 0 && (
+        <div className="col-12">
+          <div style={{
+            padding: '12px 16px', borderRadius: '10px',
+            background: 'var(--info-light)', border: '1px solid var(--info)30',
+            display: 'flex', flexDirection: 'column', gap: '6px',
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', fontSize: '12.5px',
+            }}>
+              <span style={{ color: 'var(--gray-600)' }}>Prix de base</span>
+              <strong style={{ color: 'var(--gray-800)' }}>{prixBase.toFixed(2)} DT</strong>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', fontSize: '12.5px',
+            }}>
+              <span style={{
+                color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px',
+              }}>
+                <FaPlusCircle size={10} />
+                Imprévus acceptés
+              </span>
+              <strong style={{ color: 'var(--success)' }}>+ {imprevusAcceptes.toFixed(2)} DT</strong>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', fontSize: '13px',
+              paddingTop: '6px', borderTop: '1px dashed var(--info)60',
+            }}>
+              <span style={{ fontWeight: '700', color: 'var(--info)' }}>Prix total</span>
+              <strong style={{ fontSize: '15px', fontWeight: '800', color: 'var(--info)' }}>
+                {prixTotal.toFixed(2)} DT
+              </strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Reste à payer */}
       <div className="col-12">
         <div style={{
           padding: '12px 16px', borderRadius: '10px',

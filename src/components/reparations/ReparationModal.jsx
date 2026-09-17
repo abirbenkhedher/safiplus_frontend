@@ -1,40 +1,68 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';   // ✅ AJOUT
-import { 
-  FaTimes, FaUser, FaTools, FaMoneyBillWave, FaClipboardList,
-  FaSave, FaPrint, FaHourglassHalf, FaCommentAlt, FaCamera
-} from 'react-icons/fa';
-import { createReparation, updateReparation } from '../../api/reparations';
-import { useReparationData } from '../../hooks/useReparationData';
-import { PANNES_STANDARD, DRAFT_KEY } from '../../constants/reparations';
-import ClientSelector from './ClientSelector';
-import SearchSelect from './SearchSelect';
-import ObservationsList from './ObservationsList';
-import PaymentSection from './PaymentSection';
-import IMEIScannerModal from './IMEIScannerModal';
+import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import {
+  FaTimes,
+  FaUser,
+  FaTools,
+  FaMoneyBillWave,
+  FaClipboardList,
+  FaSave,
+  FaPrint,
+  FaHourglassHalf,
+  FaCommentAlt,
+  FaCamera,
+  FaStethoscope,
+  FaChevronDown,
+} from "react-icons/fa";
+import { createReparation, updateReparation } from "../../api/reparations";
+import { useReparationData } from "../../hooks/useReparationData";
+import { PANNES_STANDARD, DRAFT_KEY } from "../../constants/reparations";
+import ClientSelector from "./ClientSelector";
+import SearchSelect from "./SearchSelect";
+import ObservationsList from "./ObservationsList";
+import PaymentSection from "./PaymentSection";
+import IMEIScannerModal from "./IMEIScannerModal";
+import DiagnosticSection from "./DiagnosticSection";
 
 const INITIAL_FORM = {
-  client: '', categorie: '', objet: '', marque: '', modele: '',
-  numeroSerie: '', accessoires: '', problemeDeclare: '', panneType: '',
-  note: '', prix: 0, acompte: 0, status: '', reparateur: '',
-  paymentType: 'unpaid',
-  observations: [{ text: '', date: new Date().toISOString() }],
+  client: "",
+  categorie: "",
+  objet: "",
+  marque: "",
+  modele: "",
+  numeroSerie: "",
+  accessoires: "",
+  problemeDeclare: "",
+  panneType: "",
+  note: "",
+  prix: 0,
+  acompte: 0,
+  status: "",
+  reparateur: "",
+  paymentType: "unpaid",
+  observations: [{ text: "", date: new Date().toISOString() }],
+  diagnosticImprevus: {
+    constat: "",
+    imprevus: [],
+    decisionClient: { statut: "en_attente", note: "" },
+  },
 };
 
-const ReparationModal = ({ 
-  show, 
-  onClose, 
-  onSuccess, 
-  reparation = null, 
-  initialClientId = null 
+const ReparationModal = ({
+  show,
+  onClose,
+  onSuccess,
+  reparation = null,
+  initialClientId = null,
 }) => {
   const isEdit = Boolean(reparation);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
   const [showIMScanner, setShowIMScanner] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false); // ✅ Accordéon fermé par défaut
 
   const { categories, objets, statuses, reparateurs } = useReparationData();
 
@@ -44,53 +72,79 @@ const ReparationModal = ({
 
     if (isEdit && reparation) {
       setFormData({
-        client: reparation.client?._id || '',
-        categorie: reparation.categorie?._id || '',
-        objet: reparation.objet?._id || '',
-        marque: reparation.marque || '',
-        modele: reparation.modele || '',
-        numeroSerie: reparation.numeroSerie || '',
-        accessoires: reparation.accessoires || '',
-        problemeDeclare: reparation.problemeDeclare || '',
-        panneType: reparation.panneType || '',
-        note: reparation.note || '',
+        client: reparation.client?._id || "",
+        categorie: reparation.categorie?._id || "",
+        objet: reparation.objet?._id || "",
+        marque: reparation.marque || "",
+        modele: reparation.modele || "",
+        numeroSerie: reparation.numeroSerie || "",
+        accessoires: reparation.accessoires || "",
+        problemeDeclare: reparation.problemeDeclare || "",
+        panneType: reparation.panneType || "",
+        note: reparation.note || "",
         prix: reparation.prix || 0,
         acompte: reparation.acompte || 0,
-        status: reparation.status?._id || '',
-        reparateur: reparation.reparateur?._id || '',
-        paymentType: reparation.paymentType || 'unpaid',
-        observations: reparation.observations?.length > 0 
-          ? reparation.observations 
-          : [{ text: '', date: new Date().toISOString() }],
+        status: reparation.status?._id || "",
+        reparateur: reparation.reparateur?._id || "",
+        paymentType: reparation.paymentType || "unpaid",
+        observations:
+          reparation.observations?.length > 0
+            ? reparation.observations
+            : [{ text: "", date: new Date().toISOString() }],
+        diagnosticImprevus: reparation.diagnosticImprevus || {
+          constat: "",
+          imprevus: [],
+          decisionClient: { statut: "en_attente", note: "" },
+        },
       });
+
+      // ✅ Ouvrir automatiquement l'accordéon si un diagnostic existe déjà
+      const diag = reparation.diagnosticImprevus;
+      if (
+        diag &&
+        (diag.constat ||
+          (diag.imprevus && diag.imprevus.length > 0) ||
+          (diag.decisionClient?.statut &&
+            diag.decisionClient.statut !== "en_attente"))
+      ) {
+        setShowDiagnostic(true);
+      } else {
+        setShowDiagnostic(false);
+      }
     } else if (!isEdit) {
       const draft = localStorage.getItem(DRAFT_KEY);
-      
+
       if (draft && !initialClientId) {
         try {
           const parsed = JSON.parse(draft);
           if (!parsed.observations || parsed.observations.length === 0) {
-            parsed.observations = [{ text: '', date: new Date().toISOString() }];
+            parsed.observations = [
+              { text: "", date: new Date().toISOString() },
+            ];
+          }
+          if (!parsed.diagnosticImprevus) {
+            parsed.diagnosticImprevus = INITIAL_FORM.diagnosticImprevus;
           }
           setFormData(parsed);
           setHasDraft(true);
         } catch (e) {
           setFormData({
             ...INITIAL_FORM,
-            client: initialClientId || '',
+            client: initialClientId || "",
           });
         }
       } else {
         setFormData({
           ...INITIAL_FORM,
-          client: initialClientId || '',
-          observations: [{ text: '', date: new Date().toISOString() }],
+          client: initialClientId || "",
+          observations: [{ text: "", date: new Date().toISOString() }],
         });
       }
+      setShowDiagnostic(false); // ✅ Fermé par défaut en création
     }
-    
-    setError('');
-    setSuccess('');
+
+    setError("");
+    setSuccess("");
   }, [show, reparation, isEdit, initialClientId]);
 
   // ✅ Statut par défaut
@@ -99,13 +153,14 @@ const ReparationModal = ({
     if (isEdit) return;
     if (formData.status) return;
 
-    const enAttente = statuses.find(s => 
-      s.label.toLowerCase().includes('attente')
+    const enAttente = statuses.find((s) =>
+      s.label.toLowerCase().includes("attente"),
     );
-    const defaultStatus = enAttente || statuses.find(s => s.parDefault) || statuses[0];
+    const defaultStatus =
+      enAttente || statuses.find((s) => s.parDefault) || statuses[0];
 
     if (defaultStatus) {
-      setFormData(prev => ({ ...prev, status: defaultStatus._id }));
+      setFormData((prev) => ({ ...prev, status: defaultStatus._id }));
     }
   }, [statuses, isEdit, formData.status]);
 
@@ -122,26 +177,27 @@ const ReparationModal = ({
   }, [formData, isEdit, show]);
 
   const handleFieldChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
   const handleSubmit = async (shouldPrint = false) => {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
-        if (!formData.client) return setError('Le client est obligatoire');
-    if (!formData.categorie) return setError('La catégorie est obligatoire');
-    if (!formData.objet) return setError('L\'objet est obligatoire');
-    if (!formData.marque.trim()) return setError('La marque est obligatoire');
-    if (!formData.panneType) return setError('Le type de panne est obligatoire'); 
-    if (!formData.note.trim()) return setError('La note est obligatoire');
-    if (!formData.status) return setError('Le statut est obligatoire');
+    if (!formData.client) return setError("Le client est obligatoire");
+    if (!formData.categorie) return setError("La catégorie est obligatoire");
+    if (!formData.objet) return setError("L'objet est obligatoire");
+    if (!formData.marque.trim()) return setError("La marque est obligatoire");
+    if (!formData.panneType)
+      return setError("Le type de panne est obligatoire");
+    if (!formData.note.trim()) return setError("La note est obligatoire");
+    if (!formData.status) return setError("Le statut est obligatoire");
 
     setSaving(true);
     try {
       const cleanData = {
         ...formData,
-        observations: formData.observations.filter(o => o.text.trim() !== ''),
+        observations: formData.observations.filter((o) => o.text.trim() !== ""),
       };
 
       const response = isEdit
@@ -149,7 +205,7 @@ const ReparationModal = ({
         : await createReparation(cleanData);
 
       const saved = response.data;
-      setSuccess(isEdit ? 'Réparation modifiée' : 'Réparation créée');
+      setSuccess(isEdit ? "Réparation modifiée" : "Réparation créée");
 
       if (!isEdit) localStorage.removeItem(DRAFT_KEY);
 
@@ -162,7 +218,9 @@ const ReparationModal = ({
         onClose();
       }, 800);
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      setError(
+        err.response?.data?.message || "Erreur lors de l'enregistrement",
+      );
     } finally {
       setSaving(false);
     }
@@ -170,112 +228,157 @@ const ReparationModal = ({
 
   const printTicket = async (reparationId) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem("accessToken");
+      const apiUrl =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const html = await res.text();
-      const win = window.open('', '_blank', 'width=400,height=600');
+      const win = window.open("", "_blank", "width=400,height=600");
       win.document.write(html);
       win.document.close();
       win.onload = () => setTimeout(() => win.print(), 500);
     } catch (err) {
-      console.error('Erreur impression:', err);
+      console.error("Erreur impression:", err);
     }
   };
 
-  // ✅ Raccourcis clavier
   useEffect(() => {
     if (!show) return;
     const handleKey = (e) => {
-      if (e.key === 'Escape' && !saving && !showIMScanner) onClose();
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (e.key === "Escape" && !saving && !showIMScanner) onClose();
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSubmit(false);
       }
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, [show, saving, formData, showIMScanner]);
 
   if (!show) return null;
 
-  const panneOptions = PANNES_STANDARD.map(p => ({
+  const panneOptions = PANNES_STANDARD.map((p) => ({
     value: p.value,
     label: p.label,
     icon: p.icon,
   }));
 
-  // ✅ PORTAL : Rendu dans document.body
+  // ✅ Nombre d'imprévus en attente (pour le badge)
+  const imprevusEnAttente = (
+    formData.diagnosticImprevus?.imprevus || []
+  ).filter((i) => i.accepte === null || i.accepte === undefined).length;
+
   return createPortal(
     <>
-      <div 
-        className="modal fade show d-block" 
-        style={{ 
-          position: 'fixed',
+      <div
+        className="modal fade show d-block"
+        style={{
+          position: "fixed",
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.6)', 
+          background: "rgba(0,0,0,0.6)",
           zIndex: 9999,
-          overflowY: 'auto',
-          padding: '40px 20px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-        }} 
+          overflowY: "auto",
+          padding: "40px 20px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
         onClick={(e) => {
           if (e.target === e.currentTarget && !saving) onClose();
         }}
       >
-        <div 
-          className="modal-dialog modal-dialog-centered modal-lg" 
-          style={{ 
-            maxWidth: '780px',
-            margin: '0 auto',
-            width: '100%',
-          }}
+        <div
+          className="modal-dialog modal-dialog-centered modal-lg"
+          style={{ maxWidth: "780px", margin: "0 auto", width: "100%" }}
         >
-          <div className="modal-content" style={{
-            border: 'none', borderRadius: '20px', overflow: 'hidden',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
-            maxHeight: '92vh', display: 'flex', flexDirection: 'column',
-          }}>
-            
+          <div
+            className="modal-content"
+            style={{
+              border: "none",
+              borderRadius: "20px",
+              overflow: "hidden",
+              boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {/* HEADER */}
-            <div style={{
-              padding: '18px 24px',
-              background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)',
-              borderBottom: '1px solid var(--gray-200)',
-              display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0,
-            }}>
-              <div style={{
-                width: '42px', height: '42px', borderRadius: '12px',
-                background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-                color: 'white', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '17px', flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)',
-              }}>
+            <div
+              style={{
+                padding: "18px 24px",
+                background:
+                  "linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)",
+                borderBottom: "1px solid var(--gray-200)",
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background:
+                    "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "17px",
+                  flexShrink: 0,
+                  boxShadow: "0 4px 12px rgba(67, 97, 238, 0.3)",
+                }}
+              >
                 <FaTools />
               </div>
               <div style={{ flex: 1 }}>
-                <h5 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--gray-900)', margin: 0 }}>
-                  {isEdit ? `Modifier ${reparation?.numero}` : 'Nouvelle réparation'}
+                <h5
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    color: "var(--gray-900)",
+                    margin: 0,
+                  }}
+                >
+                  {isEdit
+                    ? `Modifier ${reparation?.numero}`
+                    : "Nouvelle réparation"}
                 </h5>
-                <p style={{ fontSize: '11.5px', color: 'var(--gray-500)', margin: '2px 0 0' }}>
-                  {isEdit ? 'Modifiez les informations' : 'Ctrl+S pour enregistrer'}
+                <p
+                  style={{
+                    fontSize: "11.5px",
+                    color: "var(--gray-500)",
+                    margin: "2px 0 0",
+                  }}
+                >
+                  {isEdit
+                    ? "Modifiez les informations"
+                    : "Ctrl+S pour enregistrer"}
                 </p>
               </div>
               <button
                 onClick={onClose}
                 disabled={saving}
                 style={{
-                  width: '32px', height: '32px', borderRadius: '8px',
-                  border: 'none', background: 'white', color: 'var(--gray-500)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '16px',
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "white",
+                  color: "var(--gray-500)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
                 }}
               >
                 <FaTimes />
@@ -283,15 +386,23 @@ const ReparationModal = ({
             </div>
 
             {/* BODY */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-              
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
               {hasDraft && !isEdit && (
-                <div style={{
-                  padding: '10px 14px', background: 'var(--warning-light)',
-                  color: 'var(--warning)', borderRadius: '10px',
-                  marginBottom: '16px', fontSize: '12px', fontWeight: '500',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                }}>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "var(--warning-light)",
+                    color: "var(--warning)",
+                    borderRadius: "10px",
+                    marginBottom: "16px",
+                    fontSize: "12px",
+                    fontWeight: "500",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
                   <span>📝 Brouillon récupéré</span>
                   <button
                     onClick={() => {
@@ -299,13 +410,18 @@ const ReparationModal = ({
                       setHasDraft(false);
                       setFormData({
                         ...INITIAL_FORM,
-                        client: initialClientId || '',
+                        client: initialClientId || "",
                       });
                     }}
                     style={{
-                      background: 'white', border: 'none', color: 'var(--warning)',
-                      fontSize: '11px', fontWeight: '600', cursor: 'pointer',
-                      padding: '4px 10px', borderRadius: '6px',
+                      background: "white",
+                      border: "none",
+                      color: "var(--warning)",
+                      fontSize: "11px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
                     }}
                   >
                     Effacer
@@ -314,88 +430,120 @@ const ReparationModal = ({
               )}
 
               {success && (
-                <div style={{
-                  padding: '10px 14px', background: 'var(--success-light)',
-                  color: 'var(--success)', borderRadius: '10px',
-                  marginBottom: '16px', fontSize: '12.5px', fontWeight: '500',
-                }}>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "var(--success-light)",
+                    color: "var(--success)",
+                    borderRadius: "10px",
+                    marginBottom: "16px",
+                    fontSize: "12.5px",
+                    fontWeight: "500",
+                  }}
+                >
                   ✅ {success}
                 </div>
               )}
               {error && (
-                <div style={{
-                  padding: '10px 14px', background: 'var(--danger-light)',
-                  color: 'var(--danger)', borderRadius: '10px',
-                  marginBottom: '16px', fontSize: '12.5px', fontWeight: '500',
-                }}>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "var(--danger-light)",
+                    color: "var(--danger)",
+                    borderRadius: "10px",
+                    marginBottom: "16px",
+                    fontSize: "12.5px",
+                    fontWeight: "500",
+                  }}
+                >
                   ⚠️ {error}
                 </div>
               )}
 
               {/* CLIENT */}
-              <SectionBlock icon={<FaUser size={13} />} title="Client" color="var(--primary)">
+              <SectionBlock
+                icon={<FaUser size={13} />}
+                title="Client"
+                color="var(--primary)"
+              >
                 <ClientSelector
                   value={formData.client}
-                  onChange={(id) => handleFieldChange('client', id)}
+                  onChange={(id) => handleFieldChange("client", id)}
                 />
               </SectionBlock>
 
               {/* APPAREIL */}
-              <SectionBlock icon={<FaTools size={13} />} title="Appareil" color="var(--info)">
+              <SectionBlock
+                icon={<FaTools size={13} />}
+                title="Appareil"
+                color="var(--info)"
+              >
                 <div className="row g-2">
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      Catégorie <span style={{ color: 'var(--danger)' }}>*</span>
+                      Catégorie{" "}
+                      <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <SearchSelect
-                      options={categories.map(c => ({ value: c._id, label: c.nom }))}
+                      options={categories.map((c) => ({
+                        value: c._id,
+                        label: c.nom,
+                      }))}
                       value={formData.categorie}
-                      onChange={(val) => handleFieldChange('categorie', val)}
+                      onChange={(val) => handleFieldChange("categorie", val)}
                       placeholder="Rechercher..."
                     />
                   </div>
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      Objet <span style={{ color: 'var(--danger)' }}>*</span>
+                      Objet <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <SearchSelect
-                      options={objets.map(o => ({ value: o._id, label: o.nom }))}
+                      options={objets.map((o) => ({
+                        value: o._id,
+                        label: o.nom,
+                      }))}
                       value={formData.objet}
-                      onChange={(val) => handleFieldChange('objet', val)}
+                      onChange={(val) => handleFieldChange("objet", val)}
                       placeholder="Rechercher..."
                     />
                   </div>
                 </div>
 
-                <div className="row g-2" style={{ marginTop: '8px' }}>
+                <div className="row g-2" style={{ marginTop: "8px" }}>
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      Marque / Modèle <span style={{ color: 'var(--danger)' }}>*</span>
+                      Marque / Modèle{" "}
+                      <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.marque}
-                      onChange={(e) => handleFieldChange('marque', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange("marque", e.target.value)
+                      }
                       placeholder="Ex: Samsung Galaxy S23"
                       className="form-control-modern"
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                     />
                   </div>
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       IMEI / N° de série
                     </label>
-                    <div style={{ position: 'relative' }}>
+                    <div style={{ position: "relative" }}>
                       <input
                         type="text"
                         value={formData.numeroSerie}
-                        onChange={(e) => handleFieldChange('numeroSerie', e.target.value)}
+                        onChange={(e) =>
+                          handleFieldChange("numeroSerie", e.target.value)
+                        }
                         placeholder="Ex: 352099001761481"
                         className="form-control-modern"
-                        style={{ 
-                          width: '100%', 
-                          fontFamily: 'monospace',
-                          paddingRight: '46px',
+                        style={{
+                          width: "100%",
+                          fontFamily: "monospace",
+                          paddingRight: "46px",
                         }}
                       />
                       <button
@@ -403,28 +551,23 @@ const ReparationModal = ({
                         onClick={() => setShowIMScanner(true)}
                         title="Scanner l'IMEI avec la caméra"
                         style={{
-                          position: 'absolute',
-                          right: '6px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-                          color: 'white',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 2px 8px rgba(67, 97, 238, 0.3)',
-                          transition: 'all 150ms ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                          position: "absolute",
+                          right: "6px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: "34px",
+                          height: "34px",
+                          borderRadius: "8px",
+                          border: "none",
+                          background:
+                            "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                          color: "white",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 2px 8px rgba(67, 97, 238, 0.3)",
+                          transition: "all 150ms ease",
                         }}
                       >
                         <FaCamera size={13} />
@@ -435,83 +578,144 @@ const ReparationModal = ({
               </SectionBlock>
 
               {/* PANNE */}
-              <SectionBlock icon={<FaClipboardList size={13} />} title="Panne" color="var(--warning)">
+              <SectionBlock
+                icon={<FaClipboardList size={13} />}
+                title="Panne"
+                color="var(--warning)"
+              >
                 <div className="row g-2">
-                  {/* ✅ Type de panne : OBLIGATOIRE */}
                   <div className="col-12">
                     <label className="form-label-modern">
-                      Type de panne <span style={{ color: 'var(--danger)' }}>*</span>
+                      Type de panne{" "}
+                      <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <SearchSelect
                       options={panneOptions}
                       value={formData.panneType}
-                      onChange={(val) => handleFieldChange('panneType', val)}
+                      onChange={(val) => handleFieldChange("panneType", val)}
                       placeholder="Rechercher une panne..."
                     />
                   </div>
 
-                  {/* ✅ Description : OPTIONNEL */}
                   <div className="col-12">
                     <label className="form-label-modern">
-                      Description du problème <span style={{ fontSize: '11px', color: 'var(--gray-500)', fontWeight: '400' }}>(optionnel)</span>
+                      Description du problème{" "}
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--gray-500)",
+                          fontWeight: "400",
+                        }}
+                      >
+                        (optionnel)
+                      </span>
                     </label>
                     <textarea
                       value={formData.problemeDeclare}
-                      onChange={(e) => handleFieldChange('problemeDeclare', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange("problemeDeclare", e.target.value)
+                      }
                       rows={2}
                       placeholder="Décrivez le problème en détail..."
                       className="form-control-modern"
-                      style={{ width: '100%', height: 'auto', padding: '10px 14px', resize: 'vertical', fontFamily: 'inherit' }}
+                      style={{
+                        width: "100%",
+                        height: "auto",
+                        padding: "10px 14px",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                      }}
                     />
                   </div>
 
-                  {/* ✅ Note : OBLIGATOIRE */}
                   <div className="col-12">
                     <label className="form-label-modern">
-                      Note interne <span style={{ color: 'var(--danger)' }}>*</span>
+                      Note interne{" "}
+                      <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <textarea
                       value={formData.note}
-                      onChange={(e) => handleFieldChange('note', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange("note", e.target.value)
+                      }
                       rows={2}
                       placeholder="Note obligatoire..."
                       className="form-control-modern"
-                      style={{ width: '100%', height: 'auto', padding: '10px 14px', resize: 'vertical', fontFamily: 'inherit' }}
+                      style={{
+                        width: "100%",
+                        height: "auto",
+                        padding: "10px 14px",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                      }}
                     />
                   </div>
                 </div>
               </SectionBlock>
 
+              {/* ✅ DIAGNOSTIC & IMPRÉVUS — ACCORDÉON */}
+              <CollapsibleSection
+                icon={<FaStethoscope size={13} />}
+                title="Diagnostic & Imprévus"
+                color="var(--warning)"
+                isOpen={showDiagnostic}
+                onToggle={() => setShowDiagnostic(!showDiagnostic)}
+                badge={imprevusEnAttente}
+              >
+                <DiagnosticSection
+                  diagnostic={formData.diagnosticImprevus}
+                  onChange={(diag) =>
+                    handleFieldChange("diagnosticImprevus", diag)
+                  }
+                  prixInitial={formData.prix}
+                  acompte={formData.acompte}
+                />
+              </CollapsibleSection>
+
               {/* PAIEMENT */}
-              <SectionBlock icon={<FaMoneyBillWave size={13} />} title="Paiement" color="var(--success)">
+              <SectionBlock
+                icon={<FaMoneyBillWave size={13} />}
+                title="Paiement"
+                color="var(--success)"
+              >
                 <PaymentSection formData={formData} onChange={setFormData} />
               </SectionBlock>
 
               {/* OBSERVATIONS */}
-              <SectionBlock icon={<FaCommentAlt size={13} />} title="Observations" color="var(--gray-600)">
+              <SectionBlock
+                icon={<FaCommentAlt size={13} />}
+                title="Observations"
+                color="var(--gray-600)"
+              >
                 <ObservationsList
                   observations={formData.observations}
-                  onChange={(obs) => handleFieldChange('observations', obs)}
+                  onChange={(obs) => handleFieldChange("observations", obs)}
                 />
               </SectionBlock>
 
               {/* GESTION */}
-              <SectionBlock icon={<FaHourglassHalf size={13} />} title="Gestion" color="var(--primary)">
+              <SectionBlock
+                icon={<FaHourglassHalf size={13} />}
+                title="Gestion"
+                color="var(--primary)"
+              >
                 <div className="row g-2">
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      Statut <span style={{ color: 'var(--danger)' }}>*</span>
+                      Statut <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <select
                       value={formData.status}
-                      onChange={(e) => handleFieldChange('status', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange("status", e.target.value)
+                      }
                       className="form-control-modern"
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                     >
                       <option value="">Sélectionnez</option>
-                      {statuses.map(s => (
+                      {statuses.map((s) => (
                         <option key={s._id} value={s._id}>
-                          {s.label} {s.parDefault && '(défaut)'}
+                          {s.label} {s.parDefault && "(défaut)"}
                         </option>
                       ))}
                     </select>
@@ -520,13 +724,17 @@ const ReparationModal = ({
                     <label className="form-label-modern">Technicien</label>
                     <select
                       value={formData.reparateur}
-                      onChange={(e) => handleFieldChange('reparateur', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange("reparateur", e.target.value)
+                      }
                       className="form-control-modern"
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                     >
                       <option value="">Non assigné</option>
-                      {reparateurs.map(u => (
-                        <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>
+                      {reparateurs.map((u) => (
+                        <option key={u._id} value={u._id}>
+                          {u.firstName} {u.lastName}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -535,22 +743,27 @@ const ReparationModal = ({
             </div>
 
             {/* FOOTER */}
-            <div style={{
-              padding: '14px 24px',
-              background: 'var(--gray-50)',
-              borderTop: '1px solid var(--gray-200)',
-              display: 'flex',
-              gap: '8px',
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap',
-              flexShrink: 0,
-            }}>
+            <div
+              style={{
+                padding: "14px 24px",
+                background: "var(--gray-50)",
+                borderTop: "1px solid var(--gray-200)",
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+                flexShrink: 0,
+              }}
+            >
               <button
                 type="button"
                 onClick={() => handleSubmit(true)}
                 disabled={saving}
                 className="btn-modern btn-modern-outline"
-                style={{ borderColor: 'var(--success)', color: 'var(--success)' }}
+                style={{
+                  borderColor: "var(--success)",
+                  color: "var(--success)",
+                }}
               >
                 <FaPrint /> Enregistrer + Imprimer
               </button>
@@ -563,12 +776,15 @@ const ReparationModal = ({
               >
                 {saving ? (
                   <>
-                    <span className="spinner-border spinner-border-sm" role="status"></span>
+                    <span
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                    ></span>
                     Enregistrement...
                   </>
                 ) : (
                   <>
-                    <FaSave /> {isEdit ? 'Modifier' : 'Enregistrer'}
+                    <FaSave /> {isEdit ? "Modifier" : "Enregistrer"}
                   </>
                 )}
               </button>
@@ -581,39 +797,167 @@ const ReparationModal = ({
         show={showIMScanner}
         onClose={() => setShowIMScanner(false)}
         onScan={(imei) => {
-          handleFieldChange('numeroSerie', imei);
+          handleFieldChange("numeroSerie", imei);
           setShowIMScanner(false);
         }}
       />
     </>,
-    document.body   // ✅ RENDU DIRECTEMENT DANS <body>
+    document.body,
   );
 };
 
-// ✅ Composant Section réutilisable
-const SectionBlock = ({ icon, title, color = 'var(--primary)', children }) => (
-  <div style={{ marginBottom: '20px' }}>
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '8px',
-      marginBottom: '10px', paddingBottom: '8px',
-      borderBottom: `1px solid ${color}20`,
-    }}>
-      <div style={{
-        width: '26px', height: '26px', borderRadius: '8px',
-        background: `${color}15`, color: color,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-      }}>
+// ============================================================
+// ✅ Composant Section réutilisable (toujours ouverte)
+// ============================================================
+const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
+  <div style={{ marginBottom: "20px" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        marginBottom: "10px",
+        paddingBottom: "8px",
+        borderBottom: `1px solid ${color}20`,
+      }}
+    >
+      <div
+        style={{
+          width: "26px",
+          height: "26px",
+          borderRadius: "8px",
+          background: `${color}15`,
+          color: color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
         {icon}
       </div>
-      <h6 style={{
-        fontSize: '12px', fontWeight: '700', color: color,
-        margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px',
-      }}>
+      <h6
+        style={{
+          fontSize: "12px",
+          fontWeight: "700",
+          color: color,
+          margin: 0,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}
+      >
         {title}
       </h6>
     </div>
     {children}
+  </div>
+);
+
+// ============================================================
+// ✅ Composant Section repliable (accordéon)
+// ============================================================
+const CollapsibleSection = ({
+  icon,
+  title,
+  color = "var(--primary)",
+  isOpen,
+  onToggle,
+  badge = 0,
+  children,
+}) => (
+  <div style={{ marginBottom: "20px" }}>
+    {/* Header cliquable */}
+    <div
+      onClick={onToggle}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        paddingBottom: "8px",
+        borderBottom: `1px solid ${color}20`,
+        cursor: "pointer",
+        userSelect: "none",
+        transition: "opacity 150ms ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.opacity = "0.75";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.opacity = "1";
+      }}
+    >
+      <div
+        style={{
+          width: "26px",
+          height: "26px",
+          borderRadius: "8px",
+          background: `${color}15`,
+          color: color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+
+      <h6
+        style={{
+          fontSize: "12px",
+          fontWeight: "700",
+          color: color,
+          margin: 0,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          flex: 1,
+        }}
+      >
+        {title}
+      </h6>
+
+      {/* Badge imprévus en attente */}
+      {badge > 0 && (
+        <span
+          style={{
+            padding: "2px 8px",
+            borderRadius: "10px",
+            background: "var(--warning-light)",
+            color: "var(--warning)",
+            fontSize: "10.5px",
+            fontWeight: "700",
+            display: "flex",
+            alignItems: "center",
+            gap: "3px",
+          }}
+        >
+          ⚠️ {badge}
+        </span>
+      )}
+
+      {/* Flèche rotative */}
+      <FaChevronDown
+        size={11}
+        style={{
+          color: color,
+          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+          transition: "transform 200ms ease",
+          flexShrink: 0,
+        }}
+      />
+    </div>
+
+    {/* Contenu (affiché uniquement si ouvert) */}
+    {isOpen && (
+      <div
+        style={{
+          marginTop: "12px",
+          animation: "fadeIn 200ms ease",
+        }}
+      >
+        {children}
+      </div>
+    )}
   </div>
 );
 

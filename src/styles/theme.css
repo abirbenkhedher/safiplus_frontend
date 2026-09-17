@@ -444,3 +444,8 @@
   background: #242838;
   border-top-color: #2f3444;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
