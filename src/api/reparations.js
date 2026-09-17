@@ -51,3 +51,12 @@ export const getTicketHTML = async (id) => {
   return response.data;
 };
 
+// ✅ Route PUBLIQUE (sans authentification)
+export const getReparationPublic = async (numero) => {
+  const response = await apiClient.get(`/reparations/public/${numero}`, {
+    // ⚠️ Retirer le token si présent
+    headers: { Authorization: undefined }
+  });
+  return response.data;
+};
+

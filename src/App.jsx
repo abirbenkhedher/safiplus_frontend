@@ -22,14 +22,18 @@ import HistoryView from "./pages/History/HistoryView";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 import "./styles/theme.css";
+import SuiviPublic from "./pages/Reparations/SuiviPublic";
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
+          {/* ✅ ROUTES PUBLIQUES (avant tout, hors ProtectedRoute) */}
           <Route path="/login" element={<Login />} />
+          <Route path="/suivi/:numero" element={<SuiviPublic />} />
 
+          {/* ✅ ROUTES PROTÉGÉES (avec Layout) */}
           <Route
             path="/"
             element={
@@ -79,7 +83,6 @@ function App() {
               }
             />
 
-
             {/* Configuration */}
             <Route
               path="familles"
@@ -123,6 +126,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="history"
               element={
@@ -133,6 +137,7 @@ function App() {
             />
           </Route>
 
+          {/* ✅ Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>

@@ -28,14 +28,22 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     const requestUrl = originalRequest?.url || '';
 
-    // ⚠️ IMPORTANT: Ne PAS rediriger pour les routes d'authentification
-    const isAuthRoute = 
+    // ⚠️ Routes d'authentification (ne PAS rediriger)
+    const isAuthRoute =
       requestUrl.includes('/auth/login') ||
       requestUrl.includes('/auth/register') ||
       requestUrl.includes('/auth/refresh');
 
-    // Si erreur 401 et PAS une route d'auth, on tente le refresh
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
+    // ✅ NOUVELLE LIGNE : Routes publiques (ne PAS rediriger)
+    const isPublicRoute = requestUrl.includes('/reparations/public/');
+
+    // Si erreur 401 et PAS une route d'auth NI publique → on tente le refresh
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthRoute &&
+      !isPublicRoute
+    ) {
       originalRequest._retry = true;
 
       try {
@@ -58,9 +66,12 @@ apiClient.interceptors.response.use(
         // Refresh échoué → logout
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        
-        // Rediriger seulement si on n'est pas déjà sur /login
-        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+
+        // Rediriger seulement si on n'est pas déjà sur une page publique
+        const currentPath = window.location.pathname;
+        const isOnPublicPage = currentPath.startsWith('/suivi/');
+
+        if (!isOnPublicPage && currentPath !== '/login' && currentPath !== '/') {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

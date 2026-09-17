@@ -14,46 +14,16 @@ const ReparationQRCode = ({ reparation }) => {
   const [copied, setCopied] = React.useState(false);
   const qrRef = React.useRef(null);
 
-  // ✅ Construire les données du QR Code
-  const qrData = useMemo(() => {
-    if (!reparation) return '';
+ // ✅ Construire l'URL publique du QR Code
+const qrData = useMemo(() => {
+  if (!reparation) return "";
 
-    // Format texte compact (lisible si scanné avec un lecteur basique)
-    const lines = [
-      `=== RÉPARATION ${reparation.numero} ===`,
-      ``,
-      `👤 CLIENT`,
-      `Nom: ${reparation.client?.nom || 'N/A'}`,
-      `Code: ${reparation.client?.code || 'N/A'}`,
-      `Tél: ${reparation.client?.phone || 'N/A'}`,
-      ``,
-      `📱 APPAREIL`,
-      `Type: ${reparation.objet?.nom || 'N/A'}`,
-      `Marque/Modèle: ${reparation.marque || ''} ${reparation.modele || ''}`,
-      reparation.numeroSerie ? `IMEI: ${reparation.numeroSerie}` : '',
-      ``,
-      `📅 DATES`,
-      `Reçu le: ${new Date(reparation.createdAt).toLocaleDateString('fr-FR')}`,
-      reparation.datePrevisionnelle 
-        ? `Prévu le: ${new Date(reparation.datePrevisionnelle).toLocaleDateString('fr-FR')}`
-        : 'Prévu le: -',
-      ``,
-      `💰 PAIEMENT`,
-      `Total: ${(reparation.prix || 0).toFixed(2)} DT`,
-      `Acompte: ${(reparation.acompte || 0).toFixed(2)} DT`,
-      `Reste: ${((reparation.prix || 0) - (reparation.acompte || 0)).toFixed(2)} DT`,
-      ``,
-      `⚙️ STATUT`,
-      `État: ${reparation.status?.label || 'N/A'}`,
-      reparation.reparateur 
-        ? `Réparateur: ${reparation.reparateur.firstName} ${reparation.reparateur.lastName}`
-        : 'Réparateur: Non assigné',
-      ``,
-      `=== Scanné le ${new Date().toLocaleString('fr-FR')} ===`,
-    ].filter(Boolean);
-
-    return lines.join('\n');
-  }, [reparation]);
+  // ✅ URL de base du frontend
+  const baseUrl = window.location.origin;
+  
+  // ✅ URL de la page publique de suivi
+  return `${baseUrl}/suivi/${reparation.numero}`;
+}, [reparation]);
 
   // ✅ Télécharger le QR Code en PNG
   const downloadQR = () => {
@@ -186,14 +156,15 @@ const ReparationQRCode = ({ reparation }) => {
             fgColor="#1e293b"
           />
         </div>
-        <p style={{ 
-          fontSize: '11.5px', 
-          color: 'var(--gray-500)', 
-          marginTop: '12px',
-          marginBottom: 0,
-        }}>
-          Scannez pour voir les détails
-        </p>
+       <p style={{ 
+  fontSize: '11.5px', 
+  color: 'var(--gray-500)', 
+  marginTop: '12px',
+  marginBottom: 0,
+  textAlign: 'center',
+}}>
+  📱 Scannez pour suivre votre réparation
+</p>
       </div>
 
       {/* Résumé compact */}
