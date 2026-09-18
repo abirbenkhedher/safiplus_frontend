@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  FaBell, FaSun, FaMoon, FaDesktop, FaChevronDown, 
-  FaUser, FaSignOutAlt, FaKeyboard, FaPalette
+  FaSun, FaMoon, FaDesktop, FaChevronDown, 
+  FaUser, FaSignOutAlt, FaKeyboard,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import AlertesRetard from "./AlertesRetard";
+import TeamMessages from "./TeamMessages";
 
 const Header = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -12,14 +14,12 @@ const Header = ({ onToggleSidebar }) => {
   const location = useLocation();
 
   // États
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showShortcutsMenu, setShowShortcutsMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   // Refs pour fermer les dropdowns au clic extérieur
-  const notificationsRef = useRef(null);
   const themeRef = useRef(null);
   const shortcutsRef = useRef(null);
   const userRef = useRef(null);
@@ -39,7 +39,7 @@ const Header = ({ onToggleSidebar }) => {
           'r': '/reparations',
           'u': '/users',
           'f': '/familles',
-          'g': '/categories',  // catégories
+          'g': '/categories',
           'o': '/objets',
           's': '/statuses',
           'h': '/history',
@@ -53,7 +53,6 @@ const Header = ({ onToggleSidebar }) => {
 
       // Échap ferme tous les menus
       if (e.key === 'Escape') {
-        setShowNotifications(false);
         setShowThemeMenu(false);
         setShowShortcutsMenu(false);
         setShowUserMenu(false);
@@ -67,9 +66,6 @@ const Header = ({ onToggleSidebar }) => {
   // Fermer les dropdowns au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
-        setShowNotifications(false);
-      }
       if (themeRef.current && !themeRef.current.contains(e.target)) {
         setShowThemeMenu(false);
       }
@@ -137,7 +133,6 @@ const Header = ({ onToggleSidebar }) => {
       '/paiements': { title: 'Paiements', icon: '💰' },
     };
 
-    // Détection des routes avec paramètres (détail / édition)
     if (path.includes('/clients/edit/')) {
       return { title: 'Modifier un client', icon: '✏️', parent: 'Clients', parentPath: '/clients' };
     }
@@ -204,9 +199,7 @@ const Header = ({ onToggleSidebar }) => {
         ☰
       </button>
 
-      {/* ============================================ */}
       {/* BREADCRUMB */}
-      {/* ============================================ */}
       <div className="header-breadcrumb">
         {breadcrumb.parent && (
           <>
@@ -225,18 +218,20 @@ const Header = ({ onToggleSidebar }) => {
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* ACTIONS */}
-      {/* ============================================ */}
       <div className="header-actions">
         
+        {/* ✅ ALERTES DE DÉLAI (+48h) — Cloche clignotante */}
+        <AlertesRetard />
+         {/* ✅ Messages d'équipe */}
+  <TeamMessages />
+
         {/* Raccourcis clavier */}
         <div ref={shortcutsRef} style={{ position: 'relative' }}>
           <button 
             className={`header-icon-btn ${showShortcutsMenu ? 'active' : ''}`}
             onClick={() => {
               setShowShortcutsMenu(!showShortcutsMenu);
-              setShowNotifications(false);
               setShowThemeMenu(false);
               setShowUserMenu(false);
             }}
@@ -282,7 +277,6 @@ const Header = ({ onToggleSidebar }) => {
             className={`header-icon-btn ${showThemeMenu ? 'active' : ''}`}
             onClick={() => {
               setShowThemeMenu(!showThemeMenu);
-              setShowNotifications(false);
               setShowShortcutsMenu(false);
               setShowUserMenu(false);
             }}
@@ -317,40 +311,6 @@ const Header = ({ onToggleSidebar }) => {
           )}
         </div>
 
-        {/* Notifications */}
-        <div ref={notificationsRef} style={{ position: 'relative' }}>
-          <button 
-            className={`header-icon-btn ${showNotifications ? 'active' : ''}`}
-            onClick={() => {
-              setShowNotifications(!showNotifications);
-              setShowThemeMenu(false);
-              setShowShortcutsMenu(false);
-              setShowUserMenu(false);
-            }}
-            title="Notifications"
-          >
-            <FaBell />
-            <span className="header-notification-badge">0</span>
-          </button>
-
-          {showNotifications && (
-            <div className="header-dropdown-menu" style={{ minWidth: '320px' }}>
-              <div className="header-dropdown-header">
-                <strong>🔔 Notifications</strong>
-              </div>
-              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📭</div>
-                <div style={{ fontSize: '13px', color: 'var(--gray-500)' }}>
-                  Aucune notification pour le moment
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--gray-400)', marginTop: '4px' }}>
-                  Cette fonctionnalité arrive bientôt
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Divider */}
         <div className="header-divider"></div>
 
@@ -360,7 +320,6 @@ const Header = ({ onToggleSidebar }) => {
             className={`header-user-btn ${showUserMenu ? 'active' : ''}`}
             onClick={() => {
               setShowUserMenu(!showUserMenu);
-              setShowNotifications(false);
               setShowThemeMenu(false);
               setShowShortcutsMenu(false);
             }}
@@ -387,7 +346,6 @@ const Header = ({ onToggleSidebar }) => {
 
           {showUserMenu && (
             <div className="header-dropdown-menu" style={{ minWidth: '240px' }}>
-              {/* User header */}
               <div className="header-user-dropdown-header">
                 <div className="header-user-avatar-large">
                   {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
@@ -452,9 +410,6 @@ const Header = ({ onToggleSidebar }) => {
           transition: left 250ms ease;
         }
 
-        /* ========================================== */
-        /* MENU BUTTON */
-        /* ========================================== */
         .header-menu-btn {
           width: 40px;
           height: 40px;
@@ -475,9 +430,6 @@ const Header = ({ onToggleSidebar }) => {
           color: var(--primary);
         }
 
-        /* ========================================== */
-        /* BREADCRUMB */
-        /* ========================================== */
         .header-breadcrumb {
           display: flex;
           align-items: center;
@@ -530,9 +482,6 @@ const Header = ({ onToggleSidebar }) => {
           text-overflow: ellipsis;
         }
 
-        /* ========================================== */
-        /* ACTIONS */
-        /* ========================================== */
         .header-actions {
           display: flex;
           align-items: center;
@@ -561,24 +510,6 @@ const Header = ({ onToggleSidebar }) => {
           color: var(--primary);
         }
 
-        .header-notification-badge {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          min-width: 16px;
-          height: 16px;
-          padding: 0 4px;
-          background: var(--gray-300);
-          color: white;
-          border-radius: 8px;
-          font-size: 9px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 2px solid white;
-        }
-
         .header-divider {
           width: 1px;
           height: 24px;
@@ -586,9 +517,6 @@ const Header = ({ onToggleSidebar }) => {
           margin: 0 8px;
         }
 
-        /* ========================================== */
-        /* USER BUTTON */
-        /* ========================================== */
         .header-user-btn {
           display: flex;
           align-items: center;
@@ -651,9 +579,6 @@ const Header = ({ onToggleSidebar }) => {
           transform: rotate(180deg);
         }
 
-        /* ========================================== */
-        /* DROPDOWNS */
-        /* ========================================== */
         .header-dropdown-menu {
           position: absolute;
           top: calc(100% + 8px);
@@ -713,9 +638,6 @@ const Header = ({ onToggleSidebar }) => {
           color: var(--danger);
         }
 
-        /* ========================================== */
-        /* SHORTCUTS */
-        /* ========================================== */
         .header-shortcut-item {
           display: flex;
           align-items: center;
@@ -751,9 +673,6 @@ const Header = ({ onToggleSidebar }) => {
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        /* ========================================== */
-        /* THEME MENU */
-        /* ========================================== */
         .header-theme-item {
           display: flex;
           align-items: center;
@@ -787,9 +706,6 @@ const Header = ({ onToggleSidebar }) => {
           font-weight: 700;
         }
 
-        /* ========================================== */
-        /* USER DROPDOWN */
-        /* ========================================== */
         .header-user-dropdown-header {
           padding: 16px;
           display: flex;
@@ -826,9 +742,6 @@ const Header = ({ onToggleSidebar }) => {
           word-break: break-all;
         }
 
-        /* ========================================== */
-        /* RESPONSIVE */
-        /* ========================================== */
         @media (max-width: 992px) {
           .app-header {
             left: 0;

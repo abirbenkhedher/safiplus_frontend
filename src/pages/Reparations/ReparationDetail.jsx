@@ -17,6 +17,7 @@ import {
   FaCheck,
   FaTimes,
   FaCheckCircle,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import { getReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
@@ -46,6 +47,9 @@ const FIELD_LABELS = {
   observation: "Observation",
   diagnosticImprevus: "Diagnostic & Imprévus",
 };
+
+// ✅ Constante du délai d'alerte
+const DELAI_ALERTE_HEURES = 48;
 
 const ReparationDetail = () => {
   const navigate = useNavigate();
@@ -439,6 +443,46 @@ const ReparationDetail = () => {
     cells: { style: { paddingLeft: "16px", paddingRight: "16px" } },
   };
 
+  // ✅ ALERTE DÉLAI +48h (calcul AVANT les returns conditionnels)
+  const alertInfo = useMemo(() => {
+    if (!reparation) return null;
+
+    // ✅ Ne pas alerter si la réparation est terminée
+    const statusLabel = (reparation.status?.label || "").toLowerCase();
+    const isTermine =
+      statusLabel.includes("réparé") ||
+      statusLabel.includes("livré") ||
+      statusLabel.includes("prêt") ||
+      statusLabel.includes("annulé") ||
+      statusLabel.includes("refusé");
+
+    if (isTermine) return null;
+
+    // ✅ Calculer le temps écoulé depuis la réception
+    const dateReception = reparation.dateReception || reparation.createdAt;
+    if (!dateReception) return null;
+
+    const maintenant = new Date();
+    const reception = new Date(dateReception);
+    const diffMs = maintenant - reception;
+    const diffHeures = diffMs / (1000 * 60 * 60);
+
+    if (diffHeures < DELAI_ALERTE_HEURES) return null;
+
+    const jours = Math.floor(diffHeures / 24);
+    const heures = Math.floor(diffHeures % 24);
+
+    return {
+      heures: Math.floor(diffHeures),
+      jours,
+      heuresRestantes: heures,
+      dateReception: reception,
+      label:
+        jours > 0 ? `${jours}j ${heures}h` : `${Math.floor(diffHeures)}h`,
+      depassement: Math.floor(diffHeures - DELAI_ALERTE_HEURES),
+    };
+  }, [reparation]);
+
   if (loading) {
     return (
       <div
@@ -629,6 +673,134 @@ const ReparationDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* ✅ ALERTE DÉLAI +48h */}
+        {alertInfo && (
+          <div
+            style={{
+              background: "linear-gradient(135deg, #fee2e2, #fef2f2)",
+              border: "1px solid #ef444440",
+              borderLeft: "5px solid #ef4444",
+              borderRadius: "16px",
+              padding: "18px 22px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              boxShadow: "0 4px 16px rgba(239, 68, 68, 0.15)",
+              animation: "pulseAlert 2s ease-in-out infinite",
+              flexWrap: "wrap",
+            }}
+          >
+            {/* Icône animée */}
+            <div
+              style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "24px",
+                flexShrink: 0,
+                boxShadow: "0 6px 16px rgba(239, 68, 68, 0.4)",
+              }}
+            >
+              <FaExclamationTriangle />
+            </div>
+
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <div
+                style={{
+                  fontSize: "15px",
+                  fontWeight: "800",
+                  color: "#991b1b",
+                  marginBottom: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                ⚠️ Alerte délai dépassé
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    background: "#ef4444",
+                    color: "white",
+                    borderRadius: "20px",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  +48H
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "#7f1d1d",
+                  lineHeight: 1.5,
+                }}
+              >
+                Cette réparation est{" "}
+                <strong>en cours depuis {alertInfo.label}</strong>.
+                <br />
+                <span style={{ fontSize: "12px", opacity: 0.85 }}>
+                  Reçue le{" "}
+                  {alertInfo.dateReception.toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}{" "}
+                  à{" "}
+                  {alertInfo.dateReception.toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
+
+            {/* Indicateur de dépassement */}
+            <div
+              style={{
+                textAlign: "center",
+                padding: "8px 14px",
+                background: "white",
+                borderRadius: "12px",
+                border: "1px solid #ef444430",
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "10px",
+                  color: "#991b1b",
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginBottom: "2px",
+                }}
+              >
+                Dépassé de
+              </div>
+              <div
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "800",
+                  color: "#ef4444",
+                  fontFamily: "monospace",
+                }}
+              >
+                +{alertInfo.depassement}h
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CORPS : 2 COLONNES */}
         <div className="row g-3 mb-3">
@@ -1778,6 +1950,9 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
   );
 };
 
+// ============================================================
+// ✅ Sous-composant : affichage d'un imprévu modifié
+// ============================================================
 const ImprevuDiffItem = ({ diff }) => {
   const getDecisionConfig = (accepte) => {
     if (accepte === true)

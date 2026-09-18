@@ -449,3 +449,45 @@
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ✅ Animation alerte délai +48h */
+@keyframes pulseAlert {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* ✅ Animation de la cloche (secousse) */
+@keyframes bellShake {
+  0%, 90%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(-12deg); }
+  94% { transform: rotate(12deg); }
+  96% { transform: rotate(-8deg); }
+  98% { transform: rotate(8deg); }
+}
+
+/* ✅ Animation du badge (pulse) */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* ✅ Animation d'ouverture du panneau */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseNotify {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
