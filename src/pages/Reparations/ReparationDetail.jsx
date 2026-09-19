@@ -444,44 +444,42 @@ const ReparationDetail = () => {
   };
 
   // ✅ ALERTE DÉLAI +48h (calcul AVANT les returns conditionnels)
-  const alertInfo = useMemo(() => {
-    if (!reparation) return null;
+ // ✅ ALERTE DÉLAI +48h (UNIQUEMENT pour le statut "En cours")
+const alertInfo = useMemo(() => {
+  if (!reparation) return null;
 
-    // ✅ Ne pas alerter si la réparation est terminée
-    const statusLabel = (reparation.status?.label || "").toLowerCase();
-    const isTermine =
-      statusLabel.includes("réparé") ||
-      statusLabel.includes("livré") ||
-      statusLabel.includes("prêt") ||
-      statusLabel.includes("annulé") ||
-      statusLabel.includes("refusé");
+  // ✅ Vérifier que le statut contient "en cours"
+  const statusLabel = (reparation.status?.label || "").toLowerCase();
+  const isEnCours =
+    statusLabel.includes("en cours") || statusLabel.includes("cours");
 
-    if (isTermine) return null;
+  // ❌ Si ce n'est PAS "en cours", pas d'alerte
+  if (!isEnCours) return null;
 
-    // ✅ Calculer le temps écoulé depuis la réception
-    const dateReception = reparation.dateReception || reparation.createdAt;
-    if (!dateReception) return null;
+  // ✅ Calculer le temps écoulé depuis la réception
+  const dateReception = reparation.dateReception || reparation.createdAt;
+  if (!dateReception) return null;
 
-    const maintenant = new Date();
-    const reception = new Date(dateReception);
-    const diffMs = maintenant - reception;
-    const diffHeures = diffMs / (1000 * 60 * 60);
+  const maintenant = new Date();
+  const reception = new Date(dateReception);
+  const diffMs = maintenant - reception;
+  const diffHeures = diffMs / (1000 * 60 * 60);
 
-    if (diffHeures < DELAI_ALERTE_HEURES) return null;
+  if (diffHeures < DELAI_ALERTE_HEURES) return null;
 
-    const jours = Math.floor(diffHeures / 24);
-    const heures = Math.floor(diffHeures % 24);
+  const jours = Math.floor(diffHeures / 24);
+  const heures = Math.floor(diffHeures % 24);
 
-    return {
-      heures: Math.floor(diffHeures),
-      jours,
-      heuresRestantes: heures,
-      dateReception: reception,
-      label:
-        jours > 0 ? `${jours}j ${heures}h` : `${Math.floor(diffHeures)}h`,
-      depassement: Math.floor(diffHeures - DELAI_ALERTE_HEURES),
-    };
-  }, [reparation]);
+  return {
+    heures: Math.floor(diffHeures),
+    jours,
+    heuresRestantes: heures,
+    dateReception: reception,
+    label:
+      jours > 0 ? `${jours}j ${heures}h` : `${Math.floor(diffHeures)}h`,
+    depassement: Math.floor(diffHeures - DELAI_ALERTE_HEURES),
+  };
+}, [reparation]);
 
   if (loading) {
     return (
