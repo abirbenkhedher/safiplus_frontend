@@ -1,18 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
-  FaTimes,
-  FaUser,
-  FaTools,
-  FaMoneyBillWave,
-  FaClipboardList,
-  FaSave,
-  FaPrint,
-  FaHourglassHalf,
-  FaCommentAlt,
-  FaCamera,
-  FaStethoscope,
-  FaChevronDown,
+  FaTimes, FaUser, FaTools, FaMoneyBillWave, FaClipboardList,
+  FaSave, FaPrint, FaHourglassHalf, FaCommentAlt, FaCamera,
+  FaStethoscope, FaChevronDown,
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
@@ -62,7 +53,10 @@ const ReparationModal = ({
   const [success, setSuccess] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
   const [showIMScanner, setShowIMScanner] = useState(false);
-  const [showDiagnostic, setShowDiagnostic] = useState(false); // ✅ Accordéon fermé par défaut
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+
+  // ✅ NOUVEAU : Case à cocher Envoyer SMS
+  const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
   const { categories, objets, statuses, reparateurs } = useReparationData();
 
@@ -98,7 +92,6 @@ const ReparationModal = ({
         },
       });
 
-      // ✅ Ouvrir automatiquement l'accordéon si un diagnostic existe déjà
       const diag = reparation.diagnosticImprevus;
       if (
         diag &&
@@ -118,9 +111,7 @@ const ReparationModal = ({
         try {
           const parsed = JSON.parse(draft);
           if (!parsed.observations || parsed.observations.length === 0) {
-            parsed.observations = [
-              { text: "", date: new Date().toISOString() },
-            ];
+            parsed.observations = [{ text: "", date: new Date().toISOString() }];
           }
           if (!parsed.diagnosticImprevus) {
             parsed.diagnosticImprevus = INITIAL_FORM.diagnosticImprevus;
@@ -140,11 +131,12 @@ const ReparationModal = ({
           observations: [{ text: "", date: new Date().toISOString() }],
         });
       }
-      setShowDiagnostic(false); // ✅ Fermé par défaut en création
+      setShowDiagnostic(false);
     }
 
     setError("");
     setSuccess("");
+    setEnvoyerSMS(false); // ✅ Réinitialiser la case à cocher
   }, [show, reparation, isEdit, initialClientId]);
 
   // ✅ Statut par défaut
@@ -188,8 +180,7 @@ const ReparationModal = ({
     if (!formData.categorie) return setError("La catégorie est obligatoire");
     if (!formData.objet) return setError("L'objet est obligatoire");
     if (!formData.marque.trim()) return setError("La marque est obligatoire");
-    if (!formData.panneType)
-      return setError("Le type de panne est obligatoire");
+    if (!formData.panneType) return setError("Le type de panne est obligatoire");
     if (!formData.note.trim()) return setError("La note est obligatoire");
     if (!formData.status) return setError("Le statut est obligatoire");
 
@@ -198,6 +189,7 @@ const ReparationModal = ({
       const cleanData = {
         ...formData,
         observations: formData.observations.filter((o) => o.text.trim() !== ""),
+        envoyerSMS: envoyerSMS, // ✅ Envoie la case à cocher au backend
       };
 
       const response = isEdit
@@ -218,9 +210,7 @@ const ReparationModal = ({
         onClose();
       }, 800);
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Erreur lors de l'enregistrement",
-      );
+      setError(err.response?.data?.message || "Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
     }
@@ -229,8 +219,7 @@ const ReparationModal = ({
   const printTicket = async (reparationId) => {
     try {
       const token = localStorage.getItem("accessToken");
-      const apiUrl =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -255,7 +244,7 @@ const ReparationModal = ({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [show, saving, formData, showIMScanner]);
+  }, [show, saving, formData, showIMScanner, envoyerSMS]);
 
   if (!show) return null;
 
@@ -265,7 +254,6 @@ const ReparationModal = ({
     icon: p.icon,
   }));
 
-  // ✅ Nombre d'imprévus en attente (pour le badge)
   const imprevusEnAttente = (
     formData.diagnosticImprevus?.imprevus || []
   ).filter((i) => i.accepte === null || i.accepte === undefined).length;
@@ -653,7 +641,7 @@ const ReparationModal = ({
                 </div>
               </SectionBlock>
 
-              {/* ✅ DIAGNOSTIC & IMPRÉVUS — ACCORDÉON */}
+              {/* DIAGNOSTIC & IMPRÉVUS */}
               <CollapsibleSection
                 icon={<FaStethoscope size={13} />}
                 title="Diagnostic & Imprévus"
@@ -739,6 +727,67 @@ const ReparationModal = ({
                     </select>
                   </div>
                 </div>
+
+                {/* ✅ NOUVEAU : Case à cocher Envoyer SMS */}
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "14px 16px",
+                    background: envoyerSMS
+                      ? "var(--primary-light)"
+                      : "var(--gray-50)",
+                    borderRadius: "12px",
+                    border: envoyerSMS
+                      ? "1px solid var(--primary)40"
+                      : "1px solid var(--gray-200)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    cursor: "pointer",
+                    transition: "all 150ms ease",
+                  }}
+                  onClick={() => setEnvoyerSMS(!envoyerSMS)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={envoyerSMS}
+                    onChange={(e) => setEnvoyerSMS(e.target.checked)}
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      cursor: "pointer",
+                      accentColor: "var(--primary)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        color: envoyerSMS
+                          ? "var(--primary)"
+                          : "var(--gray-700)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      📱 Envoyer un SMS au client
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11.5px",
+                        color: "var(--gray-500)",
+                        marginTop: "2px",
+                      }}
+                    >
+                      {envoyerSMS
+                        ? "Le client sera notifié par SMS après l'enregistrement"
+                        : "Cochez pour informer le client par SMS"}
+                    </div>
+                  </div>
+                </div>
               </SectionBlock>
             </div>
 
@@ -807,7 +856,7 @@ const ReparationModal = ({
 };
 
 // ============================================================
-// ✅ Composant Section réutilisable (toujours ouverte)
+// ✅ Composant Section réutilisable
 // ============================================================
 const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
   <div style={{ marginBottom: "20px" }}>
@@ -854,7 +903,7 @@ const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
 );
 
 // ============================================================
-// ✅ Composant Section repliable (accordéon)
+// ✅ Composant Section repliable
 // ============================================================
 const CollapsibleSection = ({
   icon,
@@ -866,7 +915,6 @@ const CollapsibleSection = ({
   children,
 }) => (
   <div style={{ marginBottom: "20px" }}>
-    {/* Header cliquable */}
     <div
       onClick={onToggle}
       style={{
@@ -916,7 +964,6 @@ const CollapsibleSection = ({
         {title}
       </h6>
 
-      {/* Badge imprévus en attente */}
       {badge > 0 && (
         <span
           style={{
@@ -935,7 +982,6 @@ const CollapsibleSection = ({
         </span>
       )}
 
-      {/* Flèche rotative */}
       <FaChevronDown
         size={11}
         style={{
@@ -947,14 +993,8 @@ const CollapsibleSection = ({
       />
     </div>
 
-    {/* Contenu (affiché uniquement si ouvert) */}
     {isOpen && (
-      <div
-        style={{
-          marginTop: "12px",
-          animation: "fadeIn 200ms ease",
-        }}
-      >
+      <div style={{ marginTop: "12px", animation: "fadeIn 200ms ease" }}>
         {children}
       </div>
     )}
