@@ -46,6 +46,8 @@ const FIELD_LABELS = {
   client: "Client",
   observation: "Observation",
   diagnosticImprevus: "Diagnostic & Imprévus",
+    smsEnvoye: "SMS envoyé",
+
 };
 
 // ✅ Constante du délai d'alerte
@@ -165,18 +167,34 @@ const ReparationDetail = () => {
   };
 
   const timelineData = useMemo(() => {
-    if (!reparation) return [];
-    return (reparation.modifications || [])
-      .map((m, i) => ({
-        id: `m-${i}-${m.field}`,
-        field: m.field,
-        oldValue: m.oldValue,
-        newValue: m.newValue,
-        user: m.modifiedBy,
-        date: m.modifiedAt,
-      }))
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [reparation]);
+  if (!reparation) return [];
+
+  // Modifications
+  const modifs = (reparation.modifications || []).map((m, i) => ({
+    id: `m-${i}-${m.field}`,
+    type: "modification",
+    field: m.field,
+    oldValue: m.oldValue,
+    newValue: m.newValue,
+    user: m.modifiedBy,
+    date: m.modifiedAt,
+  }));
+
+  // ✅ SMS envoyés
+  const sms = (reparation.smsEnvoyes || []).map((s, i) => ({
+    id: `sms-${i}`,
+    type: "sms",
+    field: "smsEnvoye",
+    smsData: s,
+    user: s.envoyePar,
+    date: s.envoyeLe,
+  }));
+
+  // Fusionner et trier par date (récent en haut)
+  return [...modifs, ...sms].sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
+}, [reparation]);
 
   const columns = useMemo(
     () => [
@@ -230,27 +248,76 @@ const ReparationDetail = () => {
         ),
       },
       {
-        name: "Action",
-        sortable: false,
-        width: "140px",
-        cell: () => (
-          <span
-            style={{
-              fontSize: "12px",
-              fontWeight: "600",
-              color: "var(--gray-700)",
-            }}
-          >
-            ✏️ Modification
-          </span>
-        ),
-      },
+  name: "Action",
+  sortable: false,
+  width: "140px",
+  cell: (row) => (
+    <span style={{
+      fontSize: "12px",
+      fontWeight: "600",
+      color: row.type === "sms" ? "#3b82f6" : "var(--gray-700)",
+    }}>
+      {row.type === "sms" ? "📱 SMS" : "✏️ Modification"}
+    </span>
+  ),
+},
       {
         name: "Détails",
         grow: 3,
         cell: (row) => {
           let content = null;
+// ✅ SMS
+if (row.type === "sms") {
+  const s = row.smsData;
+  const isSuccess = s.statutEnvoi !== "echec";
 
+  return (
+    <div
+      style={{
+        display: "inline-block",
+        padding: "10px 12px",
+        background: isSuccess ? "#dbeafe" : "#fee2e2",
+        borderLeft: `3px solid ${isSuccess ? "#3b82f6" : "#ef4444"}`,
+        borderRadius: "8px",
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+        <span style={{
+          fontSize: "10px", fontWeight: "800", color: "white",
+          background: isSuccess ? "#3b82f6" : "#ef4444",
+          padding: "2px 8px", borderRadius: "4px", letterSpacing: "0.5px",
+        }}>
+          {isSuccess ? "📱 SMS ENVOYÉ" : "❌ SMS ÉCHOUÉ"}
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--gray-600)", fontWeight: "600" }}>
+          {s.statut}
+        </span>
+      </div>
+
+      <div style={{ fontSize: "12px", color: "var(--gray-700)", lineHeight: 1.5, marginBottom: "4px" }}>
+        <strong>À :</strong> {s.clientNom} ({s.telephone})
+      </div>
+
+      <div style={{
+        fontSize: "12px", color: "var(--gray-800)",
+        background: "white", padding: "8px 10px",
+        borderRadius: "6px", fontStyle: "italic", lineHeight: 1.5,
+      }}>
+        "{s.message}"
+      </div>
+
+      {s.erreur && (
+        <div style={{
+          fontSize: "11px", color: "#dc2626",
+          marginTop: "4px", fontWeight: "600",
+        }}>
+          ⚠️ Erreur : {s.erreur}
+        </div>
+      )}
+    </div>
+  );
+}
           if (row.field === "_create") {
             content = <span>Réparation créée</span>;
           } else if (row.field === "_delete") {
