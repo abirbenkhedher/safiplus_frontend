@@ -5,6 +5,7 @@ import {
   FaExclamationCircle 
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/logo.png';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -103,8 +104,8 @@ const Login = () => {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-            <FaTools />
-          </div>
+{/* ✅ Image à la place de l'icône FaWrench — même taille 40x40 */}
+            <img src={logo} alt="Safi Info +" className="sidebar-logo-img" />          </div>
           <h1 className="login-title">Safi Info +</h1>
           <p className="login-subtitle">Gestion de réparation</p>
         </div>
