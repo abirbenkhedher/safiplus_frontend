@@ -105,7 +105,7 @@ const Login = () => {
           <div className="login-logo">
             <FaTools />
           </div>
-          <h1 className="login-title">Atelier Pro</h1>
+          <h1 className="login-title">Safi Info +</h1>
           <p className="login-subtitle">Gestion de réparation</p>
         </div>
 

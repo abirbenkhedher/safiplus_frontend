@@ -13,13 +13,11 @@ const Header = ({ onToggleSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // États
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showShortcutsMenu, setShowShortcutsMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
-  // Refs pour fermer les dropdowns au clic extérieur
   const themeRef = useRef(null);
   const shortcutsRef = useRef(null);
   const userRef = useRef(null);
@@ -29,7 +27,6 @@ const Header = ({ onToggleSidebar }) => {
   // ============================================
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Alt + Touche
       if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const key = e.key.toLowerCase();
         
@@ -51,7 +48,6 @@ const Header = ({ onToggleSidebar }) => {
         }
       }
 
-      // Échap ferme tous les menus
       if (e.key === 'Escape') {
         setShowThemeMenu(false);
         setShowShortcutsMenu(false);
@@ -63,7 +59,6 @@ const Header = ({ onToggleSidebar }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
-  // Fermer les dropdowns au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (themeRef.current && !themeRef.current.contains(e.target)) {
@@ -199,32 +194,13 @@ const Header = ({ onToggleSidebar }) => {
         ☰
       </button>
 
-      {/* BREADCRUMB */}
-      <div className="header-breadcrumb">
-        {breadcrumb.parent && (
-          <>
-            <button 
-              className="header-breadcrumb-parent"
-              onClick={() => navigate(breadcrumb.parentPath)}
-            >
-              {breadcrumb.parent}
-            </button>
-            <span className="header-breadcrumb-separator">/</span>
-          </>
-        )}
-        <div className="header-breadcrumb-current">
-          <span className="header-breadcrumb-icon">{breadcrumb.icon}</span>
-          <span className="header-breadcrumb-title">{breadcrumb.title}</span>
-        </div>
-      </div>
-
       {/* ACTIONS */}
       <div className="header-actions">
         
         {/* ✅ ALERTES DE DÉLAI (+48h) — Cloche clignotante */}
         <AlertesRetard />
-         {/* ✅ Messages d'équipe */}
-  <TeamMessages />
+        {/* ✅ Messages d'équipe */}
+        <TeamMessages />
 
         {/* Raccourcis clavier */}
         <div ref={shortcutsRef} style={{ position: 'relative' }}>
@@ -407,7 +383,7 @@ const Header = ({ onToggleSidebar }) => {
           gap: 16px;
           padding: 0 24px;
           z-index: 998;
-          transition: left 250ms ease;
+          transition: left 250ms ease, background 250ms ease, border-color 250ms ease;
         }
 
         .header-menu-btn {
@@ -430,62 +406,11 @@ const Header = ({ onToggleSidebar }) => {
           color: var(--primary);
         }
 
-        .header-breadcrumb {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .header-breadcrumb-parent {
-          background: transparent;
-          border: none;
-          color: var(--gray-500);
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          padding: 6px 10px;
-          border-radius: 6px;
-          transition: all 150ms ease;
-        }
-
-        .header-breadcrumb-parent:hover {
-          background: var(--gray-100);
-          color: var(--primary);
-        }
-
-        .header-breadcrumb-separator {
-          color: var(--gray-300);
-          font-size: 14px;
-        }
-
-        .header-breadcrumb-current {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 12px;
-          background: var(--primary-light);
-          border-radius: 8px;
-          font-weight: 600;
-        }
-
-        .header-breadcrumb-icon {
-          font-size: 15px;
-        }
-
-        .header-breadcrumb-title {
-          font-size: 13.5px;
-          color: var(--primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
         .header-actions {
           display: flex;
           align-items: center;
           gap: 6px;
+          margin-left: auto;
         }
 
         .header-icon-btn {
@@ -754,14 +679,6 @@ const Header = ({ onToggleSidebar }) => {
         }
 
         @media (max-width: 576px) {
-          .header-breadcrumb-parent {
-            display: none;
-          }
-
-          .header-breadcrumb-separator {
-            display: none;
-          }
-
           .header-divider {
             display: none;
           }

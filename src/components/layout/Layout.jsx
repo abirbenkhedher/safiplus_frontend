@@ -6,19 +6,16 @@ import Header from './Header';
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // ⚡ Sur mobile, toujours en mode expanded
     if (window.innerWidth <= 992) return false;
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
-  // Détecter le changement de taille
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 992;
       setIsMobile(mobile);
       
-      // Si on passe en mobile, désactiver le collapse
       if (mobile) {
         setSidebarCollapsed(false);
         setSidebarOpen(false);
@@ -29,7 +26,6 @@ const Layout = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sauvegarder l'état du collapse (uniquement desktop)
   useEffect(() => {
     if (!isMobile) {
       localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
@@ -62,7 +58,8 @@ const Layout = () => {
       <style>{`
         .app-layout {
           min-height: 100vh;
-          background: #f9fafb;
+          background: var(--gray-50);
+          transition: background 250ms ease;
         }
 
         .app-main {
@@ -70,10 +67,8 @@ const Layout = () => {
           min-height: 100vh;
           display: flex;
           flex-direction: column;
-          /* ⚡ Pas de transition ici ! On l'applique séparément */
         }
 
-        /* Appliquer la transition uniquement quand on toggle */
         .app-main.collapsed {
           margin-left: var(--sidebar-collapsed-width);
         }
@@ -84,9 +79,17 @@ const Layout = () => {
           flex: 1;
         }
 
-        /* ========================================== */
-        /* RESPONSIVE */
-        /* ========================================== */
+        /* ✅ Mode sombre */
+        [data-theme="dark"] .app-layout {
+          background: #0f1117;
+        }
+
+        [data-theme="dark"] .app-main,
+        [data-theme="dark"] .app-content {
+          background: #0f1117;
+          color: #e5e7eb;
+        }
+
         @media (max-width: 992px) {
           .app-main,
           .app-main.collapsed {

@@ -6,12 +6,13 @@ import {
   FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+// ✅ Import du logo — adaptez le chemin selon votre projet
+import logo from '../../assets/logo.png';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const { user, hasPermission } = useAuth();
   const location = useLocation();
 
-  // ✅ Chaque item a un "module" au lieu de "roles"
   const menuSections = [
     {
       title: 'Principal',
@@ -57,7 +58,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      {/* Overlay mobile */}
       <div 
         className={`sidebar-overlay ${isOpen ? 'active' : ''}`} 
         onClick={onClose}
@@ -66,13 +66,14 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       <aside 
         className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
       >
-        {/* Header avec logo */}
+        {/* Header avec logo image */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <FaWrench />
+            {/* ✅ Image à la place de l'icône FaWrench — même taille 40x40 */}
+            <img src={logo} alt="Safi Info +" className="sidebar-logo-img" />
           </div>
           <div className="sidebar-brand">
-            <h5>Atelier Pro</h5>
+            <h5>Safi Info +</h5>
             <small>Gestion</small>
           </div>
           
@@ -88,7 +89,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         {/* Navigation */}
         <nav className="sidebar-nav">
           {menuSections.map((section, idx) => {
-            // ✅ Filtrer par permission
             const visibleItems = section.items.filter(item => hasPermission(item.module));
             if (visibleItems.length === 0) return null;
 
@@ -119,7 +119,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           })}
         </nav>
 
-        {/* Bouton collapse (desktop) */}
         <button 
           className="sidebar-collapse-btn"
           onClick={onToggleCollapse}
@@ -128,7 +127,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           {isCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
         </button>
 
-        {/* Footer avec user info */}
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <div className="sidebar-user-avatar">
@@ -194,6 +192,15 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           color: white;
           flex-shrink: 0;
           box-shadow: 0 4px 12px rgba(67, 97, 238, 0.4);
+          overflow: hidden;
+        }
+
+        /* ✅ Image logo : même taille que l'icône, remplit le conteneur */
+        .sidebar-logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: block;
         }
 
         .sidebar-brand {
@@ -335,10 +342,17 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           border-right-color: #1e293b;
         }
 
+        /* ✅ CORRECTION : en collapsed, les icônes restent visibles et centrées */
         .sidebar.collapsed .nav-link {
           justify-content: center;
           padding: 12px;
           gap: 0;
+        }
+
+        .sidebar.collapsed .nav-link .nav-link-icon {
+          opacity: 1;
+          pointer-events: auto;
+          font-size: 17px;
         }
 
         .sidebar.collapsed .nav-link:hover .nav-link-tooltip {
@@ -430,12 +444,19 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           letter-spacing: 0.3px;
         }
 
+        /* ✅ CORRECTION : on masque seulement le texte, PAS les icônes */
         .sidebar.collapsed .sidebar-brand,
         .sidebar.collapsed .nav-section-title,
         .sidebar.collapsed .nav-link-text,
         .sidebar.collapsed .sidebar-user-info {
           opacity: 0;
           pointer-events: none;
+        }
+
+        /* ✅ Les icônes doivent rester visibles */
+        .sidebar.collapsed .nav-link-icon {
+          opacity: 1 !important;
+          pointer-events: auto !important;
         }
 
         .sidebar.collapsed .sidebar-user {
