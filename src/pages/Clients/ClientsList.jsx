@@ -130,7 +130,7 @@ const ClientsList = () => {
     setShowFormModal(true);
   };
 
-  // ✅ Formatage de l'avatar
+  // ✅ Formatage de l'avatar (conservé mais plus utilisé)
   const getAvatarColor = (name) => {
     const colors = [
       'linear-gradient(135deg, #4361ee, #3a52c9)', // Bleu
@@ -161,27 +161,17 @@ const ClientsList = () => {
       name: 'Client',
       selector: (row) => row.nom,
       sortable: true,
+      // ✅ AVATAR SUPPRIMÉ — affichage simple du nom et de l'adresse
       cell: (row) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '38px', height: '38px', borderRadius: '50%',
-            background: getAvatarColor(row.nom),
-            color: 'white', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontWeight: '700', fontSize: '14px',
-            flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-          }}>
-            {row.nom?.charAt(0).toUpperCase()}
+        <div>
+          <div style={{ fontWeight: '600', fontSize: '13.5px' }}>
+            {row.nom}
           </div>
-          <div>
-            <div style={{ fontWeight: '600', fontSize: '13.5px' }}>
-              {row.nom}
+          {row.adresse && (
+            <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
+              📍 {row.adresse}
             </div>
-            {row.adresse && (
-              <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
-                📍 {row.adresse}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       ),
     },
@@ -335,7 +325,7 @@ const ClientsList = () => {
           <div key={i} className="col-12 col-sm-6 col-lg-3">
             <div 
               style={{
-                background: 'white',
+                background: 'var(--gray-50)',
                 border: '1px solid var(--gray-200)',
                 borderRadius: '16px',
                 padding: '18px',
