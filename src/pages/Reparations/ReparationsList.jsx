@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaFilter, FaTimes,
   FaTools, FaClock, FaCheckCircle, FaSpinner, FaPrint,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 import { getReparations, deleteReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
@@ -12,6 +13,26 @@ import DataTable from "../../components/common/DataTable";
 import ExportButton from "../../components/common/ExportButton";
 import { exportReparations } from "../../api/export";
 import ReparationModal from "../../components/reparations/ReparationModal";
+
+// ============================================================
+// ✅ STATUTS CONSIDÉRÉS COMME "TERMINÉS"
+// ============================================================
+const STATUTS_TERMINES = [
+  "REPARE",
+  "NON REPARE",
+  "SORTIE NON REPARE",
+  "SAV",
+  "SORTIE REPARE",
+  "SAV REPARE",
+  "SAV NON REPARE",
+  "SAV SORTIE REPARE",
+  "SAV SORTIE NON REPARE",
+];
+
+// ============================================================
+// ✅ STATUT "EN COURS"
+// ============================================================
+const STATUT_EN_COURS = "EN COURS";
 
 const ReparationsList = () => {
   const navigate = useNavigate();
@@ -85,22 +106,32 @@ const ReparationsList = () => {
     await exportReparations(params);
   };
 
+  // ============================================================
+  // ✅ STATISTIQUES RECALCULÉES
+  // ============================================================
   const stats = useMemo(() => {
     const total = reparations.length;
-    const enAttente = reparations.filter((r) =>
-      r.status?.label?.toLowerCase().includes("attente") ||
-      r.status?.label?.toLowerCase().includes("diagnostic")
-    ).length;
-    const enCours = reparations.filter((r) =>
-      r.status?.label?.toLowerCase().includes("réparation") ||
-      r.status?.label?.toLowerCase().includes("cours")
-    ).length;
-    const terminees = reparations.filter((r) =>
-      r.status?.label?.toLowerCase().includes("réparé") ||
-      r.status?.label?.toLowerCase().includes("prêt") ||
-      r.status?.label?.toLowerCase().includes("livré")
-    ).length;
-    return { total, enAttente, enCours, terminees };
+
+    // ✅ Réparations impayées : reste > 0
+    const impayees = reparations.filter((r) => {
+      const prixTotal = r.prixTotal || r.prix || 0;
+      const acompte = r.acompte || 0;
+      return (prixTotal - acompte) > 0;
+    }).length;
+
+    // ✅ En cours : statut = "EN COURS" (tolérant aux variations)
+    const enCours = reparations.filter((r) => {
+      const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
+      return label === STATUT_EN_COURS;
+    }).length;
+
+    // ✅ Terminées : statut parmi la liste STATUTS_TERMINES
+    const terminees = reparations.filter((r) => {
+      const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
+      return STATUTS_TERMINES.includes(label);
+    }).length;
+
+    return { total, impayees, enCours, terminees };
   }, [reparations]);
 
   const columns = [
@@ -301,23 +332,90 @@ const ReparationsList = () => {
         </div>
       )}
 
+      {/* ============================================================
+          ✅ CARTES DE STATISTIQUES (Total + Impayées + En cours + Terminées)
+          ============================================================ */}
       <div className="row g-3 mb-4">
         {[
-          { label: "Total", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
-          { label: "En attente", value: stats.enAttente, icon: <FaClock />, color: "#f59e0b", bg: "rgba(245, 158, 11, 0.1)" },
-          { label: "En cours", value: stats.enCours, icon: <FaSpinner />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
-          { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
+          {
+            label: "Total",
+            value: stats.total,
+            icon: <FaTools />,
+            color: "#4361ee",
+            bg: "rgba(67, 97, 238, 0.1)",
+          },
+          {
+            label: "Impayées",
+            value: stats.impayees,
+            icon: <FaMoneyBillWave />,
+            color: "#ef4444",
+            bg: "rgba(239, 68, 68, 0.1)",
+          },
+          {
+            label: "En cours",
+            value: stats.enCours,
+            icon: <FaSpinner />,
+            color: "#3b82f6",
+            bg: "rgba(59, 130, 246, 0.1)",
+          },
+          {
+            label: "Terminées",
+            value: stats.terminees,
+            icon: <FaCheckCircle />,
+            color: "#10b981",
+            bg: "rgba(16, 185, 129, 0.1)",
+          },
         ].map((stat, i) => (
           <div key={i} className="col-6 col-lg-3">
-            <div style={{ background: "white", border: "1px solid var(--gray-200)", borderRadius: "16px", padding: "18px", display: "flex", alignItems: "center", gap: "14px", transition: "all 200ms ease" }}>
-              <div style={{ width: "46px", height: "46px", borderRadius: "12px", background: stat.bg, color: stat.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>
+            <div
+              style={{
+                background: "var(--gray-50)",
+                border: "1px solid var(--gray-200)",
+                borderRadius: "16px",
+                padding: "18px",
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+                transition: "all 200ms ease",
+              }}
+            >
+              <div
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "12px",
+                  background: stat.bg,
+                  color: stat.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "18px",
+                  flexShrink: 0,
+                }}
+              >
                 {stat.icon}
               </div>
               <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    color: "var(--gray-500)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: "2px",
+                  }}
+                >
                   {stat.label}
                 </div>
-                <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--gray-900)", lineHeight: 1 }}>
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "800",
+                    color: "var(--gray-900)",
+                    lineHeight: 1,
+                  }}
+                >
                   {stat.value}
                 </div>
               </div>
