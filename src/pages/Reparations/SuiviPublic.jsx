@@ -300,9 +300,7 @@ const SuiviPublic = () => {
             <Row label="Type" value={reparation.objet} />
             <Row label="Catégorie" value={reparation.categorie} />
             <Row label="Marque / Modèle" value={`${reparation.marque || ""} ${reparation.modele || ""}`.trim()} />
-            {reparation.numeroSerie && (
-              <Row label="IMEI" value={reparation.numeroSerie} mono />
-            )}
+            
           </div>
         </div>
 

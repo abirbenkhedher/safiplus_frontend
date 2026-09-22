@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   FaTimes, FaUser, FaTools, FaMoneyBillWave, FaClipboardList,
-  FaSave, FaPrint, FaHourglassHalf, FaCommentAlt, FaCamera,
+  FaSave, FaPrint, FaHourglassHalf, FaCommentAlt,
   FaStethoscope, FaChevronDown,
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
@@ -12,7 +12,6 @@ import ClientSelector from "./ClientSelector";
 import SearchSelect from "./SearchSelect";
 import ObservationsList from "./ObservationsList";
 import PaymentSection from "./PaymentSection";
-import IMEIScannerModal from "./IMEIScannerModal";
 import DiagnosticSection from "./DiagnosticSection";
 
 const INITIAL_FORM = {
@@ -21,7 +20,6 @@ const INITIAL_FORM = {
   objet: "",
   marque: "",
   modele: "",
-  numeroSerie: "",
   accessoires: "",
   problemeDeclare: "",
   panneType: "",
@@ -52,7 +50,6 @@ const ReparationModal = ({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
-  const [showIMScanner, setShowIMScanner] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
 
   // ✅ NOUVEAU : Case à cocher Envoyer SMS
@@ -71,7 +68,6 @@ const ReparationModal = ({
         objet: reparation.objet?._id || "",
         marque: reparation.marque || "",
         modele: reparation.modele || "",
-        numeroSerie: reparation.numeroSerie || "",
         accessoires: reparation.accessoires || "",
         problemeDeclare: reparation.problemeDeclare || "",
         panneType: reparation.panneType || "",
@@ -136,7 +132,7 @@ const ReparationModal = ({
 
     setError("");
     setSuccess("");
-    setEnvoyerSMS(false); // ✅ Réinitialiser la case à cocher
+    setEnvoyerSMS(false);
   }, [show, reparation, isEdit, initialClientId]);
 
   // ✅ Statut par défaut
@@ -189,7 +185,7 @@ const ReparationModal = ({
       const cleanData = {
         ...formData,
         observations: formData.observations.filter((o) => o.text.trim() !== ""),
-        envoyerSMS: envoyerSMS, // ✅ Envoie la case à cocher au backend
+        envoyerSMS: envoyerSMS,
       };
 
       const response = isEdit
@@ -236,7 +232,7 @@ const ReparationModal = ({
   useEffect(() => {
     if (!show) return;
     const handleKey = (e) => {
-      if (e.key === "Escape" && !saving && !showIMScanner) onClose();
+      if (e.key === "Escape" && !saving) onClose();
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSubmit(false);
@@ -244,7 +240,7 @@ const ReparationModal = ({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [show, saving, formData, showIMScanner, envoyerSMS]);
+  }, [show, saving, formData, envoyerSMS]);
 
   if (!show) return null;
 
@@ -517,50 +513,18 @@ const ReparationModal = ({
                   </div>
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      IMEI / N° de série
+                      Accessoires
                     </label>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        type="text"
-                        value={formData.numeroSerie}
-                        onChange={(e) =>
-                          handleFieldChange("numeroSerie", e.target.value)
-                        }
-                        placeholder="Ex: 352099001761481"
-                        className="form-control-modern"
-                        style={{
-                          width: "100%",
-                          fontFamily: "monospace",
-                          paddingRight: "46px",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowIMScanner(true)}
-                        title="Scanner l'IMEI avec la caméra"
-                        style={{
-                          position: "absolute",
-                          right: "6px",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          width: "34px",
-                          height: "34px",
-                          borderRadius: "8px",
-                          border: "none",
-                          background:
-                            "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                          color: "white",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 2px 8px rgba(67, 97, 238, 0.3)",
-                          transition: "all 150ms ease",
-                        }}
-                      >
-                        <FaCamera size={13} />
-                      </button>
-                    </div>
+                    <input
+                      type="text"
+                      value={formData.accessoires}
+                      onChange={(e) =>
+                        handleFieldChange("accessoires", e.target.value)
+                      }
+                      placeholder="Ex: Chargeur, coque, écouteurs..."
+                      className="form-control-modern"
+                      style={{ width: "100%" }}
+                    />
                   </div>
                 </div>
               </SectionBlock>
@@ -728,7 +692,7 @@ const ReparationModal = ({
                   </div>
                 </div>
 
-                {/* ✅ NOUVEAU : Case à cocher Envoyer SMS */}
+                {/* ✅ Case à cocher Envoyer SMS */}
                 <div
                   style={{
                     marginTop: "16px",
@@ -841,15 +805,6 @@ const ReparationModal = ({
           </div>
         </div>
       </div>
-
-      <IMEIScannerModal
-        show={showIMScanner}
-        onClose={() => setShowIMScanner(false)}
-        onScan={(imei) => {
-          handleFieldChange("numeroSerie", imei);
-          setShowIMScanner(false);
-        }}
-      />
     </>,
     document.body,
   );

@@ -38,7 +38,6 @@ const FIELD_LABELS = {
   modele: "Modèle",
   note: "Note",
   observations: "Observation",
-  numeroSerie: "IMEI",
   accessoires: "Accessoires",
   datePrevisionnelle: "Date prévisionnelle",
   categorie: "Catégorie",
@@ -1104,37 +1103,7 @@ const alertInfo = useMemo(() => {
                     {reparation.marque} {reparation.modele}
                   </span>
                 </div>
-                {reparation.numeroSerie && (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 0",
-                      borderTop: "1px solid var(--gray-100)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "12.5px",
-                        color: "var(--gray-500)",
-                        fontWeight: "500",
-                      }}
-                    >
-                      IMEI
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "12.5px",
-                        color: "var(--gray-700)",
-                        fontFamily: "monospace",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {reparation.numeroSerie}
-                    </span>
-                  </div>
-                )}
+            
               </div>
             </div>
 
