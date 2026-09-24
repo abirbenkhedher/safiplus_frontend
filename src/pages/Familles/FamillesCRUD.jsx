@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaTags, FaSearch, FaSave, FaTimes, FaCalendarAlt } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaTags, FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown } from 'react-icons/fa';
 import { getFamilles, createFamille, updateFamille, deleteFamille } from '../../api/familles';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -10,7 +10,8 @@ const FamillesCRUD = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nom: '' });
+  // ✅ Ajout du champ ordre
+  const [formData, setFormData] = useState({ nom: '', ordre: 0 });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,7 +20,9 @@ const FamillesCRUD = () => {
     try {
       setLoading(true);
       const response = await getFamilles();
-      setFamilles(response.data);
+      // ✅ Trier par ordre par défaut
+      const sorted = [...response.data].sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+      setFamilles(sorted);
     } catch (err) {
       setError('Erreur lors du chargement des familles');
     } finally {
@@ -39,7 +42,11 @@ const FamillesCRUD = () => {
 
   const handleOpenModal = (item = null) => {
     setEditingItem(item);
-    setFormData(item ? { nom: item.nom } : { nom: '' });
+    setFormData(
+      item
+        ? { nom: item.nom, ordre: item.ordre ?? 0 }
+        : { nom: '', ordre: 0 }
+    );
     setError('');
     setShowModal(true);
   };
@@ -47,7 +54,7 @@ const FamillesCRUD = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingItem(null);
-    setFormData({ nom: '' });
+    setFormData({ nom: '', ordre: 0 });
     setError('');
   };
 
@@ -61,11 +68,16 @@ const FamillesCRUD = () => {
     }
 
     try {
+      const payload = {
+        nom: formData.nom.trim(),
+        ordre: Number(formData.ordre) || 0,
+      };
+
       if (editingItem) {
-        await updateFamille(editingItem._id, formData);
+        await updateFamille(editingItem._id, payload);
         setSuccess('Famille modifiée avec succès');
       } else {
-        await createFamille(formData);
+        await createFamille(payload);
         setSuccess('Famille créée avec succès');
       }
       handleCloseModal();
@@ -96,6 +108,23 @@ const FamillesCRUD = () => {
       center: true,
       cell: (row, index) => (
         <span style={{ fontWeight: '600', color: 'var(--gray-500)' }}>{index + 1}</span>
+      ),
+    },
+    // ✅ Colonne ORDRE
+    {
+      name: 'Ordre',
+      selector: (row) => row.ordre,
+      sortable: true,
+      width: '90px',
+      center: true,
+      cell: (row) => (
+        <span
+          className="badge-modern badge-modern-gray"
+          style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700' }}
+        >
+          <FaSortNumericDown size={9} style={{ marginRight: '4px' }} />
+          {row.ordre ?? 0}
+        </span>
       ),
     },
     {
@@ -210,18 +239,42 @@ const FamillesCRUD = () => {
                       ⚠️ {error}
                     </div>
                   )}
-                  <label className="form-label-modern">
-                    Nom de la famille <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control-modern"
-                    placeholder="Ex: Téléphonie, Informatique..."
-                    value={formData.nom}
-                    onChange={(e) => setFormData({ nom: e.target.value })}
-                    autoFocus
-                    style={{ width: '100%' }}
-                  />
+
+                  {/* Nom */}
+                  <div className="mb-3">
+                    <label className="form-label-modern">
+                      Nom de la famille <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control-modern"
+                      placeholder="Ex: Téléphonie, Informatique..."
+                      value={formData.nom}
+                      onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                      autoFocus
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  {/* ✅ Ordre */}
+                  <div>
+                    <label className="form-label-modern">
+                      <FaSortNumericDown size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                      Ordre d'affichage
+                    </label>
+                    <input
+                      type="number"
+                      className="form-control-modern"
+                      placeholder="Ex: 1, 2, 3..."
+                      value={formData.ordre}
+                      onChange={(e) => setFormData({ ...formData, ordre: e.target.value })}
+                      min="0"
+                      style={{ width: '100%' }}
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                      💡 Plus le chiffre est petit, plus l'élément apparaît en premier
+                    </div>
+                  </div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid var(--gray-200)', background: 'var(--gray-50)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                   <button type="button" onClick={handleCloseModal} className="btn-modern btn-modern-outline">

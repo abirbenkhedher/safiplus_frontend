@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FaSave, FaTimes, FaUser, FaPhone, FaEnvelope, 
   FaMapMarkerAlt, FaToggleOn, FaToggleOff, FaExclamationTriangle,
-  FaCheckCircle, FaArrowRight 
+  FaCheckCircle
 } from 'react-icons/fa';
 import { createClient, updateClient, findClientByPhone } from '../../api/clients';
 
@@ -10,7 +10,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   const isEdit = Boolean(client);
 
   const [formData, setFormData] = useState({
-    nom: '', phone: '', email: '', adresse: '', isActive: true,
+    nom: '', phone: '', phone2: '', email: '', adresse: '', isActive: true,
   });
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -23,11 +23,12 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
       setFormData(client ? {
         nom: client.nom || '',
         phone: client.phone || '',
+        phone2: client.phone2 || '',
         email: client.email || '',
         adresse: client.adresse || '',
         isActive: client.isActive !== undefined ? client.isActive : true,
       } : {
-        nom: '', phone: '', email: '', adresse: '', isActive: true,
+        nom: '', phone: '', phone2: '', email: '', adresse: '', isActive: true,
       });
       setError('');
       setExistingClient(null);
@@ -41,7 +42,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
       [name]: type === 'checkbox' ? checked : value,
     });
 
-    // ✅ Si on change le téléphone, réinitialiser la vérification
     if (name === 'phone') {
       setExistingClient(null);
       setError('');
@@ -50,7 +50,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
 
   // ✅ Vérifier le téléphone quand l'utilisateur finit de taper
   const handlePhoneBlur = async () => {
-    // Ne pas vérifier en mode édition, ou si le phone est vide
     if (isEdit) return;
     if (!formData.phone || formData.phone.trim().length < 6) return;
 
@@ -72,20 +71,17 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
     }
   };
 
-  // ✅ Utiliser le client existant
   const handleUseExistingClient = () => {
     if (existingClient) {
-      // On remplit le formulaire avec les infos du client existant
       setFormData({
         nom: existingClient.nom,
         phone: existingClient.phone,
+        phone2: existingClient.phone2 || '',
         email: existingClient.email || '',
         adresse: existingClient.adresse || '',
         isActive: existingClient.isActive,
       });
       setExistingClient(null);
-      // On peut aussi notifier le parent qu'on utilise ce client
-      // Mais on reste dans le même modal
     }
   };
 
@@ -100,7 +96,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
 
     setLoading(true);
     try {
-      // ✅ DOUBLE VÉRIFICATION : Avant de créer, vérifier que le téléphone n'existe pas
+      // DOUBLE VÉRIFICATION : Avant de créer, vérifier que le téléphone n'existe pas
       if (!isEdit) {
         const checkResult = await findClientByPhone(formData.phone);
         
@@ -112,7 +108,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
         }
       }
 
-      // Création ou modification normale
       if (isEdit) {
         await updateClient(client._id, formData);
       } else {
@@ -217,7 +212,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               )}
 
-              {/* ✅ Alerte : client existant détecté */}
+              {/* Alerte : client existant détecté */}
               {existingClient && (
                 <div style={{
                   padding: '14px 16px',
@@ -248,7 +243,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                       Un client est déjà enregistré avec ce numéro :
                     </div>
 
-                    {/* Détails du client existant */}
                     <div style={{
                       padding: '10px 14px',
                       background: 'white',
@@ -284,7 +278,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               )}
 
-              {/* Nom */}
+              {/* Nom complet */}
               <div style={{ marginBottom: '18px' }}>
                 <label className="form-label-modern">
                   <FaUser size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
@@ -303,7 +297,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* Téléphone + Email */}
+              {/* Téléphone + Téléphone 2 */}
               <div className="row g-3" style={{ marginBottom: '18px' }}>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
@@ -339,19 +333,36 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
-                    <FaEnvelope size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-                    Email
+                    <FaPhone size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                    Deuxième téléphone
                   </label>
                   <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
+                    type="tel"
+                    name="phone2"
+                    value={formData.phone2}
                     onChange={handleChange}
                     className="form-control-modern"
-                    placeholder="client@email.com"
+                    placeholder="55 789 123"
                     style={{ width: '100%' }}
                   />
                 </div>
+              </div>
+
+              {/* Email */}
+              <div style={{ marginBottom: '18px' }}>
+                <label className="form-label-modern">
+                  <FaEnvelope size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="form-control-modern"
+                  placeholder="client@email.com"
+                  style={{ width: '100%' }}
+                />
               </div>
 
               {/* Adresse */}
@@ -464,7 +475,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                   </>
                 ) : (
                   <>
-                    <FaSave /> {isEdit ? 'Modifier' : 'Créer'}
+                    <FaSave /> {isEdit ? 'Enregistrer' : 'Créer'}
                   </>
                 )}
               </button>

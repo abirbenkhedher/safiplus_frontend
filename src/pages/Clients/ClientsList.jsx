@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope, 
-  FaFileExcel, FaEye, FaEdit, FaTrash, FaFilter,
-  FaTimes, FaUserCheck, FaUserTimes, FaWallet,
-  FaMoneyBillWave, FaChartLine, FaCalendarAlt
+import {
+  FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope,
+  FaFileExcel, FaTimes, FaUserCheck, FaWallet,
+  FaMoneyBillWave, FaTrophy,
 } from 'react-icons/fa';
 import { getClients, deleteClient } from '../../api/clients';
 import { exportClients } from '../../api/export';
@@ -16,20 +15,19 @@ const ClientsList = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
 
-  // ✅ Filtres avancés
+  // ✅ Filtres sur une seule ligne
   const [filters, setFilters] = useState({
-    status: 'all',        // all | active | inactive
+    search: '',
     paymentStatus: 'all', // all | paid | unpaid | partial
-    hasReparations: 'all',// all | yes | no
+    hasReparations: 'all', // all | yes | no
+    topClients: 'all',     // all | 5 | 10 | 20
   });
 
   const loadClients = async () => {
@@ -48,34 +46,31 @@ const ClientsList = () => {
     loadClients();
   }, []);
 
-  // ✅ Application de tous les filtres
+  // ============================================================
+  // ✅ Application de tous les filtres + Top clients
+  // ============================================================
   const filteredClients = useMemo(() => {
     let result = [...clients];
 
-    // Recherche
-    if (search) {
-      const term = search.toLowerCase();
-      result = result.filter(c =>
+    // ✅ Recherche (nom, phone, phone2, email, code, adresse)
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      result = result.filter((c) =>
         c.nom?.toLowerCase().includes(term) ||
         c.phone?.includes(term) ||
+        c.phone2?.includes(term) ||
         c.email?.toLowerCase().includes(term) ||
-        c.code?.toLowerCase().includes(term)
+        c.code?.toLowerCase().includes(term) ||
+        c.adresse?.toLowerCase().includes(term)
       );
     }
 
-    // Filtre statut
-    if (filters.status !== 'all') {
-      result = result.filter(c => 
-        filters.status === 'active' ? c.isActive : !c.isActive
-      );
-    }
-
-    // Filtre paiement
+    // ✅ Filtre paiement
     if (filters.paymentStatus !== 'all') {
-      result = result.filter(c => {
+      result = result.filter((c) => {
         const restant = c.totalRestant || 0;
         const paye = c.totalPaye || 0;
-        
+
         if (filters.paymentStatus === 'paid') return restant === 0 && paye > 0;
         if (filters.paymentStatus === 'unpaid') return restant > 0 && paye === 0;
         if (filters.paymentStatus === 'partial') return restant > 0 && paye > 0;
@@ -83,30 +78,56 @@ const ClientsList = () => {
       });
     }
 
-    // Filtre réparations
+    // ✅ Filtre réparations (avec/sans)
     if (filters.hasReparations !== 'all') {
-      result = result.filter(c => {
+      result = result.filter((c) => {
         const count = c.totalReparations || 0;
         return filters.hasReparations === 'yes' ? count > 0 : count === 0;
       });
     }
 
-    return result;
-  }, [clients, search, filters]);
+    // ✅ NOUVEAU : Filtre TOP CLIENTS (par nombre de réparations)
+    if (filters.topClients !== 'all') {
+      const limit = parseInt(filters.topClients);
 
+      // Trier par nombre de réparations (décroissant)
+      result = result
+        .filter((c) => (c.totalReparations || 0) > 0) // Uniquement ceux qui ont des réparations
+        .sort((a, b) => (b.totalReparations || 0) - (a.totalReparations || 0))
+        .slice(0, limit); // Garder seulement le top N
+    }
+
+    return result;
+  }, [clients, filters]);
+
+  // ============================================================
   // ✅ Statistiques
+  // ============================================================
   const stats = useMemo(() => {
     const totalClients = clients.length;
-    const activeClients = clients.filter(c => c.isActive).length;
-    const unpaidClients = clients.filter(c => (c.totalRestant || 0) > 0).length;
+    const activeClients = clients.filter((c) => c.isActive).length;
+    const unpaidClients = clients.filter((c) => (c.totalRestant || 0) > 0).length;
     const totalRestant = clients.reduce((sum, c) => sum + (c.totalRestant || 0), 0);
     return { totalClients, activeClients, unpaidClients, totalRestant };
   }, [clients]);
 
-  const activeFiltersCount = 
-    (filters.status !== 'all' ? 1 : 0) + 
-    (filters.paymentStatus !== 'all' ? 1 : 0) + 
-    (filters.hasReparations !== 'all' ? 1 : 0);
+  const hasActiveFilters = Object.values(filters).some(
+    (v) => v && v !== 'all' && v !== ''
+  );
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      paymentStatus: 'all',
+      hasReparations: 'all',
+      topClients: 'all',
+    });
+  };
 
   const handleDelete = async () => {
     try {
@@ -122,27 +143,12 @@ const ClientsList = () => {
   };
 
   const handleExportExcel = async () => {
-    await exportClients({ search });
+    await exportClients({ search: filters.search });
   };
 
   const openFormModal = (client = null) => {
     setEditingClient(client);
     setShowFormModal(true);
-  };
-
-  // ✅ Formatage de l'avatar (conservé mais plus utilisé)
-  const getAvatarColor = (name) => {
-    const colors = [
-      'linear-gradient(135deg, #4361ee, #3a52c9)', // Bleu
-      'linear-gradient(135deg, #10b981, #059669)', // Vert
-      'linear-gradient(135deg, #f59e0b, #d97706)', // Orange
-      'linear-gradient(135deg, #ef4444, #dc2626)', // Rouge
-      'linear-gradient(135deg, #8b5cf6, #7c3aed)', // Violet
-      'linear-gradient(135deg, #ec4899, #db2777)', // Rose
-      'linear-gradient(135deg, #06b6d4, #0891b2)', // Cyan
-    ];
-    const index = name?.charCodeAt(0) % colors.length || 0;
-    return colors[index];
   };
 
   const columns = [
@@ -161,12 +167,11 @@ const ClientsList = () => {
       name: 'Client',
       selector: (row) => row.nom,
       sortable: true,
-      // ✅ AVATAR SUPPRIMÉ — affichage simple du nom et de l'adresse
+      grow: 2,
+      minWidth: '220px',
       cell: (row) => (
         <div>
-          <div style={{ fontWeight: '600', fontSize: '13.5px' }}>
-            {row.nom}
-          </div>
+          <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
           {row.adresse && (
             <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
               📍 {row.adresse}
@@ -178,19 +183,29 @@ const ClientsList = () => {
     {
       name: 'Contact',
       sortable: true,
+      grow: 1.5,
+      minWidth: '180px',
       cell: (row) => (
         <div style={{ fontSize: '12px', color: 'var(--gray-600)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <FaPhone size={10} style={{ color: 'var(--gray-400)' }} />
             {row.phone}
+            {row.phone2 && (
+              <span style={{ color: 'var(--gray-400)' }}>• {row.phone2}</span>
+            )}
           </div>
           {row.email && (
-            <div style={{ 
-              display: 'flex', alignItems: 'center', gap: '6px', 
-              marginTop: '2px', color: 'var(--gray-500)' 
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginTop: '2px',
+                color: 'var(--gray-500)',
+              }}
+            >
               <FaEnvelope size={10} style={{ color: 'var(--gray-400)' }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
                 {row.email}
               </span>
             </div>
@@ -203,14 +218,18 @@ const ClientsList = () => {
       selector: (row) => row.totalReparations,
       sortable: true,
       center: true,
-      width: '110px',
-      cell: (row) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-          <span className="badge-modern badge-modern-primary" style={{ fontSize: '11px' }}>
-            {row.totalReparations || 0}
-          </span>
-        </div>
-      ),
+      width: '120px',
+      cell: (row) => {
+        const count = row.totalReparations || 0;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+            <span className="badge-modern badge-modern-primary" style={{ fontSize: '11px' }}>
+              {count}
+            </span>
+            {count >= 10 && <FaTrophy size={11} style={{ color: '#f59e0b' }} title="Client fidèle !" />}
+          </div>
+        );
+      },
     },
     {
       name: 'Payé',
@@ -229,12 +248,14 @@ const ClientsList = () => {
       cell: (row) => {
         const restant = row.totalRestant || 0;
         return (
-          <strong style={{ 
-            color: restant > 0 ? 'var(--danger)' : 'var(--gray-500)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}>
+          <strong
+            style={{
+              color: restant > 0 ? 'var(--danger)' : 'var(--gray-500)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
             {restant > 0 && '⚠️'}
             {restant.toFixed(2)} DT
           </strong>
@@ -248,7 +269,9 @@ const ClientsList = () => {
       center: true,
       width: '100px',
       cell: (row) => (
-        <span className={`badge-modern ${row.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}>
+        <span
+          className={`badge-modern ${row.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}
+        >
           {row.isActive ? '✓ Actif' : '✗ Inactif'}
         </span>
       ),
@@ -257,7 +280,7 @@ const ClientsList = () => {
 
   return (
     <div className="fade-in-up">
-      {/* Header */}
+      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--gray-900)', marginBottom: '4px' }}>
@@ -289,41 +312,16 @@ const ClientsList = () => {
         </div>
       )}
 
-      {/* ✅ Cartes de statistiques */}
+      {/* Cartes de statistiques */}
       <div className="row g-3 mb-4">
         {[
-          { 
-            label: 'Total clients', 
-            value: stats.totalClients, 
-            icon: <FaUsers />, 
-            color: '#4361ee',
-            bg: 'rgba(67, 97, 238, 0.1)',
-          },
-          { 
-            label: 'Clients actifs', 
-            value: stats.activeClients, 
-            icon: <FaUserCheck />, 
-            color: '#10b981',
-            bg: 'rgba(16, 185, 129, 0.1)',
-          },
-          { 
-            label: 'Clients impayés', 
-            value: stats.unpaidClients, 
-            icon: <FaWallet />, 
-            color: '#f59e0b',
-            bg: 'rgba(245, 158, 11, 0.1)',
-          },
-          { 
-            label: 'Total à recevoir', 
-            value: `${stats.totalRestant.toFixed(2)} DT`, 
-            icon: <FaMoneyBillWave />, 
-            color: '#ef4444',
-            bg: 'rgba(239, 68, 68, 0.1)',
-            isText: true,
-          },
+          { label: 'Total clients', value: stats.totalClients, icon: <FaUsers />, color: '#4361ee', bg: 'rgba(67, 97, 238, 0.1)' },
+          { label: 'Clients actifs', value: stats.activeClients, icon: <FaUserCheck />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+          { label: 'Clients impayés', value: stats.unpaidClients, icon: <FaWallet />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+          { label: 'Total à recevoir', value: `${stats.totalRestant.toFixed(2)} DT`, icon: <FaMoneyBillWave />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isText: true },
         ].map((stat, i) => (
           <div key={i} className="col-12 col-sm-6 col-lg-3">
-            <div 
+            <div
               style={{
                 background: 'var(--gray-50)',
                 border: '1px solid var(--gray-200)',
@@ -344,27 +342,43 @@ const ClientsList = () => {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <div style={{
-                width: '46px', height: '46px', borderRadius: '12px',
-                background: stat.bg, color: stat.color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '20px', flexShrink: 0,
-              }}>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  background: stat.bg,
+                  color: stat.color,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  flexShrink: 0,
+                }}
+              >
                 {stat.icon}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: '11px', fontWeight: '600', color: 'var(--gray-500)',
-                  textTransform: 'uppercase', letterSpacing: '0.5px',
-                  marginBottom: '2px',
-                }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: 'var(--gray-500)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '2px',
+                  }}
+                >
                   {stat.label}
                 </div>
-                <div style={{
-                  fontSize: stat.isText ? '16px' : '22px',
-                  fontWeight: '800', color: 'var(--gray-900)',
-                  lineHeight: 1.1,
-                }}>
+                <div
+                  style={{
+                    fontSize: stat.isText ? '16px' : '22px',
+                    fontWeight: '800',
+                    color: 'var(--gray-900)',
+                    lineHeight: 1.1,
+                  }}
+                >
                   {stat.value}
                 </div>
               </div>
@@ -373,114 +387,105 @@ const ClientsList = () => {
         ))}
       </div>
 
-      {/* Recherche + bouton filtres */}
-      <div className="card-modern mb-3" style={{ padding: '16px' }}>
-        <div className="row g-3 align-items-center">
-          <div className="col-12 col-md-8">
-            <div style={{ position: 'relative' }}>
-              <FaSearch style={{
-                position: 'absolute', left: '14px', top: '50%',
-                transform: 'translateY(-50%)', color: 'var(--gray-400)',
-                fontSize: '13px', pointerEvents: 'none',
-              }} />
-              <input
-                type="text"
-                className="form-control-modern"
-                style={{ paddingLeft: '40px', width: '100%' }}
-                placeholder="Rechercher par nom, téléphone, email ou code..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+      {/* ============================================================ */}
+      {/* BARRE DE FILTRES UNIFIÉE (sur une seule ligne) */}
+      {/* ============================================================ */}
+      <div className="card-modern mb-3" style={{ padding: '14px 16px' }}>
+        <div className="clients-filters-grid">
+          {/* Recherche */}
+          <div style={{ position: 'relative', minWidth: 0 }}>
+            <FaSearch
+              style={{
+                position: 'absolute',
+                left: '14px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--gray-400)',
+                fontSize: '13px',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              type="text"
+              name="search"
+              className="form-control-modern"
+              style={{ paddingLeft: '40px', width: '100%', height: '42px' }}
+              placeholder="Rechercher : nom, téléphone, email, code..."
+              value={filters.search}
+              onChange={handleFilterChange}
+            />
           </div>
-          <div className="col-12 col-md-4">
+
+          {/* ✅ Filtre Statut de paiement */}
+          <select
+            name="paymentStatus"
+            className="form-control-modern"
+            style={{ height: '42px' }}
+            value={filters.paymentStatus}
+            onChange={handleFilterChange}
+            title="Filtrer par statut de paiement"
+          >
+            <option value="all">Tous les paiements</option>
+            <option value="paid">✅ Entièrement payés</option>
+            <option value="unpaid">⚠️ Aucun paiement</option>
+            <option value="partial">◐ Partiellement payés</option>
+          </select>
+
+          {/* ✅ Filtre Réparations */}
+          <select
+            name="hasReparations"
+            className="form-control-modern"
+            style={{ height: '42px' }}
+            value={filters.hasReparations}
+            onChange={handleFilterChange}
+            title="Filtrer par réparations"
+          >
+            <option value="all">Peu importe</option>
+            <option value="yes">Avec réparations</option>
+            <option value="no">Sans réparation</option>
+          </select>
+
+          {/* ✅ NOUVEAU : Filtre Top Clients */}
+          <select
+            name="topClients"
+            className="form-control-modern"
+            style={{ height: '42px' }}
+            value={filters.topClients}
+            onChange={handleFilterChange}
+            title="Classer par nombre de réparations"
+          >
+            <option value="all">🏆 Aucun classement</option>
+            <option value="5">🥇 Top 5 clients</option>
+            <option value="10">🥈 Top 10 clients</option>
+            <option value="20">🥉 Top 20 clients</option>
+          </select>
+
+          {/* Reset */}
+          {hasActiveFilters && (
             <button
-              className={`btn-modern ${showFilters ? 'btn-modern-primary' : 'btn-modern-outline'}`}
-              style={{ width: '100%', justifyContent: 'center' }}
-              onClick={() => setShowFilters(!showFilters)}
+              className="btn-modern btn-modern-outline"
+              style={{ height: '42px', padding: '0 16px', justifyContent: 'center' }}
+              onClick={resetFilters}
+              title="Réinitialiser les filtres"
             >
-              <FaFilter /> Filtres avancés
-              {activeFiltersCount > 0 && (
-                <span style={{
-                  background: showFilters ? 'white' : 'var(--primary)',
-                  color: showFilters ? 'var(--primary)' : 'white',
-                  borderRadius: '10px',
-                  padding: '1px 7px',
-                  fontSize: '10.5px',
-                  fontWeight: '700',
-                  marginLeft: '4px',
-                }}>
-                  {activeFiltersCount}
-                </span>
-              )}
+              <FaTimes size={12} />
             </button>
-          </div>
+          )}
         </div>
 
-        {/* Filtres avancés */}
-        {showFilters && (
-          <div style={{
-            marginTop: '16px', paddingTop: '16px',
-            borderTop: '1px solid var(--gray-200)',
-            animation: 'fadeIn 200ms ease',
-          }}>
-            <div className="row g-3">
-              <div className="col-12 col-md-3">
-                <label className="form-label-modern">Statut du compte</label>
-                <select
-                  className="form-control-modern"
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="all">Tous les clients</option>
-                  <option value="active">✓ Uniquement actifs</option>
-                  <option value="inactive">✗ Uniquement inactifs</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-md-3">
-                <label className="form-label-modern">Statut de paiement</label>
-                <select
-                  className="form-control-modern"
-                  value={filters.paymentStatus}
-                  onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="all">Tous les paiements</option>
-                  <option value="paid">✅ Entièrement payés</option>
-                  <option value="unpaid">⚠️ Aucun paiement</option>
-                  <option value="partial">◐ Partiellement payés</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-md-3">
-                <label className="form-label-modern">Réparations</label>
-                <select
-                  className="form-control-modern"
-                  value={filters.hasReparations}
-                  onChange={(e) => setFilters({ ...filters, hasReparations: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="all">Peu importe</option>
-                  <option value="yes">Avec réparations</option>
-                  <option value="no">Sans réparation</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-md-3 d-flex align-items-end">
-                <button
-                  className="btn-modern btn-modern-outline"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => {
-                    setFilters({ status: 'all', paymentStatus: 'all', hasReparations: 'all' });
-                    setSearch('');
-                  }}
-                >
-                  <FaTimes /> Réinitialiser
-                </button>
-              </div>
-            </div>
+        {hasActiveFilters && (
+          <div
+            style={{
+              marginTop: '10px',
+              fontSize: '11.5px',
+              color: 'var(--gray-500)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span>🔎</span>
+            <span>{filteredClients.length} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
@@ -526,6 +531,29 @@ const ClientsList = () => {
       />
 
       <style>{`
+        /* ✅ Grille des filtres - tout sur une ligne */
+        .clients-filters-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr auto;
+          gap: 10px;
+          align-items: center;
+        }
+
+        @media (max-width: 1200px) {
+          .clients-filters-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 576px) {
+          .clients-filters-grid {
+            grid-template-columns: 1fr;
+          }
+          .clients-filters-grid > * {
+            width: 100% !important;
+          }
+        }
+
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-4px); }
           to { opacity: 1; transform: translateY(0); }

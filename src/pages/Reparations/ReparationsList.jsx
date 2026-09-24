@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaFilter, FaTimes,
-  FaTools, FaClock, FaCheckCircle, FaSpinner, FaPrint,
-  FaMoneyBillWave,
+  FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
+  FaTools, FaCheckCircle, FaSpinner, FaPrint,
+  FaMoneyBillWave, FaMapMarkerAlt,
 } from "react-icons/fa";
 import { getReparations, deleteReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
@@ -29,9 +29,6 @@ const STATUTS_TERMINES = [
   "SAV SORTIE NON REPARE",
 ];
 
-// ============================================================
-// ✅ STATUT "EN COURS"
-// ============================================================
 const STATUT_EN_COURS = "EN COURS";
 
 const ReparationsList = () => {
@@ -40,10 +37,17 @@ const ReparationsList = () => {
   const [statuses, setStatuses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
+
+  // ✅ Tous les filtres sur une seule ligne (avec ADRESSE)
   const [filters, setFilters] = useState({
-    search: "", status: "", reparateur: "", dateDebut: "", dateFin: "",
+    search: "",
+    status: "",
+    reparateur: "",
+    adresse: "",
+    dateDebut: "",
+    dateFin: "",
   });
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReparation, setSelectedReparation] = useState(null);
   const [error, setError] = useState("");
@@ -59,7 +63,9 @@ const ReparationsList = () => {
     try {
       setLoading(true);
       const params = {};
-      Object.keys(filters).forEach((k) => { if (filters[k]) params[k] = filters[k]; });
+      Object.keys(filters).forEach((k) => {
+        if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
+      });
       const [repRes, statusesRes, usersRes] = await Promise.all([
         getReparations(params), getStatuses(), getUsers(),
       ]);
@@ -73,19 +79,31 @@ const ReparationsList = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
-
-  const activeFiltersCount = Object.values(filters).filter((v) => v).length;
+  // ✅ Recharger quand les filtres changent
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters({ ...filters, [name]: value });
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
-    setFilters({ search: "", status: "", reparateur: "", dateDebut: "", dateFin: "" });
-    setTimeout(loadData, 100);
+    setFilters({
+      search: "",
+      status: "",
+      reparateur: "",
+      adresse: "",
+      dateDebut: "",
+      dateFin: "",
+    });
   };
+
+  const hasActiveFilters = Object.values(filters).some(
+    (v) => v && v.trim() !== ""
+  );
 
   const handleDelete = async () => {
     try {
@@ -102,30 +120,29 @@ const ReparationsList = () => {
 
   const handleExportExcel = async () => {
     const params = {};
-    Object.keys(filters).forEach((k) => { if (filters[k]) params[k] = filters[k]; });
+    Object.keys(filters).forEach((k) => {
+      if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
+    });
     await exportReparations(params);
   };
 
   // ============================================================
-  // ✅ STATISTIQUES RECALCULÉES
+  // STATISTIQUES
   // ============================================================
   const stats = useMemo(() => {
     const total = reparations.length;
 
-    // ✅ Réparations impayées : reste > 0
     const impayees = reparations.filter((r) => {
       const prixTotal = r.prixTotal || r.prix || 0;
       const acompte = r.acompte || 0;
-      return (prixTotal - acompte) > 0;
+      return prixTotal - acompte > 0;
     }).length;
 
-    // ✅ En cours : statut = "EN COURS" (tolérant aux variations)
     const enCours = reparations.filter((r) => {
       const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
       return label === STATUT_EN_COURS;
     }).length;
 
-    // ✅ Terminées : statut parmi la liste STATUTS_TERMINES
     const terminees = reparations.filter((r) => {
       const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
       return STATUTS_TERMINES.includes(label);
@@ -150,14 +167,41 @@ const ReparationsList = () => {
       name: "Client",
       selector: (row) => row.client?.nom,
       sortable: true,
+      // ✅ Colonne élargie
+      grow: 2.5,
+      minWidth: "260px",
+      // ✅ AFFICHAGE : Nom + phone + phone2 + adresse
       cell: (row) => (
-        <div>
+        <div style={{ padding: "4px 0" }}>
           <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
             {row.client?.nom || "N/A"}
           </div>
-          <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-            {row.client?.phone}
+
+          {/* Téléphones */}
+          <div style={{ fontSize: "11px", color: "var(--gray-500)", marginTop: "3px", display: "flex", flexDirection: "column", gap: "2px" }}>
+            {row.client?.phone && (
+              <span>📞 {row.client.phone}</span>
+            )}
+            {row.client?.phone2 && (
+              <span>📞 {row.client.phone2}</span>
+            )}
           </div>
+
+          {/* Adresse */}
+          {row.client?.adresse && (
+            <div
+              style={{
+                fontSize: "10.5px",
+                color: "var(--gray-400)",
+                marginTop: "3px",
+                display: "flex",
+                alignItems: "center",
+                gap: "3px",
+              }}
+            >
+              <FaMapMarkerAlt size={9} /> {row.client.adresse}
+            </div>
+          )}
         </div>
       ),
     },
@@ -165,6 +209,8 @@ const ReparationsList = () => {
       name: "Appareil",
       selector: (row) => `${row.marque} ${row.modele}`,
       sortable: true,
+      grow: 1.5,
+      minWidth: "180px",
       cell: (row) => (
         <div>
           <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
@@ -202,6 +248,7 @@ const ReparationsList = () => {
       name: "Prix",
       selector: (row) => row.prix,
       sortable: true,
+      width: "100px",
       cell: (row) => (
         <div style={{ textAlign: "right", minWidth: "80px" }}>
           <div style={{ fontWeight: "700", fontSize: "13px", color: "var(--gray-800)" }}>
@@ -215,6 +262,7 @@ const ReparationsList = () => {
       name: "Reste",
       selector: (row) => (row.prix || 0) - (row.acompte || 0),
       sortable: true,
+      width: "100px",
       cell: (row) => {
         const reste = (row.prixTotal || row.prix || 0) - (row.acompte || 0);
         return (
@@ -231,6 +279,7 @@ const ReparationsList = () => {
       name: "Réparateur",
       selector: (row) => row.reparateur?.firstName,
       sortable: true,
+      width: "160px",
       cell: (row) =>
         row.reparateur ? (
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -304,6 +353,7 @@ const ReparationsList = () => {
 
   return (
     <div className="fade-in-up">
+      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: "700", color: "var(--gray-900)", marginBottom: "4px" }}>
@@ -332,90 +382,24 @@ const ReparationsList = () => {
         </div>
       )}
 
-      {/* ============================================================
-          ✅ CARTES DE STATISTIQUES (Total + Impayées + En cours + Terminées)
-          ============================================================ */}
+      {/* CARTES STATS */}
       <div className="row g-3 mb-4">
         {[
-          {
-            label: "Total",
-            value: stats.total,
-            icon: <FaTools />,
-            color: "#4361ee",
-            bg: "rgba(67, 97, 238, 0.1)",
-          },
-          {
-            label: "Impayées",
-            value: stats.impayees,
-            icon: <FaMoneyBillWave />,
-            color: "#ef4444",
-            bg: "rgba(239, 68, 68, 0.1)",
-          },
-          {
-            label: "En cours",
-            value: stats.enCours,
-            icon: <FaSpinner />,
-            color: "#3b82f6",
-            bg: "rgba(59, 130, 246, 0.1)",
-          },
-          {
-            label: "Terminées",
-            value: stats.terminees,
-            icon: <FaCheckCircle />,
-            color: "#10b981",
-            bg: "rgba(16, 185, 129, 0.1)",
-          },
+          { label: "Total", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
+          { label: "Impayées", value: stats.impayees, icon: <FaMoneyBillWave />, color: "#ef4444", bg: "rgba(239, 68, 68, 0.1)" },
+          { label: "En cours", value: stats.enCours, icon: <FaSpinner />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
+          { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
         ].map((stat, i) => (
           <div key={i} className="col-6 col-lg-3">
-            <div
-              style={{
-                background: "var(--gray-50)",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "16px",
-                padding: "18px",
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                transition: "all 200ms ease",
-              }}
-            >
-              <div
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "12px",
-                  background: stat.bg,
-                  color: stat.color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "18px",
-                  flexShrink: 0,
-                }}
-              >
+            <div style={{ background: "var(--gray-50)", border: "1px solid var(--gray-200)", borderRadius: "16px", padding: "18px", display: "flex", alignItems: "center", gap: "14px", transition: "all 200ms ease" }}>
+              <div style={{ width: "46px", height: "46px", borderRadius: "12px", background: stat.bg, color: stat.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>
                 {stat.icon}
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: "600",
-                    color: "var(--gray-500)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginBottom: "2px",
-                  }}
-                >
+                <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
                   {stat.label}
                 </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "800",
-                    color: "var(--gray-900)",
-                    lineHeight: 1,
-                  }}
-                >
+                <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--gray-900)", lineHeight: 1 }}>
                   {stat.value}
                 </div>
               </div>
@@ -424,72 +408,135 @@ const ReparationsList = () => {
         ))}
       </div>
 
-      <div className="card-modern mb-3" style={{ padding: "16px" }}>
-        <div className="row g-3 align-items-center">
-          <div className="col-12 col-md-8">
-            <div style={{ position: "relative" }}>
-              <FaSearch style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)", fontSize: "13px", pointerEvents: "none" }} />
-              <input
-                type="text" name="search" className="form-control-modern"
-                style={{ paddingLeft: "40px", width: "100%" }}
-                placeholder="Rechercher par N°, client, marque, modèle..."
-                value={filters.search} onChange={handleFilterChange}
-                onKeyDown={(e) => e.key === "Enter" && loadData()}
-              />
-            </div>
+      {/* ============================================================ */}
+      {/* BARRE DE FILTRES UNIFIÉE AVEC ADRESSE */}
+      {/* ============================================================ */}
+      <div className="card-modern mb-3" style={{ padding: "14px 16px" }}>
+        <div className="filters-grid">
+          {/* ✅ Recherche */}
+          <div style={{ position: "relative", minWidth: 0 }}>
+            <FaSearch
+              style={{
+                position: "absolute",
+                left: "14px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--gray-400)",
+                fontSize: "13px",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              name="search"
+              className="form-control-modern"
+              style={{ paddingLeft: "40px", width: "100%", height: "42px" }}
+              placeholder="Rechercher : N°, client, téléphone, marque..."
+              value={filters.search}
+              onChange={handleFilterChange}
+            />
           </div>
-          <div className="col-12 col-md-4">
+
+          {/* ✅ Filtre Adresse */}
+          <div style={{ position: "relative", minWidth: 0 }}>
+            <FaMapMarkerAlt
+              style={{
+                position: "absolute",
+                left: "14px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--gray-400)",
+                fontSize: "13px",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              name="adresse"
+              className="form-control-modern"
+              style={{ paddingLeft: "40px", width: "100%", height: "42px" }}
+              placeholder="Filtrer par adresse..."
+              value={filters.adresse}
+              onChange={handleFilterChange}
+            />
+          </div>
+
+          {/* ✅ Filtre Statut */}
+          <select
+            name="status"
+            className="form-control-modern"
+            style={{ height: "42px" }}
+            value={filters.status}
+            onChange={handleFilterChange}
+            title="Filtrer par statut"
+          >
+            <option value="">Tous les statuts</option>
+            {statuses.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+
+          {/* ✅ Filtre Réparateur */}
+          <select
+            name="reparateur"
+            className="form-control-modern"
+            style={{ height: "42px" }}
+            value={filters.reparateur}
+            onChange={handleFilterChange}
+            title="Filtrer par réparateur"
+          >
+            <option value="">Tous les réparateurs</option>
+            {users
+              .filter((u) => u.role === "REPARATEUR")
+              .map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.firstName} {u.lastName}
+                </option>
+              ))}
+          </select>
+
+          {/* ✅ Date début */}
+          <input
+            type="date"
+            name="dateDebut"
+            className="form-control-modern"
+            style={{ height: "42px" }}
+            value={filters.dateDebut}
+            onChange={handleFilterChange}
+            title="Date de début"
+          />
+
+          {/* ✅ Date fin */}
+          <input
+            type="date"
+            name="dateFin"
+            className="form-control-modern"
+            style={{ height: "42px" }}
+            value={filters.dateFin}
+            onChange={handleFilterChange}
+            title="Date de fin"
+          />
+
+          {/* ✅ Reset */}
+          {hasActiveFilters && (
             <button
-              className={`btn-modern ${showFilters ? "btn-modern-primary" : "btn-modern-outline"}`}
-              style={{ width: "100%", justifyContent: "center" }}
-              onClick={() => setShowFilters(!showFilters)}
+              className="btn-modern btn-modern-outline"
+              style={{ height: "42px", padding: "0 16px", justifyContent: "center" }}
+              onClick={resetFilters}
+              title="Réinitialiser les filtres"
             >
-              <FaFilter /> Filtres avancés
-              {activeFiltersCount > 0 && (
-                <span style={{ background: showFilters ? "white" : "var(--primary)", color: showFilters ? "var(--primary)" : "white", borderRadius: "10px", padding: "1px 7px", fontSize: "10.5px", fontWeight: "700", marginLeft: "4px" }}>
-                  {activeFiltersCount}
-                </span>
-              )}
+              <FaTimes size={12} />
             </button>
-          </div>
+          )}
         </div>
 
-        {showFilters && (
-          <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--gray-200)" }}>
-            <div className="row g-3">
-              <div className="col-12 col-md-3">
-                <label className="form-label-modern">Statut</label>
-                <select name="status" className="form-control-modern" value={filters.status} onChange={handleFilterChange} style={{ width: "100%" }}>
-                  <option value="">Tous les statuts</option>
-                  {statuses.map((s) => <option key={s._id} value={s._id}>{s.label}</option>)}
-                </select>
-              </div>
-              <div className="col-12 col-md-3">
-                <label className="form-label-modern">Réparateur</label>
-                <select name="reparateur" className="form-control-modern" value={filters.reparateur} onChange={handleFilterChange} style={{ width: "100%" }}>
-                  <option value="">Tous les réparateurs</option>
-                  {users.filter((u) => u.role === "REPARATEUR").map((u) => (
-                    <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-6 col-md-2">
-                <label className="form-label-modern">Du</label>
-                <input type="date" name="dateDebut" className="form-control-modern" value={filters.dateDebut} onChange={handleFilterChange} style={{ width: "100%" }} />
-              </div>
-              <div className="col-6 col-md-2">
-                <label className="form-label-modern">Au</label>
-                <input type="date" name="dateFin" className="form-control-modern" value={filters.dateFin} onChange={handleFilterChange} style={{ width: "100%" }} />
-              </div>
-              <div className="col-12 col-md-2 d-flex align-items-end gap-2">
-                <button className="btn-modern btn-modern-primary" style={{ flex: 1, justifyContent: "center" }} onClick={loadData}>
-                  Appliquer
-                </button>
-                <button className="btn-modern btn-modern-outline" style={{ justifyContent: "center" }} onClick={resetFilters} title="Réinitialiser">
-                  <FaTimes />
-                </button>
-              </div>
-            </div>
+        {/* Info résultats */}
+        {hasActiveFilters && (
+          <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--gray-500)", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span>🔎</span>
+            <span>{reparations.length} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
@@ -520,6 +567,46 @@ const ReparationsList = () => {
         message={`Êtes-vous sûr de vouloir supprimer la réparation ${selectedReparation?.numero} ?`}
         confirmText="Supprimer"
       />
+
+      <style>{`
+        /* ✅ Grille responsive des filtres */
+        .filters-grid {
+          display: grid;
+          grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr auto;
+          gap: 10px;
+          align-items: center;
+        }
+
+        @media (max-width: 1600px) {
+          .filters-grid {
+            grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr auto;
+          }
+        }
+
+        @media (max-width: 1400px) {
+          .filters-grid {
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+          }
+          .filters-grid > * {
+            min-width: 0;
+          }
+        }
+
+        @media (max-width: 992px) {
+          .filters-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 576px) {
+          .filters-grid {
+            grid-template-columns: 1fr;
+          }
+          .filters-grid > * {
+            width: 100% !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

@@ -147,11 +147,16 @@ const ClientDetail = () => {
             <div className="col-12 col-md-6">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <FaPhone size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray-800)', fontFamily: 'monospace' }}>
-                    {client.phone}
-                  </span>
-                </div>
+  <FaPhone size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray-800)', fontFamily: 'monospace' }}>
+    {client.phone}
+    {client.phone2 && (
+      <span style={{ color: 'var(--gray-500)', marginLeft: '8px' }}>
+        • {client.phone2}
+      </span>
+    )}
+  </span>
+</div>
                 
                 {client.email && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

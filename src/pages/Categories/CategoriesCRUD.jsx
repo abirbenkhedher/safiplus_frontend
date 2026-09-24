@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Form } from 'react-bootstrap';
-import { 
-  FaPlus, FaEdit, FaTrash, FaBoxes, FaTags, 
-  FaSearch, FaSave, FaTimes, FaCalendarAlt
+import {
+  FaPlus, FaEdit, FaTrash, FaBoxes, FaTags,
+  FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown
 } from 'react-icons/fa';
 import { getCategories, createCategorie, updateCategorie, deleteCategorie } from '../../api/categories';
 import { getFamilles } from '../../api/familles';
@@ -16,7 +16,8 @@ const CategoriesCRUD = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nom: '', famille: '' });
+  // ✅ Ajout du champ ordre
+  const [formData, setFormData] = useState({ nom: '', famille: '', ordre: 0 });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,7 +30,9 @@ const CategoriesCRUD = () => {
         getCategories(),
         getFamilles()
       ]);
-      setCategories(categoriesRes.data);
+      // ✅ Trier par ordre
+      const sorted = [...categoriesRes.data].sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+      setCategories(sorted);
       setFamilles(famillesRes.data);
     } catch (err) {
       setError('Erreur lors du chargement des données');
@@ -42,7 +45,6 @@ const CategoriesCRUD = () => {
     loadData();
   }, []);
 
-  // Filtrer les catégories
   const filteredCategories = useMemo(() => {
     let result = [...categories];
 
@@ -63,7 +65,11 @@ const CategoriesCRUD = () => {
 
   const handleOpenModal = (item = null) => {
     setEditingItem(item);
-    setFormData(item ? { nom: item.nom, famille: item.famille?._id || '' } : { nom: '', famille: '' });
+    setFormData(
+      item
+        ? { nom: item.nom, famille: item.famille?._id || '', ordre: item.ordre ?? 0 }
+        : { nom: '', famille: '', ordre: 0 }
+    );
     setError('');
     setShowModal(true);
   };
@@ -71,7 +77,7 @@ const CategoriesCRUD = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingItem(null);
-    setFormData({ nom: '', famille: '' });
+    setFormData({ nom: '', famille: '', ordre: 0 });
     setError('');
   };
 
@@ -89,11 +95,17 @@ const CategoriesCRUD = () => {
     }
 
     try {
+      const payload = {
+        nom: formData.nom.trim(),
+        famille: formData.famille,
+        ordre: Number(formData.ordre) || 0,
+      };
+
       if (editingItem) {
-        await updateCategorie(editingItem._id, formData);
+        await updateCategorie(editingItem._id, payload);
         setSuccess('Catégorie modifiée avec succès');
       } else {
-        await createCategorie(formData);
+        await createCategorie(payload);
         setSuccess('Catégorie créée avec succès');
       }
       handleCloseModal();
@@ -117,7 +129,6 @@ const CategoriesCRUD = () => {
     }
   };
 
-  // Colonnes de la DataTable
   const columns = [
     {
       name: '#',
@@ -126,6 +137,23 @@ const CategoriesCRUD = () => {
       cell: (row, index) => (
         <span style={{ fontWeight: '600', color: 'var(--gray-500)' }}>
           {index + 1}
+        </span>
+      ),
+    },
+    // ✅ Colonne ORDRE
+    {
+      name: 'Ordre',
+      selector: (row) => row.ordre,
+      sortable: true,
+      width: '90px',
+      center: true,
+      cell: (row) => (
+        <span
+          className="badge-modern badge-modern-gray"
+          style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700' }}
+        >
+          <FaSortNumericDown size={9} style={{ marginRight: '4px' }} />
+          {row.ordre ?? 0}
         </span>
       ),
     },
@@ -181,70 +209,31 @@ const CategoriesCRUD = () => {
 
   return (
     <div className="fade-in-up">
-      {/* Page Header */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
-          <h1
-            style={{
-              fontSize: '24px',
-              fontWeight: '700',
-              color: 'var(--gray-900)',
-              marginBottom: '4px',
-            }}
-          >
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--gray-900)', marginBottom: '4px' }}>
             Catégories
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--gray-500)', margin: 0 }}>
             {categories.length} catégorie(s) enregistrée(s)
           </p>
         </div>
-        <button
-          className="btn-modern btn-modern-primary"
-          onClick={() => handleOpenModal()}
-        >
+        <button className="btn-modern btn-modern-primary" onClick={() => handleOpenModal()}>
           <FaPlus /> Nouvelle catégorie
         </button>
       </div>
 
-      {/* Messages */}
       {success && (
-        <div
-          style={{
-            padding: '12px 16px',
-            background: 'var(--success-light)',
-            color: 'var(--success)',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            fontSize: '13px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
+        <div style={{ padding: '12px 16px', background: 'var(--success-light)', color: 'var(--success)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
           ✅ {success}
         </div>
       )}
       {error && !showModal && (
-        <div
-          style={{
-            padding: '12px 16px',
-            background: 'var(--danger-light)',
-            color: 'var(--danger)',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            fontSize: '13px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
+        <div style={{ padding: '12px 16px', background: 'var(--danger-light)', color: 'var(--danger)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
           ⚠️ {error}
         </div>
       )}
 
-      {/* Filtres */}
       <div className="card-modern mb-4" style={{ padding: '16px' }}>
         <div className="row g-3">
           <div className="col-12 col-md-8">
@@ -288,7 +277,6 @@ const CategoriesCRUD = () => {
         </div>
       </div>
 
-      {/* DataTable */}
       <DataTable
         columns={columns}
         data={filteredCategories}
@@ -303,10 +291,8 @@ const CategoriesCRUD = () => {
         paginationPerPage={10}
       />
 
-      {/* Modal Formulaire */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Body style={{ padding: 0 }}>
-          {/* Header stylé */}
           <div
             style={{
               padding: '20px 24px',
@@ -335,23 +321,10 @@ const CategoriesCRUD = () => {
               <FaBoxes />
             </div>
             <div style={{ flex: 1 }}>
-              <h5
-                style={{
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  color: 'var(--gray-900)',
-                  margin: 0,
-                }}
-              >
+              <h5 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--gray-900)', margin: 0 }}>
                 {editingItem ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
               </h5>
-              <p
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--gray-500)',
-                  margin: '2px 0 0',
-                }}
-              >
+              <p style={{ fontSize: '12px', color: 'var(--gray-500)', margin: '2px 0 0' }}>
                 {editingItem ? 'Modifiez les informations ci-dessous' : 'Remplissez les informations'}
               </p>
             </div>
@@ -383,25 +356,15 @@ const CategoriesCRUD = () => {
             </button>
           </div>
 
-          {/* Body */}
           <Form onSubmit={handleSubmit}>
             <div style={{ padding: '24px' }}>
               {error && (
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    background: 'var(--danger-light)',
-                    color: 'var(--danger)',
-                    borderRadius: '10px',
-                    marginBottom: '20px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                  }}
-                >
+                <div style={{ padding: '12px 16px', background: 'var(--danger-light)', color: 'var(--danger)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '500' }}>
                   ⚠️ {error}
                 </div>
               )}
 
+              {/* Nom */}
               <div className="mb-3">
                 <label className="form-label-modern">
                   Nom de la catégorie <span style={{ color: 'var(--danger)' }}>*</span>
@@ -417,7 +380,8 @@ const CategoriesCRUD = () => {
                 />
               </div>
 
-              <div>
+              {/* Famille */}
+              <div className="mb-3">
                 <label className="form-label-modern">
                   <FaTags size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
                   Famille <span style={{ color: 'var(--danger)' }}>*</span>
@@ -436,9 +400,28 @@ const CategoriesCRUD = () => {
                   ))}
                 </select>
               </div>
+
+              {/* ✅ Ordre */}
+              <div>
+                <label className="form-label-modern">
+                  <FaSortNumericDown size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                  Ordre d'affichage
+                </label>
+                <input
+                  type="number"
+                  className="form-control-modern"
+                  placeholder="Ex: 1, 2, 3..."
+                  value={formData.ordre}
+                  onChange={(e) => setFormData({ ...formData, ordre: e.target.value })}
+                  min="0"
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                  💡 Plus le chiffre est petit, plus l'élément apparaît en premier
+                </div>
+              </div>
             </div>
 
-            {/* Footer */}
             <div
               style={{
                 padding: '16px 24px',
@@ -449,11 +432,7 @@ const CategoriesCRUD = () => {
                 justifyContent: 'flex-end',
               }}
             >
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="btn-modern btn-modern-outline"
-              >
+              <button type="button" onClick={handleCloseModal} className="btn-modern btn-modern-outline">
                 <FaTimes /> Annuler
               </button>
               <button type="submit" className="btn-modern btn-modern-primary">
@@ -464,7 +443,6 @@ const CategoriesCRUD = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Confirm Delete */}
       <ConfirmDialog
         show={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
