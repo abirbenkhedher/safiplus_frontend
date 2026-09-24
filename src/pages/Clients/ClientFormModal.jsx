@@ -5,47 +5,86 @@ import {
   FaCheckCircle
 } from 'react-icons/fa';
 import { createClient, updateClient, findClientByPhone } from '../../api/clients';
+import { ZONES } from '../../constants/zones';
+
+// ============================================================
+// ✅ Helper : limite à 8 chiffres (chiffres uniquement)
+// ============================================================
+const formatPhoneInput = (value) => {
+  const digitsOnly = String(value || '').replace(/[^0-9]/g, '');
+  return digitsOnly.slice(0, 8);
+};
+
+// ============================================================
+// ✅ Helper : bloque les touches non-numériques
+// ============================================================
+const handlePhoneKeyDown = (e) => {
+  const allowedKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End',
+  ];
+
+  if (allowedKeys.includes(e.key)) return;
+  if (e.ctrlKey || e.metaKey) return;
+
+  // Bloquer tout ce qui n'est pas un chiffre
+  if (!/^[0-9]$/.test(e.key)) {
+    e.preventDefault();
+  }
+};
 
 const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   const isEdit = Boolean(client);
 
   const [formData, setFormData] = useState({
-    nom: '', phone: '', phone2: '', email: '', adresse: '', isActive: true,
-  });
+  nom: '', phone: '', phone2: '', email: '', adresse: '', zone: '', isActive: true,
+});
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
   const [existingClient, setExistingClient] = useState(null);
 
   // Reset quand le modal s'ouvre
-  useEffect(() => {
-    if (show) {
-      setFormData(client ? {
-        nom: client.nom || '',
-        phone: client.phone || '',
-        phone2: client.phone2 || '',
-        email: client.email || '',
-        adresse: client.adresse || '',
-        isActive: client.isActive !== undefined ? client.isActive : true,
-      } : {
-        nom: '', phone: '', phone2: '', email: '', adresse: '', isActive: true,
-      });
-      setError('');
-      setExistingClient(null);
-    }
-  }, [show, client]);
+useEffect(() => {
+  if (show) {
+    setFormData(client ? {
+      nom: client.nom || '',
+      phone: client.phone || '',
+      phone2: client.phone2 || '',
+      email: client.email || '',
+      adresse: client.adresse || '',
+      zone: client.zone || '',
+      isActive: client.isActive !== undefined ? client.isActive : true,
+    } : {
+      nom: '', phone: '', phone2: '', email: '', adresse: '', zone: '', isActive: true,
+    });
+    setError('');
+    setExistingClient(null);
+  }
+}, [show, client]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // ✅ Limiter phone et phone2 à 8 chiffres max
+    if (name === 'phone' || name === 'phone2') {
+      setFormData({
+        ...formData,
+        [name]: formatPhoneInput(value),
+      });
+
+      if (name === 'phone') {
+        setExistingClient(null);
+        setError('');
+      }
+      return;
+    }
+
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? checked : value,
     });
-
-    if (name === 'phone') {
-      setExistingClient(null);
-      setError('');
-    }
   };
 
   // ✅ Vérifier le téléphone quand l'utilisateur finit de taper
@@ -72,18 +111,19 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   };
 
   const handleUseExistingClient = () => {
-    if (existingClient) {
-      setFormData({
-        nom: existingClient.nom,
-        phone: existingClient.phone,
-        phone2: existingClient.phone2 || '',
-        email: existingClient.email || '',
-        adresse: existingClient.adresse || '',
-        isActive: existingClient.isActive,
-      });
-      setExistingClient(null);
-    }
-  };
+  if (existingClient) {
+    setFormData({
+      nom: existingClient.nom,
+      phone: existingClient.phone,
+      phone2: existingClient.phone2 || '',
+      email: existingClient.email || '',
+      adresse: existingClient.adresse || '',
+      zone: existingClient.zone || '',
+      isActive: existingClient.isActive,
+    });
+    setExistingClient(null);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -310,8 +350,11 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
+                      onKeyDown={handlePhoneKeyDown}
                       onBlur={handlePhoneBlur}
                       required
+                      maxLength={8}
+                      inputMode="numeric"
                       className="form-control-modern"
                       placeholder="20 123 456"
                       style={{ 
@@ -330,6 +373,17 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                       </div>
                     )}
                   </div>
+                  {/* ✅ Compteur de chiffres */}
+                  <div style={{
+                    fontSize: '10.5px',
+                    color: formData.phone.length === 8 ? 'var(--success)' : 'var(--gray-500)',
+                    marginTop: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                  }}>
+                    <span>{formData.phone.length}/8 chiffres</span>
+                    {formData.phone.length === 8 && <span>✅</span>}
+                  </div>
                 </div>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
@@ -341,10 +395,22 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                     name="phone2"
                     value={formData.phone2}
                     onChange={handleChange}
+                    onKeyDown={handlePhoneKeyDown}
+                    maxLength={8}
+                    inputMode="numeric"
                     className="form-control-modern"
                     placeholder="55 789 123"
                     style={{ width: '100%' }}
                   />
+                  {formData.phone2 && (
+                    <div style={{
+                      fontSize: '10.5px',
+                      color: formData.phone2.length === 8 ? 'var(--success)' : 'var(--gray-500)',
+                      marginTop: '4px',
+                    }}>
+                      {formData.phone2.length}/8 chiffres
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -365,22 +431,42 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* Adresse */}
-              <div style={{ marginBottom: '18px' }}>
-                <label className="form-label-modern">
-                  <FaMapMarkerAlt size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-                  Adresse
-                </label>
-                <input
-                  type="text"
-                  name="adresse"
-                  value={formData.adresse}
-                  onChange={handleChange}
-                  className="form-control-modern"
-                  placeholder="Ex: 123 Rue de la République"
-                  style={{ width: '100%' }}
-                />
-              </div>
+           {/* Adresse */}
+<div style={{ marginBottom: '18px' }}>
+  <label className="form-label-modern">
+    <FaMapMarkerAlt size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+    Adresse
+  </label>
+  <input
+    type="text"
+    name="adresse"
+    value={formData.adresse}
+    onChange={handleChange}
+    className="form-control-modern"
+    placeholder="Ex: 123 Rue de la République"
+    style={{ width: '100%' }}
+  />
+</div>
+
+{/* ✅ NOUVEAU : Zone */}
+<div style={{ marginBottom: '18px' }}>
+  <label className="form-label-modern">
+    <FaMapMarkerAlt size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+    Zone <span style={{ fontSize: '11px', color: 'var(--gray-500)', fontWeight: '400' }}>(optionnel)</span>
+  </label>
+  <select
+    name="zone"
+    value={formData.zone}
+    onChange={handleChange}
+    className="form-control-modern"
+    style={{ width: '100%' }}
+  >
+    <option value="">— Sélectionnez une zone —</option>
+    {ZONES.map((z) => (
+      <option key={z} value={z}>{z}</option>
+    ))}
+  </select>
+</div>
 
               {/* Statut (uniquement en édition) */}
               {isEdit && (

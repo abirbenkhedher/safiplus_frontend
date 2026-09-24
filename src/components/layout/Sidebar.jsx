@@ -4,7 +4,7 @@ import {
   FaHome, FaUsers, FaTools, FaMoneyBillWave,
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
   FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
-  FaTrademark, FaMobileAlt
+  FaTrademark, FaMobileAlt,FaExclamationTriangle
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 // ✅ Import du logo — adaptez le chemin selon votre projet
@@ -38,7 +38,10 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
         // ✅ NOUVEAU : Modèles
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
+            { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },  // ✅ NOUVEAU
+
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
+
       ]
     },
     {

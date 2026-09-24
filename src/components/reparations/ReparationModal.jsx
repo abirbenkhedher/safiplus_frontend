@@ -7,12 +7,13 @@ import {
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
-import { PANNES_STANDARD, DRAFT_KEY } from "../../constants/reparations";
+import {  DRAFT_KEY } from "../../constants/reparations";
 import ClientSelector from "./ClientSelector";
 import SearchSelect from "./SearchSelect";
 import ObservationsList from "./ObservationsList";
 import PaymentSection from "./PaymentSection";
 import DiagnosticSection from "./DiagnosticSection";
+import PannesMultiSelect from "./PannesMultiSelect";
 
 const INITIAL_FORM = {
   client: "",
@@ -20,9 +21,8 @@ const INITIAL_FORM = {
   objet: "",
   marque: "",
   modele: "",
-  accessoires: "",
   problemeDeclare: "",
-  panneType: "",
+  panneType: [],   // ✅ Tableau maintenant
   note: "",
   prix: 0,
   acompte: 0,
@@ -53,11 +53,13 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  // ✅ Charger marques et modeles via le hook
-  const { categories, objets, statuses, reparateurs, marques, modeles } =
+  // ✅ Charger toutes les données de référence
+  const { categories, objets, statuses, reparateurs, marques, modeles, pannes } =
     useReparationData();
 
-  // ✅ Charger les données du formulaire
+  // ============================================================
+  // CHARGER LES DONNÉES DU FORMULAIRE
+  // ============================================================
   useEffect(() => {
     if (!show) return;
 
@@ -66,7 +68,6 @@ const ReparationModal = ({
         client: reparation.client?._id || "",
         categorie: reparation.categorie?._id || "",
         objet: reparation.objet?._id || "",
-        // ✅ Marque et modele : extraire _id du populate
         marque:
           typeof reparation.marque === "object" && reparation.marque !== null
             ? reparation.marque._id
@@ -75,9 +76,13 @@ const ReparationModal = ({
           typeof reparation.modele === "object" && reparation.modele !== null
             ? reparation.modele._id
             : reparation.modele || "",
-        accessoires: reparation.accessoires || "",
         problemeDeclare: reparation.problemeDeclare || "",
-        panneType: reparation.panneType || "",
+        // ✅ panneType est un tableau
+        panneType: Array.isArray(reparation.panneType)
+          ? reparation.panneType
+          : reparation.panneType
+            ? [reparation.panneType]
+            : [],
         note: reparation.note || "",
         prix: reparation.prix || 0,
         acompte: reparation.acompte || 0,
@@ -119,6 +124,11 @@ const ReparationModal = ({
           if (!parsed.diagnosticImprevus) {
             parsed.diagnosticImprevus = INITIAL_FORM.diagnosticImprevus;
           }
+          // ✅ S'assurer que panneType est un tableau
+          if (!Array.isArray(parsed.panneType)) {
+            parsed.panneType = parsed.panneType ? [parsed.panneType] : [];
+          }
+          delete parsed.accessoires;
           setFormData(parsed);
           setHasDraft(true);
         } catch (e) {
@@ -142,7 +152,9 @@ const ReparationModal = ({
     setEnvoyerSMS(false);
   }, [show, reparation, isEdit, initialClientId]);
 
-  // ✅ Statut par défaut
+  // ============================================================
+  // STATUT PAR DÉFAUT
+  // ============================================================
   useEffect(() => {
     if (statuses.length === 0) return;
     if (isEdit) return;
@@ -159,7 +171,9 @@ const ReparationModal = ({
     }
   }, [statuses, isEdit, formData.status]);
 
-  // ✅ Auto-save brouillon
+  // ============================================================
+  // AUTO-SAVE BROUILLON
+  // ============================================================
   useEffect(() => {
     if (!isEdit && show) {
       const timer = setTimeout(() => {
@@ -175,6 +189,35 @@ const ReparationModal = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  // ============================================================
+  // CHANGEMENT DE CATÉGORIE → AUTO-COCHER LA 1ère PANNE
+  // ============================================================
+  const handleCategorieChange = (categorieId) => {
+    // Récupérer les pannes de cette catégorie
+    const pannesDeLaCategorie = pannes
+      .filter((p) => {
+        const catId =
+          typeof p.categorie === "object" && p.categorie !== null
+            ? p.categorie._id
+            : p.categorie;
+        return catId === categorieId;
+      })
+      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+
+    // Auto-cocher la première panne
+    const autoPanne =
+      pannesDeLaCategorie.length > 0 ? [pannesDeLaCategorie[0].nom] : [];
+
+    setFormData((prev) => ({
+      ...prev,
+      categorie: categorieId,
+      panneType: autoPanne,
+    }));
+  };
+
+  // ============================================================
+  // SUBMIT
+  // ============================================================
   const handleSubmit = async (shouldPrint = false) => {
     setError("");
     setSuccess("");
@@ -182,9 +225,11 @@ const ReparationModal = ({
     if (!formData.client) return setError("Le client est obligatoire");
     if (!formData.categorie) return setError("La catégorie est obligatoire");
     if (!formData.objet) return setError("L'objet est obligatoire");
-    // ✅ Marque : ObjectId (pas de .trim())
     if (!formData.marque) return setError("La marque est obligatoire");
-    if (!formData.panneType) return setError("Le type de panne est obligatoire");
+    // ✅ Valider que panneType est un tableau non vide
+    if (!Array.isArray(formData.panneType) || formData.panneType.length === 0) {
+      return setError("Au moins une panne est obligatoire");
+    }
     if (!formData.note.trim()) return setError("La note est obligatoire");
     if (!formData.status) return setError("Le statut est obligatoire");
 
@@ -192,6 +237,7 @@ const ReparationModal = ({
     try {
       const cleanData = {
         ...formData,
+        panneType: formData.panneType,   // ✅ Déjà un tableau
         observations: formData.observations.filter((o) => o.text.trim() !== ""),
         envoyerSMS: envoyerSMS,
       };
@@ -253,26 +299,22 @@ const ReparationModal = ({
 
   if (!show) return null;
 
-  const panneOptions = PANNES_STANDARD.map((p) => ({
-    value: p.value,
-    label: p.label,
-    icon: p.icon,
-  }));
+ 
 
   const imprevusEnAttente = (
     formData.diagnosticImprevus?.imprevus || []
   ).filter((i) => i.accepte === null || i.accepte === undefined).length;
 
-  // ✅ Filtrer marques selon l'objet sélectionné
+  // ============================================================
+  // FILTRES
+  // ============================================================
   const marquesFiltrees = marques.filter((m) => {
     if (!formData.objet) return true;
-    // m.objet peut être un ObjectId ou un objet populé
     const objetId =
       typeof m.objet === "object" && m.objet !== null ? m.objet._id : m.objet;
     return objetId === formData.objet;
   });
 
-  // ✅ Filtrer modèles selon la marque sélectionnée
   const modelesFiltres = modeles.filter((m) => {
     if (!formData.marque) return true;
     const marqueId =
@@ -281,6 +323,18 @@ const ReparationModal = ({
         : m.marque;
     return marqueId === formData.marque;
   });
+
+  // ✅ Pannes filtrées par catégorie
+  const pannesFiltrees = pannes
+    .filter((p) => {
+      if (!formData.categorie) return false;
+      const catId =
+        typeof p.categorie === "object" && p.categorie !== null
+          ? p.categorie._id
+          : p.categorie;
+      return catId === formData.categorie;
+    })
+    .sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
 
   return createPortal(
     <>
@@ -491,7 +545,6 @@ const ReparationModal = ({
                 color="var(--info)"
               >
                 <div className="row g-2">
-                  {/* Catégorie */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       Catégorie{" "}
@@ -503,12 +556,11 @@ const ReparationModal = ({
                         label: c.nom,
                       }))}
                       value={formData.categorie}
-                      onChange={(val) => handleFieldChange("categorie", val)}
+                      onChange={handleCategorieChange}   // ✅ Handler spécial
                       placeholder="Rechercher..."
                     />
                   </div>
 
-                  {/* Objet */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       Objet <span style={{ color: "var(--danger)" }}>*</span>
@@ -530,7 +582,6 @@ const ReparationModal = ({
                 </div>
 
                 <div className="row g-2" style={{ marginTop: "8px" }}>
-                  {/* Marque */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       Marque <span style={{ color: "var(--danger)" }}>*</span>
@@ -554,7 +605,6 @@ const ReparationModal = ({
                     />
                   </div>
 
-                  {/* Modèle */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">Modèle</label>
                     <SearchSelect
@@ -573,23 +623,6 @@ const ReparationModal = ({
                     />
                   </div>
                 </div>
-
-                {/* Accessoires */}
-                <div className="row g-2" style={{ marginTop: "8px" }}>
-                  <div className="col-12">
-                    <label className="form-label-modern">Accessoires</label>
-                    <input
-                      type="text"
-                      value={formData.accessoires}
-                      onChange={(e) =>
-                        handleFieldChange("accessoires", e.target.value)
-                      }
-                      placeholder="Ex: Chargeur, coque, écouteurs..."
-                      className="form-control-modern"
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                </div>
               </SectionBlock>
 
               {/* PANNE */}
@@ -604,12 +637,30 @@ const ReparationModal = ({
                       Type de panne{" "}
                       <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
-                    <SearchSelect
-                      options={panneOptions}
+                    {/* ✅ Multi-sélection des pannes */}
+                    <PannesMultiSelect
+                      options={pannesFiltrees}
                       value={formData.panneType}
                       onChange={(val) => handleFieldChange("panneType", val)}
-                      placeholder="Rechercher une panne..."
+                      disabled={!formData.categorie}
+                      placeholder={
+                        formData.categorie
+                          ? "Sélectionnez les pannes..."
+                          : "Choisissez d'abord une catégorie"
+                      }
                     />
+                    {formData.categorie && pannesFiltrees.length === 0 && (
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--warning)",
+                          marginTop: "4px",
+                        }}
+                      >
+                        💡 Aucune panne configurée pour cette catégorie.
+                        Ajoutez-en dans la page « Pannes ».
+                      </div>
+                    )}
                   </div>
 
                   <div className="col-12">

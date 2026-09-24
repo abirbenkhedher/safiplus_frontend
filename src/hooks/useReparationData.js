@@ -3,6 +3,7 @@ import { getCategories } from '../api/categories';
 import { getObjets } from '../api/objets';
 import { getMarques } from '../api/marques';
 import { getModeles } from '../api/modeles';
+import { getPannes } from '../api/pannes';
 import { getStatuses } from '../api/statuses';
 import { getUsers } from '../api/users';
 import { REF_CACHE_KEY, REF_CACHE_TTL } from '../constants/reparations';
@@ -18,6 +19,7 @@ export const useReparationData = () => {
     objets: [],
     marques: [],
     modeles: [],
+    pannes: [],
     statuses: [],
     reparateurs: [],
   });
@@ -34,8 +36,8 @@ export const useReparationData = () => {
           const age = Date.now() - timestamp;
 
           if (age < REF_CACHE_TTL) {
-            // ⚠️ Migration du cache : si les anciennes données n'ont pas marques/modeles
-            if (!cachedData.marques || !cachedData.modeles) {
+            // ⚠️ Migration du cache : si les anciennes données n'ont pas pannes
+            if (!cachedData.pannes) {
               localStorage.removeItem(REF_CACHE_KEY);
             } else {
               setData(cachedData);
@@ -52,6 +54,7 @@ export const useReparationData = () => {
           objetsRes,
           marquesRes,
           modelesRes,
+          pannesRes,
           statusesRes,
           usersRes,
         ] = await Promise.all([
@@ -59,6 +62,7 @@ export const useReparationData = () => {
           getObjets(),
           getMarques(),
           getModeles(),
+          getPannes(),
           getStatuses(),
           getUsers(),
         ]);
@@ -68,6 +72,7 @@ export const useReparationData = () => {
           objets: objetsRes.data,
           marques: marquesRes.data,
           modeles: modelesRes.data,
+          pannes: pannesRes.data,
           statuses: statusesRes.data,
           reparateurs: usersRes.data.filter((u) => u.role === 'REPARATEUR'),
         };

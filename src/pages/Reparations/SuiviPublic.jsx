@@ -53,26 +53,16 @@ const SuiviPublic = () => {
 
   const formatMoney = (amount) => `${(amount || 0).toFixed(2)} DT`;
 
-  // ✅ Mapping des libellés de panne
-  const panneLabels = {
-    lcd: "Écran (LCD)",
-    touch: "Tactile / Vitre",
-    battery: "Batterie",
-    charging_port: "Connecteur de charge",
-    camera_front: "Caméra frontale",
-    camera_back: "Caméra arrière",
-    speaker: "Haut-parleur",
-    microphone: "Microphone",
-    headphone: "Jack audio",
-    button_power: "Bouton Power",
-    button_volume: "Boutons volume",
-    software: "Logiciel / Système",
-    water_damage: "Dégât d'eau",
-    network: "Réseau / Signal",
-    other: "Autre",
-  };
+ // ✅ Helper : formate un tableau de pannes en string
+const formatPannes = (pannes) => {
+  if (!pannes) return "N/A";
+  if (typeof pannes === "string") return pannes;
+  if (Array.isArray(pannes) && pannes.length > 0) {
+    return pannes.filter(Boolean).join(", ");
+  }
+  return "N/A";
+};
 
-  // ✅ Détection du statut terminé
   const isTermine = (label) => {
     if (!label) return false;
     const l = label.toLowerCase();
@@ -159,7 +149,7 @@ const SuiviPublic = () => {
       padding: "20px 16px 40px",
     }}>
       <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-        
+
         {/* HEADER */}
         <div style={{
           background: "linear-gradient(135deg, #4361ee, #3a52c9)",
@@ -299,8 +289,9 @@ const SuiviPublic = () => {
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <Row label="Type" value={reparation.objet} />
             <Row label="Catégorie" value={reparation.categorie} />
-            <Row label="Marque / Modèle" value={`${reparation.marque || ""} ${reparation.modele || ""}`.trim()} />
-            
+            {/* ✅ CORRECTION : marque et modele sont des STRINGS renvoyées par l'API */}
+            <Row label="Marque" value={reparation.marque || "-"} />
+            <Row label="Modèle" value={reparation.modele || "-"} />
           </div>
         </div>
 
@@ -319,13 +310,14 @@ const SuiviPublic = () => {
           </h3>
 
           <div style={{
-            padding: "14px 16px", background: "#fef3c7",
-            borderRadius: "10px", borderLeft: "4px solid #f59e0b",
-            fontSize: "14px", color: "#78350f", fontWeight: "600",
-            marginBottom: "12px",
-          }}>
-            {panneLabels[reparation.panneType] || reparation.panneType}
-          </div>
+  padding: "14px 16px", background: "#fef3c7",
+  borderRadius: "10px", borderLeft: "4px solid #f59e0b",
+  fontSize: "14px", color: "#78350f", fontWeight: "600",
+  marginBottom: "12px",
+}}>
+  {/* ✅ Multi-pannes formatées */}
+  {formatPannes(reparation.panneType)}
+</div>
 
           {reparation.problemeDeclare && (
             <>

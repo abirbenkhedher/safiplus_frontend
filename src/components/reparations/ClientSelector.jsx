@@ -1,36 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FaPhone, FaCheckCircle, FaExclamationTriangle, FaUserPlus,
   FaTimes, FaCheck, FaEdit, FaMapMarkerAlt, FaSearch, FaIdCard
 } from 'react-icons/fa';
 import { getClients, createClient, updateClient } from '../../api/clients';
+import { ZONES } from '../../constants/zones';
+
+// ============================================================
+// ✅ Helpers
+// ============================================================
+const formatPhoneInput = (value) => {
+  const digitsOnly = String(value || '').replace(/[^0-9]/g, '');
+  return digitsOnly.slice(0, 8);
+};
+
+const handlePhoneKeyDown = (e) => {
+  const allowedKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End',
+  ];
+
+  if (allowedKeys.includes(e.key)) return;
+  if (e.ctrlKey || e.metaKey) return;
+
+  if (!/^[0-9]$/.test(e.key)) {
+    e.preventDefault();
+  }
+};
 
 /**
- * ✅ Sélecteur de client intelligent
- * - Détection automatique du type de recherche :
- *   • 8+ chiffres → recherche par téléphone (phone1 OU phone2)
- *   • Format "C001" / "001" / "1" → recherche par code client
- * - Création inline : Nom complet, Téléphone 1, Téléphone 2, Adresse
- * - Modification inline avec le même formulaire
+ * ✅ Sélecteur de client avec suggestions
+ * - Liste déroulante au fur et à mesure de la saisie
+ * - Recherche dans téléphone 1, téléphone 2, code client
+ * - Sélection par clic (pas d'auto-sélection)
+ * - Création inline possible
+ * - ✅ Limité à 8 chiffres max
  */
 const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [foundClient, setFoundClient] = useState(null);
-  const [clientNotFound, setClientNotFound] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // ✅ Champs : nom (complet), phone, phone2, adresse
-  const [formData, setFormData] = useState({
-    nom: '',
-    phone: '',
-    phone2: '',
-    adresse: '',
-  });
+ const [formData, setFormData] = useState({
+  nom: '',
+  phone: '',
+  phone2: '',
+  adresse: '',
+  zone: '',
+});
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const containerRef = useRef(null);
 
   // ============================================================
   // CHARGEMENT INITIAL
@@ -64,120 +90,103 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   }, [value, clients]);
 
   // ============================================================
-  // ✅ DÉTECTION DU TYPE DE RECHERCHE
-  // (uniquement CODE ou TÉLÉPHONE)
+  // FERMER LA LISTE AU CLIC EXTÉRIEUR
   // ============================================================
-  const detectSearchType = (term) => {
-    const trimmed = term.trim();
-    const cleanDigits = trimmed.replace(/[^0-9]/g, '');
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    // ✅ Code client explicite : "C001", "c001", "C 001"
-    if (/^[Cc]\s*\d{1,5}$/.test(trimmed)) {
-      return { type: 'code', value: cleanDigits.padStart(3, '0') };
-    }
+  // ============================================================
+  // ✅ FILTRER LES CLIENTS SELON LA SAISIE
+  // ============================================================
+  const getSuggestions = () => {
+    const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
 
-    // ✅ Nombre pur de 1-3 chiffres → probablement un code client ("5", "05", "005")
-    if (/^\d{1,3}$/.test(trimmed) && cleanDigits.length <= 3) {
-      return { type: 'code', value: cleanDigits.padStart(3, '0') };
-    }
+    if (cleanDigits.length === 0) return [];
 
-    // ✅ 8+ chiffres → téléphone
-    if (cleanDigits.length >= 8) {
-      return { type: 'phone', value: cleanDigits };
-    }
+    return clients.filter((c) => {
+      const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
+      const cPhone2 = (c.phone2 || '').replace(/[^0-9]/g, '');
+      const cCode = (c.code || '').replace(/[^0-9]/g, '');
 
-    // ✅ Sinon → indéterminé (pas de recherche)
-    return { type: 'unknown', value: trimmed };
+      if (cPhone.includes(cleanDigits)) return true;
+      if (cPhone2 && cPhone2.includes(cleanDigits)) return true;
+      if (cCode && cCode.includes(cleanDigits)) return true;
+
+      return false;
+    });
+  };
+
+  const suggestions = getSuggestions();
+  const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
+
+  // ============================================================
+  // SAISIE
+  // ============================================================
+  const handleSearchChange = (val) => {
+    // ✅ Limiter à 8 chiffres max (chiffres uniquement)
+    const limited = formatPhoneInput(val);
+
+    setSearchTerm(limited);
+    setError('');
+    setShowSuggestions(true);
   };
 
   // ============================================================
-  // RECHERCHE INTELLIGENTE (code OU téléphone uniquement)
+  // SÉLECTIONNER UN CLIENT
   // ============================================================
-  const handleSearch = (val) => {
-    setSearchTerm(val);
-    setClientNotFound(false);
-    setFoundClient(null);
-    setError('');
-
-    const { type, value } = detectSearchType(val);
-
-    // Ne pas chercher tant que la saisie est trop courte
-    if (type === 'unknown') return;
-    if (type === 'phone' && value.length < 8) return;
-    if (type === 'code' && value.length < 1) return;
-
-    let client = null;
-
-    if (type === 'code') {
-      // ✅ Recherche par code client
-      client = clients.find((c) => {
-        const cCode = (c.code || '').replace(/[^0-9]/g, '');
-        return cCode === value;
-      });
-    } else if (type === 'phone') {
-      // ✅ Recherche par téléphone (phone OU phone2)
-      client = clients.find((c) => {
-        const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
-        const cPhone2 = (c.phone2 || '').replace(/[^0-9]/g, '');
-        return (
-          cPhone.includes(value) ||
-          value.includes(cPhone) ||
-          (cPhone2 && (cPhone2.includes(value) || value.includes(cPhone2)))
-        );
-      });
-    }
-
-    if (client) {
-      setFoundClient(client);
-      onChange(client._id);
-      onClientChange?.(client);
-    } else {
-      setClientNotFound(true);
-      // Pré-remplir le formulaire avec les données saisies
-      setFormData({
-        nom: '',
-        phone: type === 'phone' ? val : '',
-        phone2: '',
-        adresse: '',
-      });
-    }
+  const handleSelectClient = (client) => {
+    setFoundClient(client);
+    onChange(client._id);
+    onClientChange?.(client);
+    setSearchTerm(client.code || client.phone || '');
+    setShowSuggestions(false);
   };
 
   // ============================================================
   // OUVRIR LE FORMULAIRE DE CRÉATION
   // ============================================================
-  const handleOpenCreate = () => {
-    const { type } = detectSearchType(searchTerm);
-    setFormData({
-      nom: '',
-      phone: type === 'phone' ? searchTerm : '',
-      phone2: '',
-      adresse: '',
-    });
-    setIsEditMode(false);
-    setShowForm(true);
-    setError('');
-  };
+const handleOpenCreate = () => {
+  const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
+  setFormData({
+    nom: '',
+    phone: cleanDigits.length >= 8 ? searchTerm : '',
+    phone2: '',
+    adresse: '',
+    zone: '',
+  });
+  setIsEditMode(false);
+  setShowForm(true);
+  setShowSuggestions(false);
+  setError('');
+};
 
   // ============================================================
   // OUVRIR LE FORMULAIRE DE MODIFICATION
   // ============================================================
-  const handleOpenEdit = () => {
-    if (!foundClient) return;
+const handleOpenEdit = () => {
+  if (!foundClient) return;
 
-    setFormData({
-      nom: foundClient.nom || '',
-      phone: foundClient.phone || '',
-      phone2: foundClient.phone2 || '',
-      adresse: foundClient.adresse || '',
-    });
-    setIsEditMode(true);
-    setShowForm(true);
-    setError('');
-  };
+  setFormData({
+    nom: foundClient.nom || '',
+    phone: foundClient.phone || '',
+    phone2: foundClient.phone2 || '',
+    adresse: foundClient.adresse || '',
+    zone: foundClient.zone || '',
+  });
+  setIsEditMode(true);
+  setShowForm(true);
+  setError('');
+};
 
   // ============================================================
-  // ENREGISTRER (création OU modification)
+  // ENREGISTRER
   // ============================================================
   const handleSave = async () => {
     if (!formData.nom.trim()) {
@@ -214,7 +223,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
 
       setShowForm(false);
       setIsEditMode(false);
-      setClientNotFound(false);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -240,76 +248,45 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   const handleClear = () => {
     setSearchTerm('');
     setFoundClient(null);
-    setClientNotFound(false);
+    setShowSuggestions(false);
     setShowForm(false);
     setIsEditMode(false);
     onChange('');
     onClientChange?.(null);
   };
 
-  // ============================================================
-  // INDICATEURS VISUELS
-  // ============================================================
-  const { type: searchType } = detectSearchType(searchTerm);
-  const digitsCount = searchTerm.replace(/[^0-9]/g, '').length;
-
-  const getSearchPlaceholder = () =>
-    'Téléphone ou code client (ex: C001)...';
-
-  const getSearchIcon = () => {
-    if (searchType === 'code') return <FaIdCard size={12} />;
-    return <FaSearch size={12} />;
-  };
-
-  const getHintText = () => {
-    if (searchType === 'phone' && digitsCount > 0 && digitsCount < 8) {
-      return `${digitsCount}/8 chiffres - Complétez le numéro de téléphone`;
-    }
-    if (searchType === 'code' && searchTerm) {
-      const cleanCode = searchTerm.replace(/[^0-9]/g, '').padStart(3, '0');
-      return `Recherche par code : C${cleanCode}`;
-    }
-    if (searchType === 'unknown' && searchTerm.length > 0) {
-      return 'Saisissez un code (ex: C001) ou un numéro (8 chiffres)';
-    }
-    return null;
-  };
-
-  const hintText = getHintText();
-
   return (
-    <div>
+    <div ref={containerRef}>
       <label className="form-label-modern">
         Rechercher un client <span style={{ color: 'var(--danger)' }}>*</span>
       </label>
 
-      {/* ============================================================ */}
-      {/* CHAMP DE RECHERCHE INTELLIGENT */}
-      {/* ============================================================ */}
+      {/* CHAMP DE RECHERCHE */}
       <div style={{ position: 'relative' }}>
-        <div
+        <FaSearch
           style={{
             position: 'absolute',
             left: '14px',
             top: '50%',
             transform: 'translateY(-50%)',
-            color:
-              searchType === 'code'
-                ? 'var(--primary)'
-                : searchType === 'phone'
-                  ? 'var(--info)'
-                  : 'var(--gray-400)',
+            color: 'var(--gray-400)',
+            fontSize: '12px',
             pointerEvents: 'none',
-            transition: 'color 150ms ease',
           }}
-        >
-          {getSearchIcon()}
-        </div>
+        />
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder={getSearchPlaceholder()}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onKeyDown={handlePhoneKeyDown}
+          onFocus={() => {
+            if (!foundClient && cleanDigits.length > 0) {
+              setShowSuggestions(true);
+            }
+          }}
+          maxLength={8}
+          inputMode="numeric"
+          placeholder="Tapez le téléphone ou le code..."
           className="form-control-modern"
           style={{
             paddingLeft: '38px',
@@ -339,71 +316,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         )}
       </div>
 
-      {/* ============================================================ */}
-      {/* BADGE : TYPE DE RECHERCHE DÉTECTÉ */}
-      {/* ============================================================ */}
-      {!foundClient && searchType === 'code' && searchTerm && (
-        <div
-          style={{
-            marginTop: '6px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '3px 10px',
-            background: 'var(--primary-light)',
-            color: 'var(--primary)',
-            borderRadius: '12px',
-            fontSize: '10.5px',
-            fontWeight: '700',
-            letterSpacing: '0.3px',
-          }}
-        >
-          <FaIdCard size={9} />
-          RECHERCHE PAR CODE
-        </div>
-      )}
-
-      {!foundClient && searchType === 'phone' && digitsCount >= 8 && (
-        <div
-          style={{
-            marginTop: '6px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '3px 10px',
-            background: 'var(--info-light)',
-            color: 'var(--info)',
-            borderRadius: '12px',
-            fontSize: '10.5px',
-            fontWeight: '700',
-            letterSpacing: '0.3px',
-          }}
-        >
-          <FaPhone size={9} />
-          RECHERCHE PAR TÉLÉPHONE
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* AIDE CONTEXTUELLE */}
-      {/* ============================================================ */}
-      {!foundClient && hintText && (
-        <div
-          style={{
-            marginTop: '6px',
-            fontSize: '11.5px',
-            color: 'var(--gray-500)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span>💡</span>
-          <span>{hintText}</span>
-        </div>
-      )}
-
-      {/* Astuce quand vide */}
+      {/* AIDE QUAND VIDE */}
       {!foundClient && !searchTerm && (
         <div
           style={{
@@ -417,15 +330,183 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         >
           <span>💡</span>
           <span>
-            Tapez un <strong>numéro de téléphone</strong> (8 chiffres) ou un{' '}
-            <strong>code client</strong> (ex: C001)
+            Tapez les <strong>chiffres du téléphone</strong> (max 8) ou le{' '}
+            <strong>code client</strong> (ex: 001)
           </span>
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* CLIENT TROUVÉ */}
-      {/* ============================================================ */}
+      {/* COMPTEUR */}
+      {!foundClient && searchTerm && (
+        <div
+          style={{
+            marginTop: '4px',
+            fontSize: '10.5px',
+            color: cleanDigits.length === 8 ? 'var(--success)' : 'var(--gray-500)',
+          }}
+        >
+          {cleanDigits.length}/8 chiffres
+        </div>
+      )}
+
+      {/* LISTE DE SUGGESTIONS */}
+      {!foundClient && showSuggestions && cleanDigits.length > 0 && (
+        <div
+          style={{
+            marginTop: '6px',
+            background: 'white',
+            border: '1px solid var(--gray-200)',
+            borderRadius: '10px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            maxHeight: '240px',
+            overflowY: 'auto',
+            zIndex: 100,
+          }}
+        >
+          {suggestions.length > 0 ? (
+            <>
+              <div
+                style={{
+                  padding: '6px 12px',
+                  background: 'var(--gray-50)',
+                  fontSize: '10.5px',
+                  fontWeight: '700',
+                  color: 'var(--gray-500)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  borderBottom: '1px solid var(--gray-200)',
+                  position: 'sticky',
+                  top: 0,
+                }}
+              >
+                {suggestions.length} client(s) trouvé(s)
+              </div>
+              {suggestions.slice(0, 10).map((client) => (
+                <div
+                  key={client._id}
+                  onClick={() => handleSelectClient(client)}
+                  style={{
+                    padding: '10px 14px',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid var(--gray-100)',
+                    transition: 'background 100ms ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--primary-light)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: 'var(--gray-800)',
+                        }}
+                      >
+                        {client.nom}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--gray-500)',
+                          marginTop: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        {client.code && (
+                          <span
+                            style={{
+                              background: 'var(--primary-light)',
+                              color: 'var(--primary)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontFamily: 'monospace',
+                              fontWeight: '700',
+                              fontSize: '10px',
+                            }}
+                          >
+                            {client.code}
+                          </span>
+                        )}
+                        {client.phone && <span>📞 {client.phone}</span>}
+                        {client.phone2 && <span>📞 {client.phone2}</span>}
+                      </div>
+                    </div>
+                    <FaCheckCircle
+                      size={14}
+                      style={{ color: 'var(--primary)', flexShrink: 0 }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {suggestions.length > 10 && (
+                <div
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '11px',
+                    color: 'var(--gray-500)',
+                    textAlign: 'center',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  +{suggestions.length - 10} autre(s)... Affinez votre saisie
+                </div>
+              )}
+            </>
+          ) : (
+            /* AUCUN CLIENT TROUVÉ */
+            <div
+              style={{
+                padding: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <FaExclamationTriangle
+                size={14}
+                style={{ color: 'var(--warning)', flexShrink: 0 }}
+              />
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'var(--warning)',
+                }}
+              >
+                Aucun client ne correspond à "{searchTerm}"
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenCreate}
+                className="btn-modern btn-modern-primary"
+                style={{ fontSize: '11.5px', padding: '6px 12px' }}
+              >
+                <FaUserPlus size={10} /> Créer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CLIENT SÉLECTIONNÉ */}
       {foundClient && (
         <div
           style={{
@@ -528,51 +609,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* CLIENT NON TROUVÉ */}
-      {/* ============================================================ */}
-      {clientNotFound && !foundClient && !showForm && (
-        <div
-          style={{
-            marginTop: '10px',
-            padding: '10px 14px',
-            background: 'var(--warning-light)',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <FaExclamationTriangle
-            size={14}
-            style={{ color: 'var(--warning)', flexShrink: 0 }}
-          />
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              fontSize: '12px',
-              fontWeight: '600',
-              color: 'var(--warning)',
-            }}
-          >
-            Aucun client trouvé
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="btn-modern btn-modern-primary"
-            style={{ fontSize: '11.5px', padding: '6px 12px' }}
-          >
-            <FaUserPlus size={10} /> Créer
-          </button>
-        </div>
-      )}
-
-      {/* ============================================================ */}
       {/* FORMULAIRE (création OU modification) */}
-      {/* ============================================================ */}
       {showForm && (
         <div
           style={{
@@ -583,7 +620,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             border: '1px solid var(--gray-200)',
           }}
         >
-          {/* Titre */}
           <div
             style={{
               display: 'flex',
@@ -619,7 +655,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             </div>
           </div>
 
-          {/* Erreur */}
           {error && (
             <div
               style={{
@@ -636,9 +671,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             </div>
           )}
 
-          {/* Champs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* Nom complet */}
             <div>
               <label className="form-label-modern">
                 Nom complet <span style={{ color: 'var(--danger)' }}>*</span>
@@ -656,7 +689,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               />
             </div>
 
-            {/* Téléphone + Téléphone 2 */}
             <div className="row g-2">
               <div className="col-12 col-sm-6">
                 <label className="form-label-modern">
@@ -666,12 +698,27 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
+                    setFormData({
+                      ...formData,
+                      phone: formatPhoneInput(e.target.value),
+                    })
                   }
+                  onKeyDown={handlePhoneKeyDown}
+                  maxLength={8}
+                  inputMode="numeric"
                   placeholder="Ex: 20 123 456"
                   className="form-control-modern"
                   style={{ width: '100%' }}
                 />
+                <div
+                  style={{
+                    fontSize: '10.5px',
+                    color: formData.phone.length === 8 ? 'var(--success)' : 'var(--gray-500)',
+                    marginTop: '4px',
+                  }}
+                >
+                  {formData.phone.length}/8 chiffres
+                </div>
               </div>
               <div className="col-12 col-sm-6">
                 <label className="form-label-modern">Deuxième téléphone</label>
@@ -679,8 +726,14 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   type="tel"
                   value={formData.phone2}
                   onChange={(e) =>
-                    setFormData({ ...formData, phone2: e.target.value })
+                    setFormData({
+                      ...formData,
+                      phone2: formatPhoneInput(e.target.value),
+                    })
                   }
+                  onKeyDown={handlePhoneKeyDown}
+                  maxLength={8}
+                  inputMode="numeric"
                   placeholder="Ex: 55 789 123"
                   className="form-control-modern"
                   style={{ width: '100%' }}
@@ -688,23 +741,41 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               </div>
             </div>
 
-            {/* Adresse */}
             <div>
-              <label className="form-label-modern">Adresse</label>
-              <input
-                type="text"
-                value={formData.adresse}
-                onChange={(e) =>
-                  setFormData({ ...formData, adresse: e.target.value })
-                }
-                placeholder="Ex: Av Habib Bourguiba, Hawaria"
-                className="form-control-modern"
-                style={{ width: '100%' }}
-              />
-            </div>
+  <label className="form-label-modern">Adresse</label>
+  <input
+    type="text"
+    value={formData.adresse}
+    onChange={(e) =>
+      setFormData({ ...formData, adresse: e.target.value })
+    }
+    placeholder="Ex: Av Habib Bourguiba, Hawaria"
+    className="form-control-modern"
+    style={{ width: '100%' }}
+  />
+</div>
+
+{/* ✅ NOUVEAU : Zone */}
+<div>
+  <label className="form-label-modern">
+    Zone <span style={{ fontSize: '11px', color: 'var(--gray-500)', fontWeight: '400' }}>(optionnel)</span>
+  </label>
+  <select
+    value={formData.zone}
+    onChange={(e) =>
+      setFormData({ ...formData, zone: e.target.value })
+    }
+    className="form-control-modern"
+    style={{ width: '100%' }}
+  >
+    <option value="">— Sélectionnez une zone —</option>
+    {ZONES.map((z) => (
+      <option key={z} value={z}>{z}</option>
+    ))}
+  </select>
+</div>
           </div>
 
-          {/* Boutons */}
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
             <button
               type="button"

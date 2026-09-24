@@ -34,19 +34,17 @@ const FIELD_LABELS = {
   reparateur: "Réparateur",
   problemeDeclare: "Problème déclaré",
   panneType: "Type de panne",
-  marque: "Marque / Modèle",
+  marque: "Marque",
   modele: "Modèle",
   note: "Note",
   observations: "Observation",
-  accessoires: "Accessoires",
   datePrevisionnelle: "Date prévisionnelle",
   categorie: "Catégorie",
   objet: "Objet",
   client: "Client",
   observation: "Observation",
   diagnosticImprevus: "Diagnostic & Imprévus",
-    smsEnvoye: "SMS envoyé",
-
+  smsEnvoye: "SMS envoyé",
 };
 
 // ✅ Constante du délai d'alerte
@@ -133,26 +131,34 @@ const ReparationDetail = () => {
       const obj = objets.find((o) => o._id === String(value));
       return obj?.nom || String(value);
     }
-    if (field === "panneType") {
-      const labels = {
-        lcd: "Écran (LCD)",
-        touch: "Tactile / Vitre",
-        battery: "Batterie",
-        charging_port: "Connecteur de charge",
-        camera_front: "Caméra frontale",
-        camera_back: "Caméra arrière",
-        speaker: "Haut-parleur",
-        microphone: "Microphone",
-        headphone: "Jack audio",
-        button_power: "Bouton Power",
-        button_volume: "Boutons volume",
-        software: "Logiciel / Système",
-        water_damage: "Dégât d'eau",
-        network: "Réseau / Signal",
-        other: "Autre",
-      };
-      return labels[value] || value;
-    }
+   if (field === "panneType") {
+  // ✅ Cas tableau (nouveau format)
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(", ") : "—";
+  }
+  // ✅ Cas string (ancien format ou migration)
+  if (typeof value === "string") {
+    const labels = {
+      lcd: "Écran (LCD)",
+      touch: "Tactile / Vitre",
+      battery: "Batterie",
+      charging_port: "Connecteur de charge",
+      camera_front: "Caméra frontale",
+      camera_back: "Caméra arrière",
+      speaker: "Haut-parleur",
+      microphone: "Microphone",
+      headphone: "Jack audio",
+      button_power: "Bouton Power",
+      button_volume: "Boutons volume",
+      software: "Logiciel / Système",
+      water_damage: "Dégât d'eau",
+      network: "Réseau / Signal",
+      other: "Autre",
+    };
+    return labels[value] || value;
+  }
+  return "—";
+}
     if (field === "observations") {
       if (Array.isArray(value)) {
         return value
@@ -1076,33 +1082,34 @@ const alertInfo = useMemo(() => {
                   </span>
                 </div>
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "8px 0",
-                    borderTop: "1px solid var(--gray-100)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "12.5px",
-                      color: "var(--gray-500)",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Marque / Modèle
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "var(--gray-800)",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {reparation.marque} {reparation.modele}
-                  </span>
-                </div>
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 0",
+    borderTop: "1px solid var(--gray-100)",
+  }}
+>
+  <span
+    style={{
+      fontSize: "12.5px",
+      color: "var(--gray-500)",
+      fontWeight: "500",
+    }}
+  >
+    Marque / Modèle
+  </span>
+  <span
+    style={{
+      fontSize: "13px",
+      color: "var(--gray-800)",
+      fontWeight: "600",
+    }}
+  >
+    {/* ✅ CORRIGÉ : marque?.nom et modele?.nom */}
+    {reparation.marque?.nom || "-"} {reparation.modele?.nom || ""}
+  </span>
+</div>
             
               </div>
             </div>
@@ -1159,21 +1166,23 @@ const alertInfo = useMemo(() => {
                 >
                   🔧 Type de panne
                 </div>
-                <div
-                  style={{
-                    padding: "12px 16px",
-                    background: "var(--warning-light)",
-                    borderRadius: "10px",
-                    borderLeft: "4px solid var(--warning)",
-                    fontSize: "13.5px",
-                    color: "var(--gray-800)",
-                    fontWeight: "600",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {resolveValue("panneType", reparation.panneType) ||
-                    "Non défini"}
-                </div>
+               <div
+  style={{
+    padding: "12px 16px",
+    background: "var(--warning-light)",
+    borderRadius: "10px",
+    borderLeft: "4px solid var(--warning)",
+    fontSize: "13.5px",
+    color: "var(--gray-800)",
+    fontWeight: "600",
+    lineHeight: 1.6,
+  }}
+>
+  {/* ✅ panneType est maintenant un tableau */}
+  {Array.isArray(reparation.panneType) && reparation.panneType.length > 0
+    ? reparation.panneType.join(", ")
+    : "Non défini"}
+</div>
               </div>
               <div style={{ marginBottom: "14px" }}>
                 <div

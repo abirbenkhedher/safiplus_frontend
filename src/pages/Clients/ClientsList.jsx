@@ -163,23 +163,29 @@ const ClientsList = () => {
         </span>
       ),
     },
-    {
-      name: 'Client',
-      selector: (row) => row.nom,
-      sortable: true,
-      grow: 2,
-      minWidth: '220px',
-      cell: (row) => (
-        <div>
-          <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
-          {row.adresse && (
-            <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
-              📍 {row.adresse}
-            </div>
-          )}
+   {
+  name: 'Client',
+  selector: (row) => row.nom,
+  sortable: true,
+  grow: 2,
+  minWidth: '220px',
+  cell: (row) => (
+    <div>
+      <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
+      {row.adresse && (
+        <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
+          📍 {row.adresse}
         </div>
-      ),
-    },
+      )}
+      {/* ✅ NOUVEAU : Zone */}
+      {row.zone && (
+        <div style={{ fontSize: '10.5px', color: 'var(--gray-400)', marginTop: '2px' }}>
+          🗺️ {row.zone}
+        </div>
+      )}
+    </div>
+  ),
+},
     {
       name: 'Contact',
       sortable: true,

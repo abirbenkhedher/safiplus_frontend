@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { 
-  FaQrcode, FaDownload, FaPrint, FaCopy, 
+import {
+  FaQrcode, FaDownload, FaPrint, FaCopy,
   FaCheck, FaTools, FaUser, FaCalendarAlt,
   FaMoneyBillWave, FaHourglassHalf
 } from 'react-icons/fa';
@@ -14,16 +14,24 @@ const ReparationQRCode = ({ reparation }) => {
   const [copied, setCopied] = React.useState(false);
   const qrRef = React.useRef(null);
 
- // ✅ Construire l'URL publique du QR Code
-const qrData = useMemo(() => {
-  if (!reparation) return "";
+  // ✅ Helper : extrait le nom d'un champ (objet populé OU string)
+  const getNom = (field) => {
+    if (!field) return '';
+    if (typeof field === 'string') return field;
+    if (typeof field === 'object' && field.nom) return field.nom;
+    return '';
+  };
 
-  // ✅ URL de base du frontend
-  const baseUrl = window.location.origin;
-  
-  // ✅ URL de la page publique de suivi
-  return `${baseUrl}/suivi/${reparation.numero}`;
-}, [reparation]);
+  // ✅ Construire l'URL publique du QR Code
+  const qrData = useMemo(() => {
+    if (!reparation) return '';
+
+    // ✅ URL de base du frontend
+    const baseUrl = window.location.origin;
+
+    // ✅ URL de la page publique de suivi
+    return `${baseUrl}/suivi/${reparation.numero}`;
+  }, [reparation]);
 
   // ✅ Télécharger le QR Code en PNG
   const downloadQR = () => {
@@ -59,6 +67,9 @@ const qrData = useMemo(() => {
     if (!svg) return;
 
     const svgData = new XMLSerializer().serializeToString(svg);
+    const marqueNom = getNom(reparation.marque);
+    const modeleNom = getNom(reparation.modele);
+
     const win = window.open('', '_blank');
     win.document.write(`
       <html>
@@ -94,7 +105,7 @@ const qrData = useMemo(() => {
           <h1>${reparation.numero}</h1>
           <div class="qr">${svgData}</div>
           <div class="info">
-            ${reparation.client?.nom || ''} - ${reparation.marque || ''} ${reparation.modele || ''}
+            ${reparation.client?.nom || ''} - ${marqueNom} ${modeleNom}
           </div>
           <script>window.onload = () => { setTimeout(() => window.print(), 500); }</script>
         </body>
@@ -114,11 +125,15 @@ const qrData = useMemo(() => {
 
   const reste = (reparation.prix || 0) - (reparation.acompte || 0);
 
+  // ✅ Noms de marque et modèle extraits correctement
+  const marqueNom = getNom(reparation.marque);
+  const modeleNom = getNom(reparation.modele);
+
   return (
     <div className="card-modern" style={{ height: '100%', padding: '24px' }}>
       {/* Header */}
-      <div style={{ 
-        display: 'flex', alignItems: 'center', gap: '10px', 
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
         marginBottom: '20px', paddingBottom: '12px',
         borderBottom: '1px solid var(--gray-100)',
       }}>
@@ -136,7 +151,7 @@ const qrData = useMemo(() => {
 
       {/* QR Code centré */}
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <div 
+        <div
           ref={qrRef}
           style={{
             display: 'inline-block',
@@ -156,15 +171,15 @@ const qrData = useMemo(() => {
             fgColor="#1e293b"
           />
         </div>
-       <p style={{ 
-  fontSize: '11.5px', 
-  color: 'var(--gray-500)', 
-  marginTop: '12px',
-  marginBottom: 0,
-  textAlign: 'center',
-}}>
-  📱 Scannez pour suivre votre réparation
-</p>
+        <p style={{
+          fontSize: '11.5px',
+          color: 'var(--gray-500)',
+          marginTop: '12px',
+          marginBottom: 0,
+          textAlign: 'center',
+        }}>
+          📱 Scannez pour suivre votre réparation
+        </p>
       </div>
 
       {/* Résumé compact */}
@@ -175,7 +190,7 @@ const qrData = useMemo(() => {
         marginBottom: '16px',
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Appareil */}
+          {/* ✅ Appareil — CORRIGÉ */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
               width: '28px', height: '28px', borderRadius: '8px',
@@ -190,7 +205,8 @@ const qrData = useMemo(() => {
                 Appareil
               </div>
               <div style={{ fontSize: '12.5px', color: 'var(--gray-800)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {reparation.marque} {reparation.modele}
+                {/* ✅ Utilise marqueNom et modeleNom (extraits) */}
+                {marqueNom || '-'} {modeleNom}
               </div>
             </div>
           </div>
@@ -257,10 +273,10 @@ const qrData = useMemo(() => {
               <div style={{ fontSize: '12.5px', color: 'var(--gray-800)', fontWeight: '600' }}>
                 Total: {(reparation.prix || 0).toFixed(2)} DT
               </div>
-              <div style={{ 
-                fontSize: '11.5px', 
-                color: reste > 0 ? 'var(--danger)' : 'var(--success)', 
-                fontWeight: '600' 
+              <div style={{
+                fontSize: '11.5px',
+                color: reste > 0 ? 'var(--danger)' : 'var(--success)',
+                fontWeight: '600'
               }}>
                 {reste > 0 ? `Reste: ${reste.toFixed(2)} DT` : '✓ Payé'}
               </div>

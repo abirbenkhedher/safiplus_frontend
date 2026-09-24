@@ -167,14 +167,24 @@ const ClientDetail = () => {
                   </div>
                 )}
 
-                {client.adresse && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
-                    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
-                      {client.adresse}
-                    </span>
-                  </div>
-                )}
+              {client.adresse && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
+      {client.adresse}
+    </span>
+  </div>
+)}
+
+{/* ✅ NOUVEAU : Zone */}
+{client.zone && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
+      🗺️ {client.zone}
+    </span>
+  </div>
+)}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <FaCalendarAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />

@@ -205,23 +205,90 @@ const ReparationsList = () => {
         </div>
       ),
     },
-    {
-      name: "Appareil",
-      selector: (row) => `${row.marque} ${row.modele}`,
-      sortable: true,
-      grow: 1.5,
-      minWidth: "180px",
-      cell: (row) => (
-        <div>
-          <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
-            {row.marque} {row.modele}
-          </div>
-          <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-            {row.objet?.nom}
-          </div>
-        </div>
-      ),
-    },
+ {
+  name: "Appareil",
+  selector: (row) => `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
+  sortable: true,
+  grow: 1.5,
+  minWidth: "180px",
+  cell: (row) => (
+    <div>
+      <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
+        {/* ✅ CORRIGÉ : marque?.nom et modele?.nom */}
+        {row.marque?.nom || "-"} {row.modele?.nom || ""}
+      </div>
+      <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
+        {row.objet?.nom}
+      </div>
+    </div>
+  ),
+},
+
+// ✅ NOUVELLE COLONNE : Panne(s)
+{
+  name: "Panne(s)",
+  selector: (row) => {
+    if (Array.isArray(row.panneType)) {
+      return row.panneType.join(", ");
+    }
+    return row.panneType || "";
+  },
+  sortable: true,
+  grow: 1.5,
+  minWidth: "200px",
+  cell: (row) => {
+    const pannes = Array.isArray(row.panneType)
+      ? row.panneType
+      : row.panneType
+        ? [row.panneType]
+        : [];
+
+    if (pannes.length === 0) {
+      return (
+        <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>
+          -
+        </span>
+      );
+    }
+
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+        {pannes.slice(0, 2).map((p, i) => (
+          <span
+            key={i}
+            style={{
+              padding: "2px 8px",
+              background: "var(--warning-light)",
+              color: "var(--warning)",
+              borderRadius: "8px",
+              fontSize: "10.5px",
+              fontWeight: "600",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {p}
+          </span>
+        ))}
+        {pannes.length > 2 && (
+          <span
+            style={{
+              padding: "2px 8px",
+              background: "var(--gray-200)",
+              color: "var(--gray-700)",
+              borderRadius: "8px",
+              fontSize: "10.5px",
+              fontWeight: "700",
+              whiteSpace: "nowrap",
+            }}
+            title={pannes.slice(2).join(", ")}
+          >
+            +{pannes.length - 2}
+          </span>
+        )}
+      </div>
+    );
+  },
+},
     {
       name: "Statut",
       selector: (row) => row.status?.label,
@@ -431,7 +498,7 @@ const ReparationsList = () => {
               name="search"
               className="form-control-modern"
               style={{ paddingLeft: "40px", width: "100%", height: "42px" }}
-              placeholder="Rechercher : N°, client, téléphone, marque..."
+              placeholder="Rechercher : N°, client, téléphone, marque, panne..."
               value={filters.search}
               onChange={handleFilterChange}
             />
