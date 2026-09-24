@@ -23,7 +23,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 import "./styles/theme.css";
 import SuiviPublic from "./pages/Reparations/SuiviPublic";
-
+import MarquesCRUD from './pages/marques/MarquesCRUD';
+import ModelesCRUD from './pages/modeles/ModelesCRUD';
 function App() {
   return (
     <AuthProvider>
@@ -116,6 +117,25 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path="marques"
+              element={
+                <ProtectedRoute permission="marques">
+                  <MarquesCRUD/>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="modeles"
+              element={
+                <ProtectedRoute permission="modeles">
+                  <ModelesCRUD/>
+                </ProtectedRoute>
+              }
+            />
+
 
             {/* Administration */}
             <Route

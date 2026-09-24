@@ -51,13 +51,13 @@ const ReparationModal = ({
   const [success, setSuccess] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
-
-  // ✅ NOUVEAU : Case à cocher Envoyer SMS
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  const { categories, objets, statuses, reparateurs } = useReparationData();
+  // ✅ Charger marques et modeles via le hook
+  const { categories, objets, statuses, reparateurs, marques, modeles } =
+    useReparationData();
 
-  // ✅ Charger les données
+  // ✅ Charger les données du formulaire
   useEffect(() => {
     if (!show) return;
 
@@ -66,8 +66,15 @@ const ReparationModal = ({
         client: reparation.client?._id || "",
         categorie: reparation.categorie?._id || "",
         objet: reparation.objet?._id || "",
-        marque: reparation.marque || "",
-        modele: reparation.modele || "",
+        // ✅ Marque et modele : extraire _id du populate
+        marque:
+          typeof reparation.marque === "object" && reparation.marque !== null
+            ? reparation.marque._id
+            : reparation.marque || "",
+        modele:
+          typeof reparation.modele === "object" && reparation.modele !== null
+            ? reparation.modele._id
+            : reparation.modele || "",
         accessoires: reparation.accessoires || "",
         problemeDeclare: reparation.problemeDeclare || "",
         panneType: reparation.panneType || "",
@@ -175,7 +182,8 @@ const ReparationModal = ({
     if (!formData.client) return setError("Le client est obligatoire");
     if (!formData.categorie) return setError("La catégorie est obligatoire");
     if (!formData.objet) return setError("L'objet est obligatoire");
-    if (!formData.marque.trim()) return setError("La marque est obligatoire");
+    // ✅ Marque : ObjectId (pas de .trim())
+    if (!formData.marque) return setError("La marque est obligatoire");
     if (!formData.panneType) return setError("Le type de panne est obligatoire");
     if (!formData.note.trim()) return setError("La note est obligatoire");
     if (!formData.status) return setError("Le statut est obligatoire");
@@ -215,7 +223,8 @@ const ReparationModal = ({
   const printTicket = async (reparationId) => {
     try {
       const token = localStorage.getItem("accessToken");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const apiUrl =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -253,6 +262,25 @@ const ReparationModal = ({
   const imprevusEnAttente = (
     formData.diagnosticImprevus?.imprevus || []
   ).filter((i) => i.accepte === null || i.accepte === undefined).length;
+
+  // ✅ Filtrer marques selon l'objet sélectionné
+  const marquesFiltrees = marques.filter((m) => {
+    if (!formData.objet) return true;
+    // m.objet peut être un ObjectId ou un objet populé
+    const objetId =
+      typeof m.objet === "object" && m.objet !== null ? m.objet._id : m.objet;
+    return objetId === formData.objet;
+  });
+
+  // ✅ Filtrer modèles selon la marque sélectionnée
+  const modelesFiltres = modeles.filter((m) => {
+    if (!formData.marque) return true;
+    const marqueId =
+      typeof m.marque === "object" && m.marque !== null
+        ? m.marque._id
+        : m.marque;
+    return marqueId === formData.marque;
+  });
 
   return createPortal(
     <>
@@ -463,6 +491,7 @@ const ReparationModal = ({
                 color="var(--info)"
               >
                 <div className="row g-2">
+                  {/* Catégorie */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       Catégorie{" "}
@@ -478,6 +507,8 @@ const ReparationModal = ({
                       placeholder="Rechercher..."
                     />
                   </div>
+
+                  {/* Objet */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
                       Objet <span style={{ color: "var(--danger)" }}>*</span>
@@ -488,33 +519,65 @@ const ReparationModal = ({
                         label: o.nom,
                       }))}
                       value={formData.objet}
-                      onChange={(val) => handleFieldChange("objet", val)}
+                      onChange={(val) => {
+                        handleFieldChange("objet", val);
+                        handleFieldChange("marque", "");
+                        handleFieldChange("modele", "");
+                      }}
                       placeholder="Rechercher..."
                     />
                   </div>
                 </div>
 
                 <div className="row g-2" style={{ marginTop: "8px" }}>
+                  {/* Marque */}
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">
-                      Marque / Modèle{" "}
-                      <span style={{ color: "var(--danger)" }}>*</span>
+                      Marque <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
-                    <input
-                      type="text"
+                    <SearchSelect
+                      options={marquesFiltrees.map((m) => ({
+                        value: m._id,
+                        label: m.nom,
+                      }))}
                       value={formData.marque}
-                      onChange={(e) =>
-                        handleFieldChange("marque", e.target.value)
+                      onChange={(val) => {
+                        handleFieldChange("marque", val);
+                        handleFieldChange("modele", "");
+                      }}
+                      placeholder={
+                        formData.objet
+                          ? "Rechercher une marque..."
+                          : "Choisissez d'abord un objet"
                       }
-                      placeholder="Ex: Samsung Galaxy S23"
-                      className="form-control-modern"
-                      style={{ width: "100%" }}
+                      disabled={!formData.objet}
                     />
                   </div>
+
+                  {/* Modèle */}
                   <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">
-                      Accessoires
-                    </label>
+                    <label className="form-label-modern">Modèle</label>
+                    <SearchSelect
+                      options={modelesFiltres.map((m) => ({
+                        value: m._id,
+                        label: m.nom,
+                      }))}
+                      value={formData.modele}
+                      onChange={(val) => handleFieldChange("modele", val)}
+                      placeholder={
+                        formData.marque
+                          ? "Rechercher un modèle..."
+                          : "Choisissez d'abord une marque"
+                      }
+                      disabled={!formData.marque}
+                    />
+                  </div>
+                </div>
+
+                {/* Accessoires */}
+                <div className="row g-2" style={{ marginTop: "8px" }}>
+                  <div className="col-12">
+                    <label className="form-label-modern">Accessoires</label>
                     <input
                       type="text"
                       value={formData.accessoires}
@@ -692,7 +755,7 @@ const ReparationModal = ({
                   </div>
                 </div>
 
-                {/* ✅ Case à cocher Envoyer SMS */}
+                {/* Case à cocher Envoyer SMS */}
                 <div
                   style={{
                     marginTop: "16px",
@@ -811,7 +874,7 @@ const ReparationModal = ({
 };
 
 // ============================================================
-// ✅ Composant Section réutilisable
+// Composant Section réutilisable
 // ============================================================
 const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
   <div style={{ marginBottom: "20px" }}>
@@ -858,7 +921,7 @@ const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
 );
 
 // ============================================================
-// ✅ Composant Section repliable
+// Composant Section repliable
 // ============================================================
 const CollapsibleSection = ({
   icon,

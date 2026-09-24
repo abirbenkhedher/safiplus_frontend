@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
+import {
   FaHome, FaUsers, FaTools, FaMoneyBillWave,
-  FaTags, FaBoxes, FaCog, FaUserCog, FaHistory, 
-  FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight
+  FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
+  FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
+  FaTrademark, FaMobileAlt
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 // ✅ Import du logo — adaptez le chemin selon votre projet
@@ -33,6 +34,10 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/familles', icon: <FaTags />, label: 'Familles', module: 'familles' },
         { path: '/categories', icon: <FaBoxes />, label: 'Catégories', module: 'categories' },
         { path: '/objets', icon: <FaClipboardList />, label: 'Objets', module: 'objets' },
+        // ✅ NOUVEAU : Marques
+        { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
+        // ✅ NOUVEAU : Modèles
+        { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
       ]
     },
@@ -58,26 +63,25 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      <div 
-        className={`sidebar-overlay ${isOpen ? 'active' : ''}`} 
+      <div
+        className={`sidebar-overlay ${isOpen ? 'active' : ''}`}
         onClick={onClose}
       />
 
-      <aside 
+      <aside
         className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
       >
         {/* Header avec logo image */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            {/* ✅ Image à la place de l'icône FaWrench — même taille 40x40 */}
             <img src={logo} alt="Safi Info +" className="sidebar-logo-img" />
           </div>
           <div className="sidebar-brand">
             <h5>Safi Info +</h5>
             <small>Gestion</small>
           </div>
-          
-          <button 
+
+          <button
             className="sidebar-close-btn"
             onClick={onClose}
             aria-label="Fermer le menu"
@@ -95,7 +99,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             return (
               <div className="nav-section" key={idx}>
                 <div className="nav-section-title">{section.title}</div>
-                
+
                 {visibleItems.map((item) => (
                   <NavLink
                     key={item.path}
@@ -108,7 +112,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
                   >
                     <span className="nav-link-icon">{item.icon}</span>
                     <span className="nav-link-text">{item.label}</span>
-                    
+
                     {isCollapsed && (
                       <span className="nav-link-tooltip">{item.label}</span>
                     )}
@@ -119,7 +123,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           })}
         </nav>
 
-        <button 
+        <button
           className="sidebar-collapse-btn"
           onClick={onToggleCollapse}
           title={isCollapsed ? 'Déplier le menu' : 'Replier le menu'}
@@ -136,7 +140,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
               <div className="sidebar-user-name">
                 {user?.firstName} {user?.lastName}
               </div>
-              <div 
+              <div
                 className="sidebar-user-role"
                 style={{ color: getRoleColor(user?.role) }}
               >
@@ -195,7 +199,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           overflow: hidden;
         }
 
-        /* ✅ Image logo : même taille que l'icône, remplit le conteneur */
         .sidebar-logo-img {
           width: 100%;
           height: 100%;
@@ -342,7 +345,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           border-right-color: #1e293b;
         }
 
-        /* ✅ CORRECTION : en collapsed, les icônes restent visibles et centrées */
         .sidebar.collapsed .nav-link {
           justify-content: center;
           padding: 12px;
@@ -444,7 +446,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           letter-spacing: 0.3px;
         }
 
-        /* ✅ CORRECTION : on masque seulement le texte, PAS les icônes */
         .sidebar.collapsed .sidebar-brand,
         .sidebar.collapsed .nav-section-title,
         .sidebar.collapsed .nav-link-text,
@@ -453,7 +454,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           pointer-events: none;
         }
 
-        /* ✅ Les icônes doivent rester visibles */
         .sidebar.collapsed .nav-link-icon {
           opacity: 1 !important;
           pointer-events: auto !important;
