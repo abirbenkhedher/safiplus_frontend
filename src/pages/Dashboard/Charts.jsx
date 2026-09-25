@@ -26,6 +26,9 @@ const COLORS = [
   "#ec4899",
   "#14b8a6",
   "#f97316",
+  "#6b7280",
+  "#84cc16",
+  "#eab308",
 ];
 
 const Charts = ({ stats, chartsData }) => {
@@ -45,26 +48,23 @@ const Charts = ({ stats, chartsData }) => {
   // ============================================================
   // ✅ 2. ÉTAT DE PAIEMENT
   // ============================================================
-  // Calcul basé sur les réparations (prix vs acompte)
-// ✅ 2. ÉTAT DE PAIEMENT (depuis le backend)
-const paymentData = [
-  {
-    label: "Payé",
-    count: stats.paymentsStats?.paid || 0,
-    color: "#10b981",
-  },
-  {
-    label: "Acompte partiel",
-    count: stats.paymentsStats?.partial || 0,
-    color: "#f59e0b",
-  },
-  {
-    label: "Non payé",
-    count: stats.paymentsStats?.unpaid || 0,
-    color: "#ef4444",
-  },
-].filter(item => item.count > 0);
-
+  const paymentData = [
+    {
+      label: "Payé",
+      count: stats.paymentsStats?.paid || 0,
+      color: "#10b981",
+    },
+    {
+      label: "Acompte partiel",
+      count: stats.paymentsStats?.partial || 0,
+      color: "#f59e0b",
+    },
+    {
+      label: "Non payé",
+      count: stats.paymentsStats?.unpaid || 0,
+      color: "#ef4444",
+    },
+  ].filter(item => item.count > 0);
 
   // ============================================================
   // ✅ 3. ÉVOLUTION DES RÉPARATIONS
@@ -109,9 +109,16 @@ const paymentData = [
   // ============================================================
   const activiteData = stats.activiteReparateurs || [];
 
+  // ============================================================
+  // ✅ 6. TOP ZONES (Réparations par zone)
+  // ============================================================
+  const topZonesData = (stats.topZones || []).sort(
+    (a, b) => b.count - a.count
+  );
+
   // ✅ Styles
   const cardStyle = {
-    background: "white",
+    background: "var(--gray-50)",
     border: "1px solid var(--gray-200)",
     borderRadius: "16px",
     padding: "20px",
@@ -299,7 +306,6 @@ const paymentData = [
       {/* ========================================== */}
       {/* 2. RÉPARTITION PAR STATUT */}
       {/* ========================================== */}
-    
       <div className="col-12">
         <div style={cardStyle}>
           <div
@@ -325,7 +331,6 @@ const paymentData = [
 
           {statusData.length > 0 ? (
             <div className="row g-4 align-items-center">
-              {/* Camembert à gauche */}
               <div className="col-12 col-md-5">
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
@@ -365,7 +370,6 @@ const paymentData = [
                 </ResponsiveContainer>
               </div>
 
-              {/* Légende détaillée à droite */}
               <div className="col-12 col-md-7">
                 <div
                   style={{
@@ -392,7 +396,7 @@ const paymentData = [
                         key={index}
                         style={{
                           padding: "10px 14px",
-                          background: "var(--gray-50)",
+                          background: "white",
                           borderRadius: "10px",
                           display: "flex",
                           alignItems: "center",
@@ -406,12 +410,10 @@ const paymentData = [
                             "translateX(4px)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background =
-                            "var(--gray-50)";
+                          e.currentTarget.style.background = "white";
                           e.currentTarget.style.transform = "translateX(0)";
                         }}
                       >
-                        {/* Indicateur couleur */}
                         <div
                           style={{
                             width: "12px",
@@ -423,7 +425,6 @@ const paymentData = [
                           }}
                         />
 
-                        {/* Label */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
@@ -461,7 +462,6 @@ const paymentData = [
                           </div>
                         </div>
 
-                        {/* Nombre + % */}
                         <div
                           style={{
                             textAlign: "right",
@@ -503,8 +503,9 @@ const paymentData = [
           )}
         </div>
       </div>
-          {/* ========================================== */}
-      {/* 3. ÉTAT DE PAIEMENT - PLEINE LARGEUR */}
+
+      {/* ========================================== */}
+      {/* 3. ÉTAT DE PAIEMENT */}
       {/* ========================================== */}
       <div className="col-12">
         <div style={cardStyle}>
@@ -512,7 +513,6 @@ const paymentData = [
 
           {paymentData.length > 0 ? (
             <div className="row g-4 align-items-center">
-              {/* Camembert à gauche */}
               <div className="col-12 col-md-5">
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>
@@ -547,7 +547,6 @@ const paymentData = [
                 </ResponsiveContainer>
               </div>
 
-              {/* Légende détaillée à droite */}
               <div className="col-12 col-md-7">
                 <div
                   style={{
@@ -568,7 +567,7 @@ const paymentData = [
                       <div
                         key={index}
                         style={{
-                          background: "var(--gray-50)",
+                          background: "white",
                           padding: "14px 18px",
                           borderRadius: "12px",
                           display: "flex",
@@ -576,7 +575,6 @@ const paymentData = [
                           gap: "16px",
                         }}
                       >
-                        {/* Indicateur couleur */}
                         <div
                           style={{
                             width: "8px",
@@ -587,7 +585,6 @@ const paymentData = [
                           }}
                         />
 
-                        {/* Label */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
@@ -619,7 +616,6 @@ const paymentData = [
                           </div>
                         </div>
 
-                        {/* Nombre + % */}
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           <div
                             style={{
@@ -646,7 +642,6 @@ const paymentData = [
                   })}
                 </div>
 
-                {/* Résumé financier */}
                 <div
                   style={{
                     marginTop: "16px",
@@ -716,7 +711,234 @@ const paymentData = [
       </div>
 
       {/* ========================================== */}
-      {/* 4. TOP OBJETS */}
+      {/* ✅ 4. RÉPARTITION PAR ZONE (PLEINE LARGEUR) */}
+      {/* ========================================== */}
+      <div className="col-12">
+        <div style={cardStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            <h6 style={{ ...titleStyle, marginBottom: 0 }}>
+              🗺️ Réparations par zone
+            </h6>
+            <span
+              className="badge-modern badge-modern-gray"
+              style={{ fontSize: "11px" }}
+            >
+              {topZonesData.reduce((sum, z) => sum + z.count, 0)} réparation(s)
+            </span>
+          </div>
+
+          {topZonesData.length > 0 ? (
+            <div className="row g-4 align-items-center">
+              {/* Graphique à barres à gauche */}
+              <div className="col-12 col-lg-7">
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(320, topZonesData.length * 45)}
+                >
+                  <BarChart
+                    data={topZonesData}
+                    layout="vertical"
+                    margin={{ left: 10, right: 40, top: 10, bottom: 10 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#e5e7eb"
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      dataKey="label"
+                      type="category"
+                      width={150}
+                      tick={{ fontSize: 12, fill: "#374151", fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value) => [`${value} réparation(s)`, "Total"]}
+                      contentStyle={{
+                        borderRadius: "10px",
+                        border: "1px solid #e5e7eb",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      fill="#4361ee"
+                      name="Réparations"
+                      radius={[0, 6, 6, 0]}
+                      barSize={26}
+                    >
+                      {topZonesData.map((entry, index) => (
+                        <Cell
+                          key={`cell-zone-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Légende détaillée à droite */}
+              <div className="col-12 col-lg-5">
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    maxHeight: "500px",
+                    overflowY: "auto",
+                    paddingRight: "8px",
+                  }}
+                >
+                  {topZonesData.map((item, index) => {
+                    const total = topZonesData.reduce(
+                      (sum, z) => sum + z.count,
+                      0
+                    );
+                    const percentage =
+                      total > 0 ? (item.count / total) * 100 : 0;
+                    const color = COLORS[index % COLORS.length];
+
+                    return (
+                      <div
+                        key={index}
+                        style={{
+                          padding: "10px 14px",
+                          background: "white",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          transition: "all 150ms ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background =
+                            "var(--primary-light)";
+                          e.currentTarget.style.transform =
+                            "translateX(4px)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "white";
+                          e.currentTarget.style.transform = "translateX(0)";
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "12px",
+                            height: "12px",
+                            borderRadius: "50%",
+                            background: color,
+                            flexShrink: 0,
+                            boxShadow: `0 0 0 3px ${color}25`,
+                          }}
+                        />
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: "12.5px",
+                              fontWeight: "700",
+                              color: "var(--gray-800)",
+                              marginBottom: "5px",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                            title={item.label}
+                          >
+                            {item.label}
+                          </div>
+                          <div
+                            style={{
+                              height: "4px",
+                              background: "var(--gray-200)",
+                              borderRadius: "2px",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${percentage}%`,
+                                background: color,
+                                borderRadius: "2px",
+                                transition: "width 0.5s ease",
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            textAlign: "right",
+                            flexShrink: 0,
+                            minWidth: "50px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "15px",
+                              fontWeight: "800",
+                              color: color,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {item.count}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "10.5px",
+                              color: "var(--gray-500)",
+                              marginTop: "2px",
+                            }}
+                          >
+                            {percentage.toFixed(0)}%
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={emptyStyle}>
+              <div style={{ fontSize: "32px", opacity: 0.3 }}>🗺️</div>
+              <div>Aucune donnée par zone</div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--gray-400)",
+                  marginTop: "4px",
+                  textAlign: "center",
+                }}
+              >
+                💡 Remplissez le champ "Zone" des clients pour voir ce graphique
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================== */}
+      {/* 5. TOP OBJETS */}
       {/* ========================================== */}
       <div className="col-12 col-lg-4">
         <div style={cardStyle}>
@@ -795,8 +1017,8 @@ const paymentData = [
         </div>
       </div>
 
-        {/* ========================================== */}
-      {/* 6. TOP MARQUES (BONUS) */}
+      {/* ========================================== */}
+      {/* 6. TOP MARQUES */}
       {/* ========================================== */}
       <div className="col-12 col-lg-4">
         <div style={cardStyle}>
@@ -854,7 +1076,7 @@ const paymentData = [
       </div>
 
       {/* ========================================== */}
-      {/* 5. ACTIVITÉ DES RÉPARATEURS */}
+      {/* 7. ACTIVITÉ DES RÉPARATEURS */}
       {/* ========================================== */}
       <div className="col-12 col-lg-4">
         <div style={cardStyle}>
@@ -910,8 +1132,6 @@ const paymentData = [
           )}
         </div>
       </div>
-
-    
     </div>
   );
 };
