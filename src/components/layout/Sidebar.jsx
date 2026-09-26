@@ -4,14 +4,15 @@ import {
   FaHome, FaUsers, FaTools, FaMoneyBillWave,
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
   FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
-  FaTrademark, FaMobileAlt,FaExclamationTriangle
+  FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-// ✅ Import du logo — adaptez le chemin selon votre projet
+import { useReparationModal } from '../../context/ReparationModalContext';
 import logo from '../../assets/logo.png';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const { user, hasPermission } = useAuth();
+  const { openNewReparation } = useReparationModal(); // ✅ AJOUT
   const location = useLocation();
 
   const menuSections = [
@@ -25,7 +26,21 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       title: 'Gestion',
       items: [
         { path: '/clients', icon: <FaUsers />, label: 'Clients', module: 'clients' },
-        { path: '/reparations', icon: <FaTools />, label: 'Réparations', module: 'reparations' },
+        {
+          path: '/reparations',
+          icon: <FaTools />,
+          label: 'Réparations',
+          module: 'reparations',
+          // ✅ Action rapide : bouton "+" qui ouvre le modal depuis N'IMPORTE QUELLE PAGE
+          quickAction: {
+            icon: <FaPlus size={11} />,
+            title: 'Nouvelle réparation',
+            onClick: () => {
+              openNewReparation();
+              if (window.innerWidth <= 992) onClose();
+            },
+          },
+        },
       ]
     },
     {
@@ -34,14 +49,10 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/familles', icon: <FaTags />, label: 'Familles', module: 'familles' },
         { path: '/categories', icon: <FaBoxes />, label: 'Catégories', module: 'categories' },
         { path: '/objets', icon: <FaClipboardList />, label: 'Objets', module: 'objets' },
-        // ✅ NOUVEAU : Marques
         { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
-        // ✅ NOUVEAU : Modèles
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
-            { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },  // ✅ NOUVEAU
-
+        { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
-
       ]
     },
     {
@@ -104,22 +115,39 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
                 <div className="nav-section-title">{section.title}</div>
 
                 {visibleItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={`nav-link ${isActive(item.path) ? 'active' : ''}`}
-                    title={isCollapsed ? item.label : ''}
-                    onClick={() => {
-                      if (window.innerWidth <= 992) onClose();
-                    }}
-                  >
-                    <span className="nav-link-icon">{item.icon}</span>
-                    <span className="nav-link-text">{item.label}</span>
+                  <div key={item.path} className="nav-link-wrapper">
+                    <NavLink
+                      to={item.path}
+                      className={`nav-link ${isActive(item.path) ? 'active' : ''} ${item.quickAction ? 'has-quick-action' : ''}`}
+                      title={isCollapsed ? item.label : ''}
+                      onClick={() => {
+                        if (window.innerWidth <= 992) onClose();
+                      }}
+                    >
+                      <span className="nav-link-icon">{item.icon}</span>
+                      <span className="nav-link-text">{item.label}</span>
 
-                    {isCollapsed && (
-                      <span className="nav-link-tooltip">{item.label}</span>
+                      {isCollapsed && (
+                        <span className="nav-link-tooltip">{item.label}</span>
+                      )}
+                    </NavLink>
+
+                    {/* ✅ Bouton "+" rapide à droite du lien */}
+                    {item.quickAction && (
+                      <button
+                        type="button"
+                        className="nav-link-quick-action"
+                        title={item.quickAction.title}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          item.quickAction.onClick();
+                        }}
+                      >
+                        {item.quickAction.icon}
+                      </button>
                     )}
-                  </NavLink>
+                  </div>
                 ))}
               </div>
             );
@@ -278,6 +306,11 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           white-space: nowrap;
         }
 
+        .nav-link-wrapper {
+          position: relative;
+          margin-bottom: 2px;
+        }
+
         .sidebar .nav-link {
           display: flex;
           align-items: center;
@@ -290,8 +323,11 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           font-weight: 500;
           transition: background 150ms ease, color 150ms ease;
           position: relative;
-          margin-bottom: 2px;
           white-space: nowrap;
+        }
+
+        .sidebar .nav-link.has-quick-action {
+          padding-right: 42px;
         }
 
         .sidebar .nav-link:hover {
@@ -303,6 +339,33 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           background: linear-gradient(135deg, #4361ee, #3a52c9);
           color: white;
           box-shadow: 0 4px 12px rgba(67, 97, 238, 0.4);
+        }
+
+        .nav-link-quick-action {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 26px;
+          height: 26px;
+          border-radius: 8px;
+          border: none;
+          background: rgba(255, 255, 255, 0.1);
+          color: #cbd5e1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 150ms ease;
+          z-index: 2;
+          padding: 0;
+        }
+
+        .nav-link-quick-action:hover {
+          background: #4361ee;
+          color: white;
+          transform: translateY(-50%) scale(1.1);
+          box-shadow: 0 4px 12px rgba(67, 97, 238, 0.5);
         }
 
         .nav-link-icon {
@@ -352,6 +415,10 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           justify-content: center;
           padding: 12px;
           gap: 0;
+        }
+
+        .sidebar.collapsed .nav-link-quick-action {
+          display: none;
         }
 
         .sidebar.collapsed .nav-link .nav-link-icon {
@@ -506,6 +573,14 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             justify-content: flex-start;
             padding: 10px 12px;
             gap: 12px;
+          }
+
+          .sidebar.collapsed .nav-link-quick-action {
+            display: flex;
+          }
+
+          .sidebar.collapsed .nav-link.has-quick-action {
+            padding-right: 42px;
           }
 
           .sidebar.collapsed .sidebar-user {

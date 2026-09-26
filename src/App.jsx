@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ReparationModalProvider } from "./context/ReparationModalContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login/Login";
@@ -31,144 +32,149 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          {/* ✅ ROUTES PUBLIQUES (avant tout, hors ProtectedRoute) */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/suivi/:numero" element={<SuiviPublic />} />
+        {/* ✅ ReparationModalProvider enveloppe TOUTES les routes
+            → permet d'ouvrir le modal depuis n'importe quelle page
+            (y compris depuis la Sidebar) */}
+        <ReparationModalProvider>
+          <Routes>
+            {/* ✅ ROUTES PUBLIQUES (avant tout, hors ProtectedRoute) */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/suivi/:numero" element={<SuiviPublic />} />
 
-          {/* ✅ ROUTES PROTÉGÉES (avec Layout) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            {/* ✅ ROUTES PROTÉGÉES (avec Layout) */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
 
-            {/* Dashboard - accessible à tous */}
-            <Route path="dashboard" element={<Dashboard />} />
+              {/* Dashboard - accessible à tous */}
+              <Route path="dashboard" element={<Dashboard />} />
 
-            {/* Clients */}
-            <Route
-              path="clients"
-              element={
-                <ProtectedRoute permission="clients">
-                  <ClientsList />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="clients/:id"
-              element={
-                <ProtectedRoute permission="clients">
-                  <ClientDetail />
-                </ProtectedRoute>
-              }
-            />
+              {/* Clients */}
+              <Route
+                path="clients"
+                element={
+                  <ProtectedRoute permission="clients">
+                    <ClientsList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="clients/:id"
+                element={
+                  <ProtectedRoute permission="clients">
+                    <ClientDetail />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Réparations */}
-            <Route
-              path="reparations"
-              element={
-                <ProtectedRoute permission="reparations">
-                  <ReparationsList />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="reparations/:id"
-              element={
-                <ProtectedRoute permission="reparations">
-                  <ReparationDetail />
-                </ProtectedRoute>
-              }
-            />
+              {/* Réparations */}
+              <Route
+                path="reparations"
+                element={
+                  <ProtectedRoute permission="reparations">
+                    <ReparationsList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reparations/:id"
+                element={
+                  <ProtectedRoute permission="reparations">
+                    <ReparationDetail />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Configuration */}
-            <Route
-              path="familles"
-              element={
-                <ProtectedRoute permission="familles">
-                  <FamillesCRUD />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="categories"
-              element={
-                <ProtectedRoute permission="categories">
-                  <CategoriesCRUD />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="objets"
-              element={
-                <ProtectedRoute permission="objets">
-                  <ObjetsCRUD />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="statuses"
-              element={
-                <ProtectedRoute permission="statuses">
-                  <StatusesCRUD />
-                </ProtectedRoute>
-              }
-            />
+              {/* Configuration */}
+              <Route
+                path="familles"
+                element={
+                  <ProtectedRoute permission="familles">
+                    <FamillesCRUD />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="categories"
+                element={
+                  <ProtectedRoute permission="categories">
+                    <CategoriesCRUD />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="objets"
+                element={
+                  <ProtectedRoute permission="objets">
+                    <ObjetsCRUD />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="statuses"
+                element={
+                  <ProtectedRoute permission="statuses">
+                    <StatusesCRUD />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="marques"
-              element={
-                <ProtectedRoute permission="marques">
-                  <MarquesCRUD />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="marques"
+                element={
+                  <ProtectedRoute permission="marques">
+                    <MarquesCRUD />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="modeles"
-              element={
-                <ProtectedRoute permission="modeles">
-                  <ModelesCRUD />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="pannes"
-              element={
-                <ProtectedRoute permission="pannes">
-                  <PannesCRUD />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="modeles"
+                element={
+                  <ProtectedRoute permission="modeles">
+                    <ModelesCRUD />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="pannes"
+                element={
+                  <ProtectedRoute permission="pannes">
+                    <PannesCRUD />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Administration */}
-            <Route
-              path="users"
-              element={
-                <ProtectedRoute permission="users">
-                  <UsersCRUD />
-                </ProtectedRoute>
-              }
-            />
+              {/* Administration */}
+              <Route
+                path="users"
+                element={
+                  <ProtectedRoute permission="users">
+                    <UsersCRUD />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="history"
-              element={
-                <ProtectedRoute permission="history">
-                  <HistoryView />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
+              <Route
+                path="history"
+                element={
+                  <ProtectedRoute permission="history">
+                    <HistoryView />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-          {/* ✅ Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+            {/* ✅ Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ReparationModalProvider>
       </Router>
     </AuthProvider>
   );

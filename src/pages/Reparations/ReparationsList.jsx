@@ -12,33 +12,30 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import DataTable from "../../components/common/DataTable";
 import ExportButton from "../../components/common/ExportButton";
 import { exportReparations } from "../../api/export";
-import ReparationModal from "../../components/reparations/ReparationModal";
+import { useReparationModal } from "../../context/ReparationModalContext"; // ✅ AJOUT
 
-// ============================================================
-// ✅ STATUTS CONSIDÉRÉS COMME "TERMINÉS"
-// ============================================================
 const STATUTS_TERMINES = [
-  "REPARE",
-  "NON REPARE",
-  "SORTIE NON REPARE",
-  "SAV",
-  "SORTIE REPARE",
-  "SAV REPARE",
-  "SAV NON REPARE",
-  "SAV SORTIE REPARE",
-  "SAV SORTIE NON REPARE",
+  "REPARE", "NON REPARE", "SORTIE NON REPARE", "SAV",
+  "SORTIE REPARE", "SAV REPARE", "SAV NON REPARE",
+  "SAV SORTIE REPARE", "SAV SORTIE NON REPARE",
 ];
 
 const STATUT_EN_COURS = "EN COURS";
 
 const ReparationsList = () => {
   const navigate = useNavigate();
+  // ✅ Utiliser le contexte global
+  const {
+    openNewReparation,
+    openEditReparation,
+    registerOnSuccess,
+  } = useReparationModal();
+
   const [reparations, setReparations] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Tous les filtres sur une seule ligne (avec ADRESSE)
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -52,12 +49,12 @@ const ReparationsList = () => {
   const [selectedReparation, setSelectedReparation] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [editingReparation, setEditingReparation] = useState(null);
 
-  const handleNew = () => { setEditingReparation(null); setShowModal(true); };
-  const handleEdit = (rep) => { setEditingReparation(rep); setShowModal(true); };
-  const handleSuccess = () => { loadData(); };
+  // ✅ Nouvelle réparation via le contexte global
+  const handleNew = () => openNewReparation();
+
+  // ✅ Modifier via le contexte global
+  const handleEdit = (rep) => openEditReparation(rep);
 
   const loadData = async () => {
     try {
@@ -79,11 +76,20 @@ const ReparationsList = () => {
     }
   };
 
-  // ✅ Recharger quand les filtres changent
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
+
+  // ✅ Enregistrer le callback onSuccess auprès du contexte
+  // → appelé après chaque création/modification réussie, peu importe la page
+  useEffect(() => {
+    const unregister = registerOnSuccess(() => {
+      loadData();
+    });
+    return unregister;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -126,28 +132,21 @@ const ReparationsList = () => {
     await exportReparations(params);
   };
 
-  // ============================================================
-  // STATISTIQUES
-  // ============================================================
   const stats = useMemo(() => {
     const total = reparations.length;
-
     const impayees = reparations.filter((r) => {
       const prixTotal = r.prixTotal || r.prix || 0;
       const acompte = r.acompte || 0;
       return prixTotal - acompte > 0;
     }).length;
-
     const enCours = reparations.filter((r) => {
       const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
       return label === STATUT_EN_COURS;
     }).length;
-
     const terminees = reparations.filter((r) => {
       const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
       return STATUTS_TERMINES.includes(label);
     }).length;
-
     return { total, impayees, enCours, terminees };
   }, [reparations]);
 
@@ -167,128 +166,74 @@ const ReparationsList = () => {
       name: "Client",
       selector: (row) => row.client?.nom,
       sortable: true,
-      // ✅ Colonne élargie
       grow: 2.5,
       minWidth: "260px",
-      // ✅ AFFICHAGE : Nom + phone + phone2 + adresse
       cell: (row) => (
         <div style={{ padding: "4px 0" }}>
           <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
             {row.client?.nom || "N/A"}
           </div>
-
-          {/* Téléphones */}
           <div style={{ fontSize: "11px", color: "var(--gray-500)", marginTop: "3px", display: "flex", flexDirection: "column", gap: "2px" }}>
-            {row.client?.phone && (
-              <span>📞 {row.client.phone}</span>
-            )}
-            {row.client?.phone2 && (
-              <span>📞 {row.client.phone2}</span>
-            )}
+            {row.client?.phone && <span>📞 {row.client.phone}</span>}
+            {row.client?.phone2 && <span>📞 {row.client.phone2}</span>}
           </div>
-
-          {/* Adresse */}
           {row.client?.adresse && (
-            <div
-              style={{
-                fontSize: "10.5px",
-                color: "var(--gray-400)",
-                marginTop: "3px",
-                display: "flex",
-                alignItems: "center",
-                gap: "3px",
-              }}
-            >
+            <div style={{ fontSize: "10.5px", color: "var(--gray-400)", marginTop: "3px", display: "flex", alignItems: "center", gap: "3px" }}>
               <FaMapMarkerAlt size={9} /> {row.client.adresse}
             </div>
           )}
         </div>
       ),
     },
- {
-  name: "Appareil",
-  selector: (row) => `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
-  sortable: true,
-  grow: 1.5,
-  minWidth: "180px",
-  cell: (row) => (
-    <div>
-      <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
-        {/* ✅ CORRIGÉ : marque?.nom et modele?.nom */}
-        {row.marque?.nom || "-"} {row.modele?.nom || ""}
-      </div>
-      <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-        {row.objet?.nom}
-      </div>
-    </div>
-  ),
-},
-
-// ✅ NOUVELLE COLONNE : Panne(s)
-{
-  name: "Panne(s)",
-  selector: (row) => {
-    if (Array.isArray(row.panneType)) {
-      return row.panneType.join(", ");
-    }
-    return row.panneType || "";
-  },
-  sortable: true,
-  grow: 1.5,
-  minWidth: "200px",
-  cell: (row) => {
-    const pannes = Array.isArray(row.panneType)
-      ? row.panneType
-      : row.panneType
-        ? [row.panneType]
-        : [];
-
-    if (pannes.length === 0) {
-      return (
-        <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>
-          -
-        </span>
-      );
-    }
-
-    return (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-        {pannes.slice(0, 2).map((p, i) => (
-          <span
-            key={i}
-            style={{
-              padding: "2px 8px",
-              background: "var(--warning-light)",
-              color: "var(--warning)",
-              borderRadius: "8px",
-              fontSize: "10.5px",
-              fontWeight: "600",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {p}
-          </span>
-        ))}
-        {pannes.length > 2 && (
-          <span
-            style={{
-              padding: "2px 8px",
-              background: "var(--gray-200)",
-              color: "var(--gray-700)",
-              borderRadius: "8px",
-              fontSize: "10.5px",
-              fontWeight: "700",
-              whiteSpace: "nowrap",
-            }}
-            title={pannes.slice(2).join(", ")}
-          >
-            +{pannes.length - 2}
-          </span>
-        )}
-      </div>
-    );
-  },
-},
+    {
+      name: "Appareil",
+      selector: (row) => `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
+      sortable: true,
+      grow: 1.5,
+      minWidth: "180px",
+      cell: (row) => (
+        <div>
+          <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--gray-800)" }}>
+            {row.marque?.nom || "-"} {row.modele?.nom || ""}
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
+            {row.objet?.nom}
+          </div>
+        </div>
+      ),
+    },
+    {
+      name: "Panne(s)",
+      selector: (row) => {
+        if (Array.isArray(row.panneType)) return row.panneType.join(", ");
+        return row.panneType || "";
+      },
+      sortable: true,
+      grow: 1.5,
+      minWidth: "200px",
+      cell: (row) => {
+        const pannes = Array.isArray(row.panneType)
+          ? row.panneType
+          : row.panneType ? [row.panneType] : [];
+        if (pannes.length === 0) {
+          return <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>-</span>;
+        }
+        return (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            {pannes.slice(0, 2).map((p, i) => (
+              <span key={i} style={{ padding: "2px 8px", background: "var(--warning-light)", color: "var(--warning)", borderRadius: "8px", fontSize: "10.5px", fontWeight: "600", whiteSpace: "nowrap" }}>
+                {p}
+              </span>
+            ))}
+            {pannes.length > 2 && (
+              <span style={{ padding: "2px 8px", background: "var(--gray-200)", color: "var(--gray-700)", borderRadius: "8px", fontSize: "10.5px", fontWeight: "700", whiteSpace: "nowrap" }} title={pannes.slice(2).join(", ")}>
+                +{pannes.length - 2}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
     {
       name: "Statut",
       selector: (row) => row.status?.label,
@@ -420,7 +365,6 @@ const ReparationsList = () => {
 
   return (
     <div className="fade-in-up">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: "700", color: "var(--gray-900)", marginBottom: "4px" }}>
@@ -449,7 +393,6 @@ const ReparationsList = () => {
         </div>
       )}
 
-      {/* CARTES STATS */}
       <div className="row g-3 mb-4">
         {[
           { label: "Total", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
@@ -475,131 +418,32 @@ const ReparationsList = () => {
         ))}
       </div>
 
-      {/* ============================================================ */}
-      {/* BARRE DE FILTRES UNIFIÉE AVEC ADRESSE */}
-      {/* ============================================================ */}
       <div className="card-modern mb-3" style={{ padding: "14px 16px" }}>
         <div className="filters-grid">
-          {/* ✅ Recherche */}
           <div style={{ position: "relative", minWidth: 0 }}>
-            <FaSearch
-              style={{
-                position: "absolute",
-                left: "14px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--gray-400)",
-                fontSize: "13px",
-                pointerEvents: "none",
-              }}
-            />
-            <input
-              type="text"
-              name="search"
-              className="form-control-modern"
-              style={{ paddingLeft: "40px", width: "100%", height: "42px" }}
-              placeholder="Rechercher : N°, client, téléphone, marque, panne..."
-              value={filters.search}
-              onChange={handleFilterChange}
-            />
+            <FaSearch style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)", fontSize: "13px", pointerEvents: "none" }} />
+            <input type="text" name="search" className="form-control-modern" style={{ paddingLeft: "40px", width: "100%", height: "42px" }} placeholder="Rechercher : N°, client, téléphone, marque, panne..." value={filters.search} onChange={handleFilterChange} />
           </div>
-
-          {/* ✅ Filtre Adresse */}
           <div style={{ position: "relative", minWidth: 0 }}>
-            <FaMapMarkerAlt
-              style={{
-                position: "absolute",
-                left: "14px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--gray-400)",
-                fontSize: "13px",
-                pointerEvents: "none",
-              }}
-            />
-            <input
-              type="text"
-              name="adresse"
-              className="form-control-modern"
-              style={{ paddingLeft: "40px", width: "100%", height: "42px" }}
-              placeholder="Filtrer par adresse..."
-              value={filters.adresse}
-              onChange={handleFilterChange}
-            />
+            <FaMapMarkerAlt style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)", fontSize: "13px", pointerEvents: "none" }} />
+            <input type="text" name="adresse" className="form-control-modern" style={{ paddingLeft: "40px", width: "100%", height: "42px" }} placeholder="Filtrer par adresse..." value={filters.adresse} onChange={handleFilterChange} />
           </div>
-
-          {/* ✅ Filtre Statut */}
-          <select
-            name="status"
-            className="form-control-modern"
-            style={{ height: "42px" }}
-            value={filters.status}
-            onChange={handleFilterChange}
-            title="Filtrer par statut"
-          >
+          <select name="status" className="form-control-modern" style={{ height: "42px" }} value={filters.status} onChange={handleFilterChange} title="Filtrer par statut">
             <option value="">Tous les statuts</option>
-            {statuses.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.label}
-              </option>
-            ))}
+            {statuses.map((s) => <option key={s._id} value={s._id}>{s.label}</option>)}
           </select>
-
-          {/* ✅ Filtre Réparateur */}
-          <select
-            name="reparateur"
-            className="form-control-modern"
-            style={{ height: "42px" }}
-            value={filters.reparateur}
-            onChange={handleFilterChange}
-            title="Filtrer par réparateur"
-          >
+          <select name="reparateur" className="form-control-modern" style={{ height: "42px" }} value={filters.reparateur} onChange={handleFilterChange} title="Filtrer par réparateur">
             <option value="">Tous les réparateurs</option>
-            {users
-              .filter((u) => u.role === "REPARATEUR")
-              .map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.firstName} {u.lastName}
-                </option>
-              ))}
+            {users.filter((u) => u.role === "REPARATEUR").map((u) => <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>)}
           </select>
-
-          {/* ✅ Date début */}
-          <input
-            type="date"
-            name="dateDebut"
-            className="form-control-modern"
-            style={{ height: "42px" }}
-            value={filters.dateDebut}
-            onChange={handleFilterChange}
-            title="Date de début"
-          />
-
-          {/* ✅ Date fin */}
-          <input
-            type="date"
-            name="dateFin"
-            className="form-control-modern"
-            style={{ height: "42px" }}
-            value={filters.dateFin}
-            onChange={handleFilterChange}
-            title="Date de fin"
-          />
-
-          {/* ✅ Reset */}
+          <input type="date" name="dateDebut" className="form-control-modern" style={{ height: "42px" }} value={filters.dateDebut} onChange={handleFilterChange} title="Date de début" />
+          <input type="date" name="dateFin" className="form-control-modern" style={{ height: "42px" }} value={filters.dateFin} onChange={handleFilterChange} title="Date de fin" />
           {hasActiveFilters && (
-            <button
-              className="btn-modern btn-modern-outline"
-              style={{ height: "42px", padding: "0 16px", justifyContent: "center" }}
-              onClick={resetFilters}
-              title="Réinitialiser les filtres"
-            >
+            <button className="btn-modern btn-modern-outline" style={{ height: "42px", padding: "0 16px", justifyContent: "center" }} onClick={resetFilters} title="Réinitialiser les filtres">
               <FaTimes size={12} />
             </button>
           )}
         </div>
-
-        {/* Info résultats */}
         {hasActiveFilters && (
           <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--gray-500)", display: "flex", alignItems: "center", gap: "6px" }}>
             <span>🔎</span>
@@ -619,13 +463,6 @@ const ReparationsList = () => {
         paginationPerPage={10}
       />
 
-      <ReparationModal
-        show={showModal}
-        onClose={() => { setShowModal(false); setEditingReparation(null); }}
-        onSuccess={handleSuccess}
-        reparation={editingReparation}
-      />
-
       <ConfirmDialog
         show={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
@@ -636,43 +473,16 @@ const ReparationsList = () => {
       />
 
       <style>{`
-        /* ✅ Grille responsive des filtres */
         .filters-grid {
           display: grid;
           grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr auto;
           gap: 10px;
           align-items: center;
         }
-
-        @media (max-width: 1600px) {
-          .filters-grid {
-            grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr auto;
-          }
-        }
-
-        @media (max-width: 1400px) {
-          .filters-grid {
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-          }
-          .filters-grid > * {
-            min-width: 0;
-          }
-        }
-
-        @media (max-width: 992px) {
-          .filters-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-
-        @media (max-width: 576px) {
-          .filters-grid {
-            grid-template-columns: 1fr;
-          }
-          .filters-grid > * {
-            width: 100% !important;
-          }
-        }
+        @media (max-width: 1600px) { .filters-grid { grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr auto; } }
+        @media (max-width: 1400px) { .filters-grid { grid-template-columns: 1fr 1fr 1fr 1fr; } .filters-grid > * { min-width: 0; } }
+        @media (max-width: 992px) { .filters-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 576px) { .filters-grid { grid-template-columns: 1fr; } .filters-grid > * { width: 100% !important; } }
       `}</style>
     </div>
   );
