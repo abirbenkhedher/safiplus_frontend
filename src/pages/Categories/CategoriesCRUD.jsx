@@ -8,6 +8,7 @@ import { getCategories, createCategorie, updateCategorie, deleteCategorie } from
 import { getFamilles } from '../../api/familles';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
+import { invalidateRefCache } from '../../utils/refCache'; // ✅ AJOUT
 
 const CategoriesCRUD = () => {
   const [categories, setCategories] = useState([]);
@@ -16,7 +17,6 @@ const CategoriesCRUD = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  // ✅ Ajout du champ ordre
   const [formData, setFormData] = useState({ nom: '', famille: '', ordre: 0 });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,8 +30,9 @@ const CategoriesCRUD = () => {
         getCategories(),
         getFamilles()
       ]);
-      // ✅ Trier par ordre
-      const sorted = [...categoriesRes.data].sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+      const sorted = [...categoriesRes.data].sort(
+        (a, b) => (a.ordre || 0) - (b.ordre || 0) || (a.nom || '').localeCompare(b.nom || '')
+      );
       setCategories(sorted);
       setFamilles(famillesRes.data);
     } catch (err) {
@@ -108,6 +109,8 @@ const CategoriesCRUD = () => {
         await createCategorie(payload);
         setSuccess('Catégorie créée avec succès');
       }
+
+      invalidateRefCache(); // ✅ AJOUT — invalide le cache du modal
       handleCloseModal();
       loadData();
       setTimeout(() => setSuccess(''), 3000);
@@ -119,6 +122,7 @@ const CategoriesCRUD = () => {
   const handleDelete = async () => {
     try {
       await deleteCategorie(editingItem._id);
+      invalidateRefCache(); // ✅ AJOUT
       setSuccess('Catégorie supprimée avec succès');
       setShowDeleteDialog(false);
       loadData();
@@ -140,7 +144,6 @@ const CategoriesCRUD = () => {
         </span>
       ),
     },
-    // ✅ Colonne ORDRE
     {
       name: 'Ordre',
       selector: (row) => row.ordre,
@@ -364,7 +367,6 @@ const CategoriesCRUD = () => {
                 </div>
               )}
 
-              {/* Nom */}
               <div className="mb-3">
                 <label className="form-label-modern">
                   Nom de la catégorie <span style={{ color: 'var(--danger)' }}>*</span>
@@ -380,7 +382,6 @@ const CategoriesCRUD = () => {
                 />
               </div>
 
-              {/* Famille */}
               <div className="mb-3">
                 <label className="form-label-modern">
                   <FaTags size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
@@ -401,7 +402,6 @@ const CategoriesCRUD = () => {
                 </select>
               </div>
 
-              {/* ✅ Ordre */}
               <div>
                 <label className="form-label-modern">
                   <FaSortNumericDown size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />

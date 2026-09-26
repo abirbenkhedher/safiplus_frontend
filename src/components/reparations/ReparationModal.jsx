@@ -7,7 +7,7 @@ import {
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
-import {  DRAFT_KEY } from "../../constants/reparations";
+import { DRAFT_KEY } from "../../constants/reparations";
 import ClientSelector from "./ClientSelector";
 import SearchSelect from "./SearchSelect";
 import ObservationsList from "./ObservationsList";
@@ -37,6 +37,14 @@ const INITIAL_FORM = {
   },
 };
 
+// ✅ Helper de tri : ordre croissant puis nom alphabétique
+const sortByOrdre = (arr = []) =>
+  [...arr].sort(
+    (a, b) =>
+      (a.ordre ?? 0) - (b.ordre ?? 0) ||
+      (a.nom || "").localeCompare(b.nom || "")
+  );
+
 const ReparationModal = ({
   show,
   onClose,
@@ -53,9 +61,28 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  // ✅ Charger toutes les données de référence
-  const { categories, objets, statuses, reparateurs, marques, modeles, pannes } =
-    useReparationData();
+  // ✅ Charger toutes les données de référence + exposer refresh
+  const {
+    categories,
+    objets,
+    statuses,
+    reparateurs,
+    marques,
+    modeles,
+    pannes,
+    refresh, // ✅ AJOUT
+  } = useReparationData();
+
+  // ============================================================
+  // ✅ Recharger les données de référence à chaque ouverture
+  // (garantit que les nouvelles catégories/ordres sont visibles)
+  // ============================================================
+  useEffect(() => {
+    if (show) {
+      refresh?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show]);
 
   // ============================================================
   // CHARGER LES DONNÉES DU FORMULAIRE
@@ -193,7 +220,7 @@ const ReparationModal = ({
   // CHANGEMENT DE CATÉGORIE → AUTO-COCHER LA 1ère PANNE
   // ============================================================
   const handleCategorieChange = (categorieId) => {
-    // Récupérer les pannes de cette catégorie
+    // Récupérer les pannes de cette catégorie (triées par ordre)
     const pannesDeLaCategorie = pannes
       .filter((p) => {
         const catId =
@@ -299,32 +326,42 @@ const ReparationModal = ({
 
   if (!show) return null;
 
- 
-
   const imprevusEnAttente = (
     formData.diagnosticImprevus?.imprevus || []
   ).filter((i) => i.accepte === null || i.accepte === undefined).length;
 
   // ============================================================
-  // FILTRES
+  // FILTRES + TRI
   // ============================================================
-  const marquesFiltrees = marques.filter((m) => {
-    if (!formData.objet) return true;
-    const objetId =
-      typeof m.objet === "object" && m.objet !== null ? m.objet._id : m.objet;
-    return objetId === formData.objet;
-  });
+  // ✅ Catégories triées par ordre puis nom
+  const categoriesTriees = sortByOrdre(categories);
 
-  const modelesFiltres = modeles.filter((m) => {
-    if (!formData.marque) return true;
-    const marqueId =
-      typeof m.marque === "object" && m.marque !== null
-        ? m.marque._id
-        : m.marque;
-    return marqueId === formData.marque;
-  });
+  // ✅ Objets triés par ordre puis nom
+  const objetsTries = sortByOrdre(objets);
 
-  // ✅ Pannes filtrées par catégorie
+  // ✅ Marques filtrées par objet ET triées
+  const marquesFiltrees = sortByOrdre(
+    marques.filter((m) => {
+      if (!formData.objet) return true;
+      const objetId =
+        typeof m.objet === "object" && m.objet !== null ? m.objet._id : m.objet;
+      return objetId === formData.objet;
+    })
+  );
+
+  // ✅ Modèles filtrés par marque ET triés
+  const modelesFiltres = sortByOrdre(
+    modeles.filter((m) => {
+      if (!formData.marque) return true;
+      const marqueId =
+        typeof m.marque === "object" && m.marque !== null
+          ? m.marque._id
+          : m.marque;
+      return marqueId === formData.marque;
+    })
+  );
+
+  // ✅ Pannes filtrées par catégorie ET triées par ordre
   const pannesFiltrees = pannes
     .filter((p) => {
       if (!formData.categorie) return false;
@@ -550,13 +587,14 @@ const ReparationModal = ({
                       Catégorie{" "}
                       <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
+                    {/* ✅ Catégories triées par ordre */}
                     <SearchSelect
-                      options={categories.map((c) => ({
+                      options={categoriesTriees.map((c) => ({
                         value: c._id,
                         label: c.nom,
                       }))}
                       value={formData.categorie}
-                      onChange={handleCategorieChange}   // ✅ Handler spécial
+                      onChange={handleCategorieChange}
                       placeholder="Rechercher..."
                     />
                   </div>
@@ -565,8 +603,9 @@ const ReparationModal = ({
                     <label className="form-label-modern">
                       Objet <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
+                    {/* ✅ Objets triés par ordre */}
                     <SearchSelect
-                      options={objets.map((o) => ({
+                      options={objetsTries.map((o) => ({
                         value: o._id,
                         label: o.nom,
                       }))}
@@ -586,6 +625,7 @@ const ReparationModal = ({
                     <label className="form-label-modern">
                       Marque <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
+                    {/* ✅ Marques filtrées + triées */}
                     <SearchSelect
                       options={marquesFiltrees.map((m) => ({
                         value: m._id,
@@ -607,6 +647,7 @@ const ReparationModal = ({
 
                   <div className="col-12 col-sm-6">
                     <label className="form-label-modern">Modèle</label>
+                    {/* ✅ Modèles filtrés + triés */}
                     <SearchSelect
                       options={modelesFiltres.map((m) => ({
                         value: m._id,
@@ -637,7 +678,7 @@ const ReparationModal = ({
                       Type de panne{" "}
                       <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
-                    {/* ✅ Multi-sélection des pannes */}
+                    {/* ✅ Multi-sélection des pannes (déjà triées par ordre) */}
                     <PannesMultiSelect
                       options={pannesFiltrees}
                       value={formData.panneType}

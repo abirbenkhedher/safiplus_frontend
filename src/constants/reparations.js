@@ -8,6 +8,9 @@ export const PAYMENT_TYPES = [
 ];
 
 // ✅ Clés de stockage local
+
+// ✅ Réduire le TTL pour limiter les risques de cache périmé
+export const REF_CACHE_KEY = 'reparations_ref_cache_v2'; // ✅ bump version
+export const REF_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
 export const DRAFT_KEY = 'reparation_draft';
-export const REF_CACHE_KEY = 'reparation_ref_cache';
-export const REF_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
