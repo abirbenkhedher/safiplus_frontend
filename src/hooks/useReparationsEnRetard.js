@@ -14,7 +14,6 @@ export const useReparationsEnRetard = () => {
 
   const checkRetards = useCallback(async () => {
     try {
-      // Récupérer toutes les réparations (limitées à 500)
       const response = await getReparations({ limit: 500 });
       const all = response.data || [];
 
@@ -29,7 +28,6 @@ export const useReparationsEnRetard = () => {
 
         if (!isEnCours) return;
 
-        // Calcul du délai
         const dateReception = rep.dateReception || rep.createdAt;
         if (!dateReception) return;
 
@@ -41,13 +39,29 @@ export const useReparationsEnRetard = () => {
         const jours = Math.floor(diffHeures / 24);
         const heures = Math.floor(diffHeures % 24);
 
+        // ✅ Extraire les NOMS (pas les objets)
+        const marqueNom =
+          typeof rep.marque === "object" && rep.marque !== null
+            ? rep.marque.nom
+            : rep.marque || "";
+
+        const modeleNom =
+          typeof rep.modele === "object" && rep.modele !== null
+            ? rep.modele.nom
+            : rep.modele || "";
+
+        const clientNom =
+          typeof rep.client === "object" && rep.client !== null
+            ? rep.client.nom
+            : rep.client || "N/A";
+
         enRetard.push({
           _id: rep._id,
           numero: rep.numero,
-          client: rep.client?.nom || "N/A",
-          marque: rep.marque,
-          modele: rep.modele,
-          status: rep.status,
+          client: clientNom,          // ✅ STRING
+          marque: marqueNom,          // ✅ STRING
+          modele: modeleNom,          // ✅ STRING
+          statusLabel: rep.status?.label || "", // ✅ STRING
           dateReception,
           heuresEcoulees: Math.floor(diffHeures),
           label:
@@ -56,7 +70,6 @@ export const useReparationsEnRetard = () => {
         });
       });
 
-      // Trier par dépassement le plus important
       enRetard.sort((a, b) => b.heuresEcoulees - a.heuresEcoulees);
       setReparationsEnRetard(enRetard);
     } catch (err) {
@@ -68,7 +81,6 @@ export const useReparationsEnRetard = () => {
 
   useEffect(() => {
     checkRetards();
-    // Rafraîchir toutes les 5 minutes
     const interval = setInterval(checkRetards, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [checkRetards]);

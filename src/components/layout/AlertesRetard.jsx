@@ -10,13 +10,23 @@ import { useReparationsEnRetard } from "../../hooks/useReparationsEnRetard";
 
 const AlertesRetard = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 640 : false
+  );
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
   const navigate = useNavigate();
 
   const { reparationsEnRetard, count } = useReparationsEnRetard();
 
-  // ✅ Fermer le panneau au clic extérieur
+  // ✅ Détecter le mobile en temps réel
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ✅ Fermer au clic extérieur (souris + tactile)
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -29,8 +39,32 @@ const AlertesRetard = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
+
+  // ✅ Fermer avec Échap
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    if (isOpen) window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen]);
+
+  // ✅ Bloquer le scroll du body quand ouvert sur mobile
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [isOpen, isMobile]);
 
   const handleClickAlerte = (reparationId) => {
     setIsOpen(false);
@@ -38,6 +72,45 @@ const AlertesRetard = () => {
   };
 
   if (count === 0) return null;
+
+  // ✅ Styles dynamiques selon mobile/desktop
+  const panelStyles = isMobile
+    ? {
+        // 📱 MOBILE : plein largeur, centré, ancré sous le header
+        position: "fixed",
+        top: "70px",
+        left: "8px",
+        right: "8px",
+        width: "auto",
+        maxHeight: "calc(100vh - 90px)",
+        background: "white",
+        borderRadius: "16px",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.2)",
+        border: "1px solid var(--gray-200)",
+        overflow: "hidden",
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        animation: "slideDown 200ms ease-out",
+      }
+    : {
+        // 💻 DESKTOP : ancré à droite du bouton
+        position: "absolute",
+        top: "calc(100% + 10px)",
+        right: 0,
+        width: "380px",
+        maxWidth: "calc(100vw - 32px)",
+        background: "white",
+        borderRadius: "16px",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
+        border: "1px solid var(--gray-200)",
+        overflow: "hidden",
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        maxHeight: "520px",
+        animation: "slideDown 200ms ease-out",
+      };
 
   return (
     <div style={{ position: "relative" }}>
@@ -96,25 +169,23 @@ const AlertesRetard = () => {
         </span>
       </button>
 
+      {/* OVERLAY MOBILE (fond sombre derrière) */}
+      {isOpen && isMobile && (
+        <div
+          onClick={() => setIsOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.4)",
+            zIndex: 9998,
+            animation: "fadeIn 200ms ease-out",
+          }}
+        />
+      )}
+
       {/* PANNEAU DÉROULANT */}
       {isOpen && (
-        <div
-          ref={panelRef}
-          style={{
-            position: "absolute",
-            top: "calc(100% + 10px)",
-            right: 0,
-            width: "380px",
-            maxWidth: "calc(100vw - 32px)",
-            background: "white",
-            borderRadius: "16px",
-            boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
-            border: "1px solid var(--gray-200)",
-            overflow: "hidden",
-            zIndex: 9999,
-            animation: "slideDown 200ms ease-out",
-          }}
-        >
+        <div ref={panelRef} style={panelStyles}>
           {/* HEADER */}
           <div
             style={{
@@ -124,6 +195,7 @@ const AlertesRetard = () => {
               display: "flex",
               alignItems: "center",
               gap: "10px",
+              flexShrink: 0,
             }}
           >
             <div
@@ -137,11 +209,12 @@ const AlertesRetard = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "14px",
+                flexShrink: 0,
               }}
             >
               <FaExclamationTriangle />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   fontSize: "13px",
@@ -164,8 +237,8 @@ const AlertesRetard = () => {
             <button
               onClick={() => setIsOpen(false)}
               style={{
-                width: "26px",
-                height: "26px",
+                width: "28px",
+                height: "28px",
                 borderRadius: "6px",
                 border: "none",
                 background: "white",
@@ -174,17 +247,20 @@ const AlertesRetard = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
               }}
             >
-              <FaTimes size={11} />
+              <FaTimes size={12} />
             </button>
           </div>
 
-          {/* LISTE DES ALERTES */}
+          {/* LISTE DES ALERTES — scrollable */}
           <div
             style={{
-              maxHeight: "400px",
+              flex: 1,
               overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              minHeight: 0,
             }}
           >
             {reparationsEnRetard.map((rep) => (
@@ -237,6 +313,7 @@ const AlertesRetard = () => {
                       alignItems: "center",
                       gap: "8px",
                       marginBottom: "3px",
+                      flexWrap: "wrap",
                     }}
                   >
                     <span
@@ -263,6 +340,7 @@ const AlertesRetard = () => {
                       +{rep.depassement}h
                     </span>
                   </div>
+                  {/* ✅ Plus d'objets — ce sont des strings */}
                   <div
                     style={{
                       fontSize: "12px",
@@ -287,7 +365,6 @@ const AlertesRetard = () => {
                   </div>
                 </div>
 
-                {/* Flèche */}
                 <FaChevronRight
                   size={12}
                   style={{ color: "#dc2626", flexShrink: 0 }}
@@ -296,13 +373,14 @@ const AlertesRetard = () => {
             ))}
           </div>
 
-          {/* FOOTER */}
+          {/* FOOTER — toujours visible */}
           <div
             style={{
               padding: "12px 18px",
               background: "var(--gray-50)",
               borderTop: "1px solid var(--gray-200)",
               textAlign: "center",
+              flexShrink: 0,
             }}
           >
             <button
@@ -320,6 +398,8 @@ const AlertesRetard = () => {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "8px",
               }}
             >
               Voir toutes les réparations →

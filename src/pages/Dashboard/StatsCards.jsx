@@ -3,26 +3,49 @@ import {
   FaTools,
   FaSpinner,
   FaCheckCircle,
+  FaTimesCircle,
   FaMoneyBillWave,
   FaWallet,
+  FaHandHoldingUsd,
 } from "react-icons/fa";
 
 const StatsCards = ({ stats, userRole }) => {
   if (!stats) return null;
 
-  // ✅ Fonction pour compter les statuts correspondants
-  const countStatus = (keywords) => {
-    if (!stats.reparationsParStatut) return 0;
-    return stats.reparationsParStatut
-      .filter((s) =>
-        keywords.some((k) =>
-          s.label?.toLowerCase().includes(k.toLowerCase())
-        )
-      )
-      .reduce((sum, s) => sum + s.count, 0);
-  };
+  const statuts = stats.reparationsParStatut || [];
 
-  // ✅ 4 cartes principales
+  // ✅ Normaliser un label
+  const normalize = (label) =>
+    (label || "").trim().toUpperCase().replace(/\s+/g, " ");
+
+  // ✅ Somme des counts selon un prédicat
+  const sumWhere = (predicate) =>
+    statuts
+      .filter((s) => predicate(normalize(s.label)))
+      .reduce((sum, s) => sum + (s.count || 0), 0);
+
+  // ✅ EN COURS → label exact "EN COURS"
+  const enCours = sumWhere((label) => label === "EN COURS");
+
+  // ✅ RÉPARÉES → contient "REPARE", PAS "NON REPARE", PAS "SAV"
+  //    → inclut : REPARE, SORTIE REPARE
+  //    → exclut : SAV REPARE, NON REPARE, SORTIE NON REPARE, SAV NON REPARE
+  const repare = sumWhere(
+    (label) =>
+      label.includes("REPARE") &&
+      !label.includes("NON REPARE") &&
+      !label.includes("SAV") &&
+      !label.includes("SORTIE")
+  );
+
+  // ✅ NON RÉPARÉES → contient "NON REPARE", PAS "SAV"
+  //    → inclut : NON REPARE, SORTIE NON REPARE
+  //    → exclut : SAV NON REPARE
+  const nonRepare = sumWhere(
+    (label) => label.includes("NON REPARE") && !label.includes("SAV")&& !label.includes("SORTIE")
+  );
+
+  // ✅ 4 cartes réparations
   const mainCards = [
     {
       title: "Total réparations",
@@ -34,23 +57,31 @@ const StatsCards = ({ stats, userRole }) => {
     },
     {
       title: "En cours",
-      value: countStatus(["EN COURS", "SAV"]) - countStatus(["SAV REPARE", "SAV NON", "SAV SORTIE"]),
+      value: enCours,
       icon: <FaSpinner />,
       color: "#3b82f6",
       bg: "rgba(59, 130, 246, 0.1)",
       subtitle: "En intervention",
     },
     {
-      title: "Réparées / Sorties réparées",
-      value: countStatus(["REPARE", "SORTIE REPARE", "SAV REPARE", "SAV SORTIE REPARE"]),
+      title: "Réparées",
+      value: repare,
       icon: <FaCheckCircle />,
       color: "#10b981",
       bg: "rgba(16, 185, 129, 0.1)",
       subtitle: "Prêtes ou livrées",
     },
+    {
+      title: "Non réparées",
+      value: nonRepare,
+      icon: <FaTimesCircle />,
+      color: "#ef4444",
+      bg: "rgba(239, 68, 68, 0.1)",
+      subtitle: "Échec / refus",
+    },
   ];
 
-  // ✅ 2 cartes financières (masquées pour réparateur)
+  // ✅ 3 cartes financières
   const financeCards = [
     {
       title: "Chiffre d'affaires",
@@ -59,6 +90,16 @@ const StatsCards = ({ stats, userRole }) => {
       color: "#10b981",
       bg: "rgba(16, 185, 129, 0.1)",
       subtitle: "Total facturé",
+    },
+    {
+      title: "Total encaissé",
+      value: `${(
+        stats.encaisse || (stats.ca || 0) - (stats.restant || 0)
+      ).toFixed(2)} DT`,
+      icon: <FaHandHoldingUsd />,
+      color: "#3b82f6",
+      bg: "rgba(59, 130, 246, 0.1)",
+      subtitle: "Acomptes + paiements",
     },
     {
       title: "Reste à recevoir",
@@ -154,20 +195,20 @@ const StatsCards = ({ stats, userRole }) => {
 
   return (
     <>
-      {/* 4 cartes principales */}
+      {/* ✅ 4 cartes réparations */}
       <div className="row g-3 mb-3">
         {mainCards.map((card, i) => (
-          <div key={i} className="col-12 col-sm-6 col-lg-4">
+          <div key={i} className="col-12 col-sm-6 col-lg-3">
             <CardItem card={card} />
           </div>
         ))}
       </div>
 
-      {/* 2 cartes financières */}
+      {/* ✅ 3 cartes financières */}
       {showFinance && (
         <div className="row g-3 mb-4">
           {financeCards.map((card, i) => (
-            <div key={i} className="col-12 col-sm-6">
+            <div key={i} className="col-12 col-sm-6 col-lg-4">
               <CardItem card={card} />
             </div>
           ))}

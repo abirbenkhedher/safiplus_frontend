@@ -7,7 +7,6 @@ export const PAYMENT_TYPES = [
   { value: 'paid', label: 'Payé', color: '#10b981', bg: '#d1fae5', icon: '✅' },
 ];
 
-// ✅ Clés de stockage local
 
 // ✅ Réduire le TTL pour limiter les risques de cache périmé
 export const REF_CACHE_KEY = 'reparations_ref_cache_v2'; // ✅ bump version
