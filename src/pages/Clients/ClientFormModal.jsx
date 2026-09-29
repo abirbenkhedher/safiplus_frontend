@@ -82,7 +82,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               email: client.email || "",
               adresse: client.adresse || "",
               zone: client.zone || "",
-              codeFidelite: client.codeFidelite || "", // ✅ NOUVEAU
+              codeFidelite: client.codeFidelite || "",
               isActive: client.isActive !== undefined ? client.isActive : true,
             }
           : {
@@ -92,7 +92,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               email: "",
               adresse: "",
               zone: "",
-              codeFidelite: "", // ✅ NOUVEAU
+              codeFidelite: "",
               isActive: true,
             },
       );
@@ -156,7 +156,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
         email: existingClient.email || "",
         adresse: existingClient.adresse || "",
         zone: existingClient.zone || "",
-        codeFidelite: existingClient.codeFidelite || "", // ✅ NOUVEAU
+        codeFidelite: existingClient.codeFidelite || "",
         isActive: existingClient.isActive,
       });
       setExistingClient(null);
@@ -188,10 +188,18 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
         }
       }
 
-      if (isEdit) {
-        await updateClient(client._id, formData);
+      // ✅ Nettoyer le code fidélité (laisser vide si non fourni)
+      const dataToSend = { ...formData };
+      if (!dataToSend.codeFidelite || !dataToSend.codeFidelite.trim()) {
+        delete dataToSend.codeFidelite;
       } else {
-        await createClient(formData);
+        dataToSend.codeFidelite = dataToSend.codeFidelite.trim().toUpperCase();
+      }
+
+      if (isEdit) {
+        await updateClient(client._id, dataToSend);
+      } else {
+        await createClient(dataToSend);
       }
       onSuccess();
       onClose();
@@ -589,7 +597,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* ✅ NOUVEAU : Zone */}
+              {/* ✅ Zone */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   <FaMapMarkerAlt
@@ -623,18 +631,18 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </select>
               </div>
 
-              {/* ✅ NOUVEAU : Code fidélité */}
+              {/* ✅ Code fidélité (facultatif) */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   🎁 Code fidélité{" "}
                   <span
                     style={{
                       fontSize: "11px",
-                      color: "var(--gray-500)",
+                      color: "var(--gray-400)",
                       fontWeight: "400",
                     }}
                   >
-                    (généré automatiquement si vide)
+                    (facultatif)
                   </span>
                 </label>
                 <input
@@ -643,7 +651,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                   value={formData.codeFidelite}
                   onChange={handleChange}
                   className="form-control-modern"
-                  placeholder="FID-XXXXXXX"
+                  placeholder="FID-XXXXXXX (laisser vide si aucun)"
                   style={{ width: "100%", textTransform: "uppercase" }}
                   disabled={isEdit && !!client?.codeFidelite}
                 />
@@ -655,7 +663,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                       marginTop: "4px",
                     }}
                   >
-                    💡 Laissez vide pour une génération automatique
+                    💡 Laissez vide si le client n'a pas de carte de fidélité
                   </div>
                 )}
               </div>

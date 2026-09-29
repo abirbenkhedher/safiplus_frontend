@@ -37,7 +37,7 @@ const handlePhoneKeyDown = (e) => {
  * - Sélection par clic (pas d'auto-sélection)
  * - Création / modification inline possible
  * - ✅ Limité à 8 chiffres max pour les téléphones
- * - ✅ Champ code fidélité ajouté (création / modification)
+ * - ✅ Champ code fidélité FACULTATIF (pas d'auto-génération)
  */
 const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [clients, setClients] = useState([]);
@@ -53,7 +53,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     phone2: '',
     adresse: '',
     zone: '',
-    codeFidelite: '',   // ✅ NOUVEAU
+    codeFidelite: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -122,7 +122,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       const cFid = (c.codeFidelite || '').toUpperCase();
 
       // ✅ Recherche par code fidélité
-      if (cleanText && cFid.includes(cleanText)) return true;
+      if (cleanText && cFid && cFid.includes(cleanText)) return true;
 
       // Recherche par chiffres
       if (cleanDigits.length === 0) return false;
@@ -170,7 +170,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       phone2: '',
       adresse: '',
       zone: '',
-      codeFidelite: '',   // ✅ NOUVEAU
+      codeFidelite: '',
     });
     setIsEditMode(false);
     setShowForm(true);
@@ -190,7 +190,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       phone2: foundClient.phone2 || '',
       adresse: foundClient.adresse || '',
       zone: foundClient.zone || '',
-      codeFidelite: foundClient.codeFidelite || '',   // ✅ NOUVEAU
+      codeFidelite: foundClient.codeFidelite || '',
     });
     setIsEditMode(true);
     setShowForm(true);
@@ -214,16 +214,24 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setError('');
 
     try {
+      // ✅ Nettoyer le code fidélité (laisser vide si non fourni)
+      const dataToSend = { ...formData };
+      if (!dataToSend.codeFidelite || !dataToSend.codeFidelite.trim()) {
+        delete dataToSend.codeFidelite;
+      } else {
+        dataToSend.codeFidelite = dataToSend.codeFidelite.trim().toUpperCase();
+      }
+
       let savedClient;
 
       if (isEditMode && foundClient) {
-        const res = await updateClient(foundClient._id, formData);
+        const res = await updateClient(foundClient._id, dataToSend);
         savedClient = res.data;
         setClients((prev) =>
           prev.map((c) => (c._id === savedClient._id ? savedClient : c))
         );
       } else {
-        const res = await createClient(formData);
+        const res = await createClient(dataToSend);
         savedClient = res.data;
         setClients((prev) => [...prev, savedClient]);
       }
@@ -837,18 +845,18 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               </select>
             </div>
 
-            {/* ✅ NOUVEAU : Code fidélité */}
+            {/* ✅ Code fidélité (facultatif) */}
             <div>
               <label className="form-label-modern">
                 🎁 Code fidélité{' '}
                 <span
                   style={{
                     fontSize: '11px',
-                    color: 'var(--gray-500)',
+                    color: 'var(--gray-400)',
                     fontWeight: '400',
                   }}
                 >
-                  (généré automatiquement si vide)
+                  (facultatif)
                 </span>
               </label>
               <input
@@ -860,7 +868,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                     codeFidelite: e.target.value.toUpperCase(),
                   })
                 }
-                placeholder="FID-XXXXXXX"
+                placeholder="FID-XXXXXXX (laisser vide si aucun)"
                 className="form-control-modern"
                 style={{
                   width: '100%',
@@ -889,7 +897,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                     marginTop: '4px',
                   }}
                 >
-                  💡 Laissez vide pour une génération automatique
+                  💡 Laissez vide si le client n'a pas de carte de fidélité
                 </div>
               )}
             </div>
