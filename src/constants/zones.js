@@ -1,5 +1,5 @@
 // ============================================================
-// ✅ Liste des zones (liste déroulante)
+// ✅ Liste des zones
 // ============================================================
 export const ZONES = [
   "Bni Khira",
@@ -14,7 +14,13 @@ export const ZONES = [
   "Bir el Jady",
   "Zougeg",
   "Menzel Temim",
-  "kélibia",
-  "hamem el ghzez",
-  "dar allouch",
+  "Kélibia",
+  "Hamem El Ghzez",
+  "Dar Allouch",
 ];
+
+// ✅ Version avec { value, label } si besoin
+export const ZONES_OPTIONS = ZONES.map((z) => ({
+  value: z,
+  label: z,
+}));

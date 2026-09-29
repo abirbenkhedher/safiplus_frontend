@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope,
   FaFileExcel, FaTimes, FaUserCheck, FaWallet,
-  FaMoneyBillWave, FaTrophy,
+  FaMoneyBillWave, FaTrophy, FaGift, FaTrash,
 } from 'react-icons/fa';
-import { getClients, deleteClient } from '../../api/clients';
+import { getClients, deleteClient, deleteManyClients } from '../../api/clients';
 import { exportClients } from '../../api/export';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -22,12 +22,18 @@ const ClientsList = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // ✅ Filtres sur une seule ligne
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [toggleCleared, setToggleCleared] = useState(false);
+
+  // ✅ Dialog de suppression multiple
+  const [showDeleteManyDialog, setShowDeleteManyDialog] = useState(false);
+  const [deletingMany, setDeletingMany] = useState(false);
+
   const [filters, setFilters] = useState({
     search: '',
-    paymentStatus: 'all', // all | paid | unpaid | partial
-    hasReparations: 'all', // all | yes | no
-    topClients: 'all',     // all | 5 | 10 | 20
+    paymentStatus: 'all',
+    hasReparations: 'all',
+    topClients: 'all',
   });
 
   const loadClients = async () => {
@@ -46,13 +52,9 @@ const ClientsList = () => {
     loadClients();
   }, []);
 
-  // ============================================================
-  // ✅ Application de tous les filtres + Top clients
-  // ============================================================
   const filteredClients = useMemo(() => {
     let result = [...clients];
 
-    // ✅ Recherche (nom, phone, phone2, email, code, adresse)
     if (filters.search) {
       const term = filters.search.toLowerCase();
       result = result.filter((c) =>
@@ -61,16 +63,16 @@ const ClientsList = () => {
         c.phone2?.includes(term) ||
         c.email?.toLowerCase().includes(term) ||
         c.code?.toLowerCase().includes(term) ||
-        c.adresse?.toLowerCase().includes(term)
+        c.adresse?.toLowerCase().includes(term) ||
+        c.zone?.toLowerCase().includes(term) ||
+        c.codeFidelite?.toLowerCase().includes(term)
       );
     }
 
-    // ✅ Filtre paiement
     if (filters.paymentStatus !== 'all') {
       result = result.filter((c) => {
         const restant = c.totalRestant || 0;
         const paye = c.totalPaye || 0;
-
         if (filters.paymentStatus === 'paid') return restant === 0 && paye > 0;
         if (filters.paymentStatus === 'unpaid') return restant > 0 && paye === 0;
         if (filters.paymentStatus === 'partial') return restant > 0 && paye > 0;
@@ -78,7 +80,6 @@ const ClientsList = () => {
       });
     }
 
-    // ✅ Filtre réparations (avec/sans)
     if (filters.hasReparations !== 'all') {
       result = result.filter((c) => {
         const count = c.totalReparations || 0;
@@ -86,23 +87,17 @@ const ClientsList = () => {
       });
     }
 
-    // ✅ NOUVEAU : Filtre TOP CLIENTS (par nombre de réparations)
     if (filters.topClients !== 'all') {
       const limit = parseInt(filters.topClients);
-
-      // Trier par nombre de réparations (décroissant)
       result = result
-        .filter((c) => (c.totalReparations || 0) > 0) // Uniquement ceux qui ont des réparations
+        .filter((c) => (c.totalReparations || 0) > 0)
         .sort((a, b) => (b.totalReparations || 0) - (a.totalReparations || 0))
-        .slice(0, limit); // Garder seulement le top N
+        .slice(0, limit);
     }
 
     return result;
   }, [clients, filters]);
 
-  // ============================================================
-  // ✅ Statistiques
-  // ============================================================
   const stats = useMemo(() => {
     const totalClients = clients.length;
     const activeClients = clients.filter((c) => c.isActive).length;
@@ -120,6 +115,12 @@ const ClientsList = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ Vider la sélection (state + RDT)
+  const clearSelection = () => {
+    setSelectedRows([]);
+    setToggleCleared((prev) => !prev);
+  };
+
   const resetFilters = () => {
     setFilters({
       search: '',
@@ -127,12 +128,14 @@ const ClientsList = () => {
       hasReparations: 'all',
       topClients: 'all',
     });
+    clearSelection();
   };
 
+  // ✅ Suppression simple (une ligne)
   const handleDelete = async () => {
     try {
-      await deleteClient(selectedClient._id);
-      setSuccess('Client supprimé avec succès');
+      const res = await deleteClient(selectedClient._id);
+      setSuccess(res.message || 'Client supprimé avec succès');
       setShowDeleteDialog(false);
       loadClients();
       setTimeout(() => setSuccess(''), 3000);
@@ -142,8 +145,48 @@ const ClientsList = () => {
     }
   };
 
+  // ✅ Suppression multiple
+  const handleDeleteMany = async () => {
+    setDeletingMany(true);
+    try {
+      const ids = selectedRows.map((r) => r._id);
+      const res = await deleteManyClients(ids);
+
+      setSuccess(res.message || `${res.deletedCount} client(s) supprimé(s)`);
+      setShowDeleteManyDialog(false);
+      clearSelection();
+      loadClients();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || 'Erreur lors de la suppression multiple'
+      );
+      setShowDeleteManyDialog(false);
+    } finally {
+      setDeletingMany(false);
+    }
+  };
+
   const handleExportExcel = async () => {
-    await exportClients({ search: filters.search });
+    if (selectedRows.length > 0) {
+      await exportClients({
+        clients: selectedRows,
+        filters: {
+          ...filters,
+          selection: `${selectedRows.length} client(s) sélectionné(s)`,
+        },
+      });
+      return;
+    }
+
+    await exportClients({
+      clients: filteredClients,
+      filters: filters,
+    });
+  };
+
+  const handleSelectedRowsChange = ({ selectedRows }) => {
+    setSelectedRows(selectedRows);
   };
 
   const openFormModal = (client = null) => {
@@ -163,29 +206,44 @@ const ClientsList = () => {
         </span>
       ),
     },
-   {
-  name: 'Client',
-  selector: (row) => row.nom,
-  sortable: true,
-  grow: 2,
-  minWidth: '220px',
-  cell: (row) => (
-    <div>
-      <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
-      {row.adresse && (
-        <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
-          📍 {row.adresse}
+    {
+      name: 'Client',
+      selector: (row) => row.nom,
+      sortable: true,
+      grow: 2,
+      minWidth: '240px',
+      cell: (row) => (
+        <div>
+          <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
+          {row.adresse && (
+            <div style={{ fontSize: '11px', color: 'var(--gray-500)' }}>
+              📍 {row.adresse}
+            </div>
+          )}
+          {row.zone && (
+            <div style={{ fontSize: '10.5px', color: 'var(--gray-400)', marginTop: '2px' }}>
+              🗺️ {row.zone}
+            </div>
+          )}
+          {row.codeFidelite && (
+            <div
+              style={{
+                fontSize: '10px',
+                color: 'var(--warning)',
+                marginTop: '3px',
+                fontFamily: 'monospace',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <FaGift size={9} /> {row.codeFidelite}
+            </div>
+          )}
         </div>
-      )}
-      {/* ✅ NOUVEAU : Zone */}
-      {row.zone && (
-        <div style={{ fontSize: '10.5px', color: 'var(--gray-400)', marginTop: '2px' }}>
-          🗺️ {row.zone}
-        </div>
-      )}
-    </div>
-  ),
-},
+      ),
+    },
     {
       name: 'Contact',
       sortable: true,
@@ -284,9 +342,14 @@ const ClientsList = () => {
     },
   ];
 
+  // ✅ Calcul des réparations à supprimer en cascade
+  const selectedReparationsCount = selectedRows.reduce(
+    (sum, r) => sum + (r.totalReparations || 0),
+    0
+  );
+
   return (
     <div className="fade-in-up">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--gray-900)', marginBottom: '4px' }}>
@@ -294,19 +357,51 @@ const ClientsList = () => {
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--gray-500)', margin: 0 }}>
             {filteredClients.length} / {clients.length} client(s) affiché(s)
+            {selectedRows.length > 0 && (
+              <span style={{ color: 'var(--primary)', fontWeight: '600', marginLeft: '8px' }}>
+                • {selectedRows.length} sélectionné(s)
+              </span>
+            )}
           </p>
         </div>
+
         <div className="d-flex gap-2 flex-wrap">
-          <button className="btn-modern btn-modern-success" onClick={handleExportExcel}>
-            <FaFileExcel /> Exporter
+          {selectedRows.length > 0 && (
+            <button
+              className="btn-modern btn-modern-outline"
+              onClick={clearSelection}
+            >
+              <FaTimes /> Désélectionner
+            </button>
+          )}
+
+          {/* ✅ Bouton supprimer la sélection */}
+          {selectedRows.length > 0 && (
+            <button
+              className="btn-modern btn-modern-danger"
+              onClick={() => setShowDeleteManyDialog(true)}
+              title={`Supprimer les ${selectedRows.length} clients sélectionnés`}
+            >
+              <FaTrash /> Supprimer ({selectedRows.length})
+            </button>
+          )}
+
+          <button
+            className="btn-modern btn-modern-success"
+            onClick={handleExportExcel}
+          >
+            <FaFileExcel />
+            {selectedRows.length > 0
+              ? ` Exporter (${selectedRows.length})`
+              : ' Exporter'}
           </button>
+
           <button className="btn-modern btn-modern-primary" onClick={() => openFormModal()}>
             <FaPlus /> Nouveau client
           </button>
         </div>
       </div>
 
-      {/* Messages */}
       {success && (
         <div style={{ padding: '12px 16px', background: 'var(--success-light)', color: 'var(--success)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '500' }}>
           ✅ {success}
@@ -318,7 +413,7 @@ const ClientsList = () => {
         </div>
       )}
 
-      {/* Cartes de statistiques */}
+      {/* Cartes stats */}
       <div className="row g-3 mb-4">
         {[
           { label: 'Total clients', value: stats.totalClients, icon: <FaUsers />, color: '#4361ee', bg: 'rgba(67, 97, 238, 0.1)' },
@@ -336,16 +431,6 @@ const ClientsList = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '14px',
-                transition: 'all 200ms ease',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
               }}
             >
               <div
@@ -393,12 +478,9 @@ const ClientsList = () => {
         ))}
       </div>
 
-      {/* ============================================================ */}
-      {/* BARRE DE FILTRES UNIFIÉE (sur une seule ligne) */}
-      {/* ============================================================ */}
+      {/* Filtres */}
       <div className="card-modern mb-3" style={{ padding: '14px 16px' }}>
         <div className="clients-filters-grid">
-          {/* Recherche */}
           <div style={{ position: 'relative', minWidth: 0 }}>
             <FaSearch
               style={{
@@ -422,57 +504,31 @@ const ClientsList = () => {
             />
           </div>
 
-          {/* ✅ Filtre Statut de paiement */}
-          <select
-            name="paymentStatus"
-            className="form-control-modern"
-            style={{ height: '42px' }}
-            value={filters.paymentStatus}
-            onChange={handleFilterChange}
-            title="Filtrer par statut de paiement"
-          >
+          <select name="paymentStatus" className="form-control-modern" style={{ height: '42px' }} value={filters.paymentStatus} onChange={handleFilterChange}>
             <option value="all">Tous les paiements</option>
             <option value="paid">✅ Entièrement payés</option>
             <option value="unpaid">⚠️ Aucun paiement</option>
             <option value="partial">◐ Partiellement payés</option>
           </select>
 
-          {/* ✅ Filtre Réparations */}
-          <select
-            name="hasReparations"
-            className="form-control-modern"
-            style={{ height: '42px' }}
-            value={filters.hasReparations}
-            onChange={handleFilterChange}
-            title="Filtrer par réparations"
-          >
+          <select name="hasReparations" className="form-control-modern" style={{ height: '42px' }} value={filters.hasReparations} onChange={handleFilterChange}>
             <option value="all">Peu importe</option>
             <option value="yes">Avec réparations</option>
             <option value="no">Sans réparation</option>
           </select>
 
-          {/* ✅ NOUVEAU : Filtre Top Clients */}
-          <select
-            name="topClients"
-            className="form-control-modern"
-            style={{ height: '42px' }}
-            value={filters.topClients}
-            onChange={handleFilterChange}
-            title="Classer par nombre de réparations"
-          >
+          <select name="topClients" className="form-control-modern" style={{ height: '42px' }} value={filters.topClients} onChange={handleFilterChange}>
             <option value="all">🏆 Aucun classement</option>
             <option value="5">🥇 Top 5 clients</option>
             <option value="10">🥈 Top 10 clients</option>
             <option value="20">🥉 Top 20 clients</option>
           </select>
 
-          {/* Reset */}
           {hasActiveFilters && (
             <button
               className="btn-modern btn-modern-outline"
               style={{ height: '42px', padding: '0 16px', justifyContent: 'center' }}
               onClick={resetFilters}
-              title="Réinitialiser les filtres"
             >
               <FaTimes size={12} />
             </button>
@@ -480,16 +536,7 @@ const ClientsList = () => {
         </div>
 
         {hasActiveFilters && (
-          <div
-            style={{
-              marginTop: '10px',
-              fontSize: '11.5px',
-              color: 'var(--gray-500)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
+          <div style={{ marginTop: '10px', fontSize: '11.5px', color: 'var(--gray-500)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>🔎</span>
             <span>{filteredClients.length} résultat(s) avec filtres actifs</span>
           </div>
@@ -500,7 +547,7 @@ const ClientsList = () => {
         columns={columns}
         data={filteredClients}
         loading={loading}
-        onRowClicked={(row) => navigate(`/clients/${row._id}`)}
+        onRowClicked={selectedRows.length > 0 ? undefined : (row) => navigate(`/clients/${row._id}`)}
         onView={(row) => navigate(`/clients/${row._id}`)}
         onEdit={(row) => openFormModal(row)}
         onDelete={(row) => {
@@ -510,9 +557,11 @@ const ClientsList = () => {
         searchable={false}
         emptyMessage="Aucun client trouvé"
         paginationPerPage={10}
+        selectableRows={true}
+        onSelectedRowsChange={handleSelectedRowsChange}
+        clearSelectedRows={toggleCleared}
       />
 
-      {/* Modal d'ajout/modification */}
       <ClientFormModal
         show={showFormModal}
         onClose={() => {
@@ -527,17 +576,47 @@ const ClientsList = () => {
         client={editingClient}
       />
 
+      {/* ✅ Dialog suppression simple — avec avertissement cascade */}
       <ConfirmDialog
         show={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={handleDelete}
         title="Supprimer le client"
-        message={`Êtes-vous sûr de vouloir supprimer "${selectedClient?.nom}" ? Cette action est irréversible.`}
+        message={
+          `Êtes-vous sûr de vouloir supprimer "${selectedClient?.nom}" ?\n\n` +
+          ((selectedClient?.totalReparations || 0) > 0
+            ? `⚠️ ${selectedClient.totalReparations} réparation(s) associée(s) seront également supprimées.\n\n`
+            : '') +
+          `Cette action est irréversible.`
+        }
         confirmText="Supprimer"
       />
 
+      {/* ✅ Dialog suppression multiple — avec avertissement cascade */}
+      <ConfirmDialog
+        show={showDeleteManyDialog}
+        onClose={() => setShowDeleteManyDialog(false)}
+        onConfirm={handleDeleteMany}
+        title={`Supprimer ${selectedRows.length} client(s)`}
+        message={
+          `Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} clients sélectionnés ?\n\n` +
+          (selectedReparationsCount > 0
+            ? `⚠️ ${selectedReparationsCount} réparation(s) associée(s) seront également supprimées.\n\n`
+            : '') +
+          `Clients : ${selectedRows
+            .slice(0, 5)
+            .map((r) => r.nom)
+            .join(', ')}${
+            selectedRows.length > 5
+              ? ` et ${selectedRows.length - 5} autre(s)...`
+              : ''
+          }\n\n` +
+          `Cette action est irréversible.`
+        }
+        confirmText={deletingMany ? 'Suppression...' : 'Supprimer tout'}
+      />
+
       <style>{`
-        /* ✅ Grille des filtres - tout sur une ligne */
         .clients-filters-grid {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 1fr auto;
@@ -558,11 +637,6 @@ const ClientsList = () => {
           .clients-filters-grid > * {
             width: 100% !important;
           }
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

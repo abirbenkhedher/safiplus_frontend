@@ -1,54 +1,126 @@
 import apiClient from './client';
 
-// Télécharger un fichier
-const downloadFile = async (url, filename) => {
-  try {
-    const response = await apiClient.get(url, {
-      responseType: 'blob'
-    });
-
-    // Créer un lien de téléchargement
-    const blob = new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(link.href);
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Erreur téléchargement:', error);
-    throw error;
-  }
+// ============================================================
+// ✅ Télécharger un blob
+// ============================================================
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };
 
-export const exportReparations = async (params = {}) => {
-  const queryString = new URLSearchParams(params).toString();
-  const url = `/export/reparations${queryString ? `?${queryString}` : ''}`;
+// ============================================================
+// ✅ EXPORT RÉPARATIONS
+// - Si `reparations` fourni → POST avec données filtrées
+// - Sinon → GET avec filtres serveur (fallback)
+// ============================================================
+export const exportReparations = async (options = {}) => {
+  const { reparations, filters, ...serverFilters } = options;
   const filename = `reparations_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  return downloadFile(url, filename);
+
+  // ✅ Cas 1 : données filtrées passées en direct → POST
+  if (Array.isArray(reparations)) {
+    const response = await apiClient.post(
+      '/export/reparations',
+      {
+        reparations,
+        filters: filters || {},
+      },
+      {
+        responseType: 'blob',
+      }
+    );
+
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    downloadBlob(blob, filename);
+    return { success: true };
+  }
+
+  // ✅ Cas 2 : filtres serveur classiques → GET
+  const queryString = new URLSearchParams(serverFilters).toString();
+  const url = `/export/reparations${queryString ? `?${queryString}` : ''}`;
+
+  const response = await apiClient.get(url, { responseType: 'blob' });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
 };
 
-export const exportClients = async (params = {}) => {
-  const queryString = new URLSearchParams(params).toString();
-  const url = `/export/clients${queryString ? `?${queryString}` : ''}`;
+// ============================================================
+// ✅ EXPORT CLIENTS
+// - Si `clients` fourni → POST avec données filtrées
+// - Sinon → GET avec filtres serveur (fallback)
+// ============================================================
+export const exportClients = async (options = {}) => {
+  const { clients, filters, ...serverFilters } = options;
   const filename = `clients_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  return downloadFile(url, filename);
+
+  // ✅ Cas 1 : données filtrées passées en direct → POST
+  if (Array.isArray(clients)) {
+    const response = await apiClient.post(
+      '/export/clients',
+      {
+        clients,
+        filters: filters || {},
+      },
+      {
+        responseType: 'blob',
+      }
+    );
+
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    downloadBlob(blob, filename);
+    return { success: true };
+  }
+
+  // ✅ Cas 2 : filtres serveur classiques → GET
+  const queryString = new URLSearchParams(serverFilters).toString();
+  const url = `/export/clients${queryString ? `?${queryString}` : ''}`;
+
+  const response = await apiClient.get(url, { responseType: 'blob' });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
 };
 
+// ============================================================
+// ✅ EXPORT UTILISATEURS (inchangé)
+// ============================================================
 export const exportUsers = async () => {
-  const url = '/export/users';
   const filename = `utilisateurs_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  return downloadFile(url, filename);
+  const response = await apiClient.get('/export/users', { responseType: 'blob' });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
 };
 
+// ============================================================
+// ✅ EXPORT HISTORIQUE (inchangé)
+// ============================================================
 export const exportHistory = async (params = {}) => {
+  const filename = `historique_${new Date().toISOString().slice(0, 10)}.xlsx`;
   const queryString = new URLSearchParams(params).toString();
   const url = `/export/history${queryString ? `?${queryString}` : ''}`;
-  const filename = `historique_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  return downloadFile(url, filename);
+
+  const response = await apiClient.get(url, { responseType: 'blob' });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
 };

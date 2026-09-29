@@ -3,9 +3,13 @@ import { useNavigate } from "react-router-dom";
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
   FaTools, FaCheckCircle, FaSpinner, FaPrint,
-  FaMoneyBillWave, FaMapMarkerAlt, FaFilter, FaBoxes,
+  FaMoneyBillWave, FaMapMarkedAlt, FaFilter, FaBoxes,
 } from "react-icons/fa";
-import { getReparations, deleteReparation } from "../../api/reparations";
+import {
+  getReparations,
+  deleteReparation,
+  deleteManyReparations,
+} from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
 import { getUsers } from "../../api/users";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -13,7 +17,8 @@ import DataTable from "../../components/common/DataTable";
 import ExportButton from "../../components/common/ExportButton";
 import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
-import { useReparationData } from "../../hooks/useReparationData"; // ✅ pour les catégories
+import { useReparationData } from "../../hooks/useReparationData";
+import { ZONES } from "../../constants/zones";
 
 const STATUTS_TERMINES = [
   "REPARE", "NON REPARE", "SORTIE NON REPARE", "SAV",
@@ -25,9 +30,8 @@ const STATUT_EN_COURS = "EN COURS";
 
 const ReparationsList = () => {
   const navigate = useNavigate();
-  const { openNewReparation, openEditReparation, registerOnSuccess } = useReparationModal();
-
-  // ✅ Catégories depuis le hook global (cache partagé)
+  const { openNewReparation, openEditReparation, registerOnSuccess } =
+    useReparationModal();
   const { categories } = useReparationData();
 
   const [reparations, setReparations] = useState([]);
@@ -35,24 +39,37 @@ const ReparationsList = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Sélection multiple
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [toggleCleared, setToggleCleared] = useState(false);
+
   const [filters, setFilters] = useState({
     search: "",
     status: "",
-    categorie: "",     // ✅ NOUVEAU
+    categorie: "",
     reparateur: "",
-    adresse: "",
+    zone: "",
     dateDebut: "",
     dateFin: "",
   });
 
+  // ✅ Dialog suppression simple
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReparation, setSelectedReparation] = useState(null);
+
+  // ✅ Dialog suppression multiple
+  const [showDeleteManyDialog, setShowDeleteManyDialog] = useState(false);
+  const [deletingMany, setDeletingMany] = useState(false);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const handleNew = () => openNewReparation();
   const handleEdit = (rep) => openEditReparation(rep);
 
+  // ============================================================
+  // CHARGEMENT
+  // ============================================================
   const loadData = async () => {
     try {
       setLoading(true);
@@ -61,7 +78,9 @@ const ReparationsList = () => {
         if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
       });
       const [repRes, statusesRes, usersRes] = await Promise.all([
-        getReparations(params), getStatuses(), getUsers(),
+        getReparations(params),
+        getStatuses(),
+        getUsers(),
       ]);
       setReparations(repRes.data);
       setStatuses(statusesRes.data);
@@ -91,27 +110,36 @@ const ReparationsList = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ Vider la sélection (state + RDT)
+  const clearSelection = () => {
+    setSelectedRows([]);
+    setToggleCleared((prev) => !prev);
+  };
+
   const resetFilters = () => {
     setFilters({
       search: "",
       status: "",
       categorie: "",
       reparateur: "",
-      adresse: "",
+      zone: "",
       dateDebut: "",
       dateFin: "",
     });
+    clearSelection();
   };
 
   const hasActiveFilters = Object.values(filters).some(
     (v) => v && v.trim() !== ""
   );
 
-  // ✅ Nombre de filtres actifs (pour badge)
   const activeCount = Object.values(filters).filter(
     (v) => v && v.trim() !== ""
   ).length;
 
+  // ============================================================
+  // SUPPRESSION SIMPLE
+  // ============================================================
   const handleDelete = async () => {
     try {
       await deleteReparation(selectedReparation._id);
@@ -125,14 +153,64 @@ const ReparationsList = () => {
     }
   };
 
-  const handleExportExcel = async () => {
-    const params = {};
-    Object.keys(filters).forEach((k) => {
-      if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
-    });
-    await exportReparations(params);
+  // ============================================================
+  // ✅ SUPPRESSION MULTIPLE
+  // ============================================================
+  const handleDeleteMany = async () => {
+    setDeletingMany(true);
+    try {
+      const ids = selectedRows.map((r) => r._id);
+      const res = await deleteManyReparations(ids);
+
+      setSuccess(
+        `${res.deletedCount || 0} réparation(s) supprimée(s) avec succès`
+      );
+      setShowDeleteManyDialog(false);
+      clearSelection();
+      loadData();
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Erreur lors de la suppression multiple"
+      );
+      setShowDeleteManyDialog(false);
+    } finally {
+      setDeletingMany(false);
+    }
   };
 
+  // ============================================================
+  // EXPORT
+  // ============================================================
+  const handleExportExcel = async () => {
+    if (selectedRows.length > 0) {
+      await exportReparations({
+        reparations: selectedRows,
+        filters: {
+          ...filters,
+          selection: `${selectedRows.length} réparation(s) sélectionnée(s)`,
+        },
+      });
+      return;
+    }
+
+    await exportReparations({
+      reparations: reparations,
+      filters: filters,
+    });
+  };
+
+  // ============================================================
+  // HANDLER SÉLECTION
+  // ============================================================
+  const handleSelectedRowsChange = ({ selectedRows }) => {
+    setSelectedRows(selectedRows);
+  };
+
+  // ============================================================
+  // STATS
+  // ============================================================
   const stats = useMemo(() => {
     const total = reparations.length;
     const impayees = reparations.filter((r) => {
@@ -151,7 +229,6 @@ const ReparationsList = () => {
     return { total, impayees, enCours, terminees };
   }, [reparations]);
 
-  // ✅ Catégories triées par ordre
   const categoriesTriees = useMemo(
     () =>
       [...categories].sort(
@@ -163,14 +240,14 @@ const ReparationsList = () => {
   );
 
   // ============================================================
-  // COLONNES — Compactes pour éviter le scroll horizontal
+  // COLONNES
   // ============================================================
   const columns = [
     {
       name: "N°",
       selector: (row) => row.numero,
       sortable: true,
-      width: "100px",   // ✅ réduit
+      width: "100px",
       cell: (row) => (
         <span
           className="badge-modern badge-modern-primary"
@@ -185,20 +262,44 @@ const ReparationsList = () => {
       selector: (row) => row.client?.nom,
       sortable: true,
       grow: 2,
-      minWidth: "170px", // ✅ réduit
+      minWidth: "170px",
       cell: (row) => (
         <div style={{ padding: "2px 0" }}>
-          <div style={{ fontWeight: "600", fontSize: "12.5px", color: "var(--gray-800)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              fontWeight: "600",
+              fontSize: "12.5px",
+              color: "var(--gray-800)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {row.client?.nom || "N/A"}
           </div>
           {row.client?.phone && (
-            <div style={{ fontSize: "10.5px", color: "var(--gray-500)", marginTop: "1px" }}>
+            <div
+              style={{
+                fontSize: "10.5px",
+                color: "var(--gray-500)",
+                marginTop: "1px",
+              }}
+            >
               📞 {row.client.phone}
             </div>
           )}
-          {row.client?.adresse && (
-            <div style={{ fontSize: "10px", color: "var(--gray-400)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              <FaMapMarkerAlt size={8} /> {row.client.adresse}
+          {row.client?.zone && (
+            <div
+              style={{
+                fontSize: "10px",
+                color: "var(--gray-400)",
+                marginTop: "1px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <FaMapMarkedAlt size={8} /> {row.client.zone}
             </div>
           )}
         </div>
@@ -206,16 +307,34 @@ const ReparationsList = () => {
     },
     {
       name: "Appareil",
-      selector: (row) => `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
+      selector: (row) =>
+        `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
       sortable: true,
       grow: 1.5,
-      minWidth: "140px", // ✅ réduit
+      minWidth: "140px",
       cell: (row) => (
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: "600", fontSize: "12.5px", color: "var(--gray-800)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              fontWeight: "600",
+              fontSize: "12.5px",
+              color: "var(--gray-800)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {row.marque?.nom || "-"} {row.modele?.nom || ""}
           </div>
-          <div style={{ fontSize: "10.5px", color: "var(--gray-500)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              fontSize: "10.5px",
+              color: "var(--gray-500)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {row.objet?.nom}
           </div>
         </div>
@@ -229,13 +348,25 @@ const ReparationsList = () => {
       },
       sortable: true,
       grow: 1.5,
-      minWidth: "150px", // ✅ réduit
+      minWidth: "150px",
       cell: (row) => {
         const pannes = Array.isArray(row.panneType)
           ? row.panneType
-          : row.panneType ? [row.panneType] : [];
+          : row.panneType
+          ? [row.panneType]
+          : [];
         if (pannes.length === 0) {
-          return <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>-</span>;
+          return (
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--gray-400)",
+                fontStyle: "italic",
+              }}
+            >
+              -
+            </span>
+          );
         }
         return (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
@@ -282,11 +413,18 @@ const ReparationsList = () => {
       selector: (row) => row.status?.label,
       sortable: true,
       center: true,
-      width: "140px", // ✅ réduit
+      width: "140px",
       cell: (row) => {
         const imprevusEnAttente = row.imprevusEnAttente || 0;
         return (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "3px",
+            }}
+          >
             <span
               className="badge-modern"
               style={{
@@ -300,7 +438,16 @@ const ReparationsList = () => {
               {row.status?.label || "N/A"}
             </span>
             {imprevusEnAttente > 0 && (
-              <span style={{ fontSize: "9px", fontWeight: "700", color: "var(--warning)", background: "var(--warning-light)", padding: "1px 5px", borderRadius: "6px" }}>
+              <span
+                style={{
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  color: "var(--warning)",
+                  background: "var(--warning-light)",
+                  padding: "1px 5px",
+                  borderRadius: "6px",
+                }}
+              >
                 ⚠️ {imprevusEnAttente}
               </span>
             )}
@@ -312,11 +459,17 @@ const ReparationsList = () => {
       name: "Prix",
       selector: (row) => row.prix,
       sortable: true,
-      width: "85px",  // ✅ réduit
+      width: "85px",
       right: true,
       cell: (row) => (
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: "700", fontSize: "12.5px", color: "var(--gray-800)" }}>
+          <div
+            style={{
+              fontWeight: "700",
+              fontSize: "12.5px",
+              color: "var(--gray-800)",
+            }}
+          >
             {(row.prixTotal || row.prix || 0).toFixed(2)}
           </div>
           <div style={{ fontSize: "9.5px", color: "var(--gray-500)" }}>DT</div>
@@ -327,13 +480,19 @@ const ReparationsList = () => {
       name: "Reste",
       selector: (row) => (row.prix || 0) - (row.acompte || 0),
       sortable: true,
-      width: "85px",  // ✅ réduit
+      width: "85px",
       right: true,
       cell: (row) => {
         const reste = (row.prixTotal || row.prix || 0) - (row.acompte || 0);
         return (
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontWeight: "700", fontSize: "12.5px", color: reste > 0 ? "var(--danger)" : "var(--success)" }}>
+            <div
+              style={{
+                fontWeight: "700",
+                fontSize: "12.5px",
+                color: reste > 0 ? "var(--danger)" : "var(--success)",
+              }}
+            >
               {reste.toFixed(2)}
             </div>
             <div style={{ fontSize: "9.5px", color: "var(--gray-500)" }}>DT</div>
@@ -345,7 +504,7 @@ const ReparationsList = () => {
       name: "Réparateur",
       selector: (row) => row.reparateur?.firstName,
       sortable: true,
-      width: "120px", // ✅ réduit
+      width: "120px",
       cell: (row) =>
         row.reparateur ? (
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -354,7 +513,8 @@ const ReparationsList = () => {
                 width: "24px",
                 height: "24px",
                 borderRadius: "6px",
-                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                background:
+                  "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                 color: "white",
                 display: "flex",
                 alignItems: "center",
@@ -367,19 +527,35 @@ const ReparationsList = () => {
               {row.reparateur.firstName?.charAt(0)}
               {row.reparateur.lastName?.charAt(0)}
             </div>
-            <span style={{ fontSize: "11.5px", color: "var(--gray-700)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span
+              style={{
+                fontSize: "11.5px",
+                color: "var(--gray-700)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {row.reparateur.firstName}
             </span>
           </div>
         ) : (
-          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--gray-400)",
+              fontStyle: "italic",
+            }}
+          >
+            —
+          </span>
         ),
     },
     {
       name: "Date",
       selector: (row) => row.createdAt,
       sortable: true,
-      width: "90px",  // ✅ réduit
+      width: "90px",
       cell: (row) => (
         <span style={{ fontSize: "11px", color: "var(--gray-600)" }}>
           {new Date(row.createdAt).toLocaleDateString("fr-FR")}
@@ -389,13 +565,27 @@ const ReparationsList = () => {
     {
       name: "Actions",
       center: true,
-      width: "130px", // ✅ réduit
+      width: "130px",
       cell: (row) => (
         <div style={{ display: "flex", gap: "3px", justifyContent: "center" }}>
-          <button className="btn-icon" onClick={(e) => { e.stopPropagation(); navigate(`/reparations/${row._id}`); }} title="Voir">
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/reparations/${row._id}`);
+            }}
+            title="Voir"
+          >
             <FaEye size={11} />
           </button>
-          <button className="btn-icon" onClick={(e) => { e.stopPropagation(); handleEdit(row); }} title="Modifier">
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(row);
+            }}
+            title="Modifier"
+          >
             <FaEdit size={11} />
           </button>
           <button
@@ -403,7 +593,8 @@ const ReparationsList = () => {
             onClick={(e) => {
               e.stopPropagation();
               const token = localStorage.getItem("accessToken");
-              const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+              const apiUrl =
+                import.meta.env.VITE_API_URL || "http://localhost:5000/api";
               fetch(`${apiUrl}/reparations/${row._id}/ticket`, {
                 headers: { Authorization: `Bearer ${token}` },
               })
@@ -421,7 +612,11 @@ const ReparationsList = () => {
           </button>
           <button
             className="btn-icon btn-icon-danger"
-            onClick={(e) => { e.stopPropagation(); setSelectedReparation(row); setShowDeleteDialog(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedReparation(row);
+              setShowDeleteDialog(true);
+            }}
             title="Supprimer"
           >
             <FaTrash size={11} />
@@ -431,20 +626,70 @@ const ReparationsList = () => {
     },
   ];
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className="fade-in-up">
       {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: "700", color: "var(--gray-900)", marginBottom: "4px" }}>
+          <h1
+            style={{
+              fontSize: "24px",
+              fontWeight: "700",
+              color: "var(--gray-900)",
+              marginBottom: "4px",
+            }}
+          >
             Réparations
           </h1>
           <p style={{ fontSize: "13px", color: "var(--gray-500)", margin: 0 }}>
             {reparations.length} réparation(s) • {stats.enCours} en cours
+            {selectedRows.length > 0 && (
+              <span
+                style={{
+                  color: "var(--primary)",
+                  fontWeight: "600",
+                  marginLeft: "8px",
+                }}
+              >
+                • {selectedRows.length} sélectionnée(s)
+              </span>
+            )}
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap">
-          <ExportButton onExport={handleExportExcel} label="Excel" />
+          {selectedRows.length > 0 && (
+            <button
+              className="btn-modern btn-modern-outline"
+              onClick={clearSelection}
+              title="Désélectionner tout"
+            >
+              <FaTimes /> Désélectionner
+            </button>
+          )}
+
+          {/* ✅ Bouton Supprimer la sélection */}
+          {selectedRows.length > 0 && (
+            <button
+              className="btn-modern btn-modern-danger"
+              onClick={() => setShowDeleteManyDialog(true)}
+              title={`Supprimer les ${selectedRows.length} réparations sélectionnées`}
+            >
+              <FaTrash /> Supprimer ({selectedRows.length})
+            </button>
+          )}
+
+          <ExportButton
+            onExport={handleExportExcel}
+            label={
+              selectedRows.length > 0
+                ? `Exporter (${selectedRows.length})`
+                : "Excel"
+            }
+          />
+
           <button className="btn-modern btn-modern-primary" onClick={handleNew}>
             <FaPlus /> Nouvelle réparation
           </button>
@@ -452,12 +697,32 @@ const ReparationsList = () => {
       </div>
 
       {success && (
-        <div style={{ padding: "12px 16px", background: "var(--success-light)", color: "var(--success)", borderRadius: "10px", marginBottom: "20px", fontSize: "13px", fontWeight: "500" }}>
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "var(--success-light)",
+            color: "var(--success)",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            fontSize: "13px",
+            fontWeight: "500",
+          }}
+        >
           ✅ {success}
         </div>
       )}
       {error && (
-        <div style={{ padding: "12px 16px", background: "var(--danger-light)", color: "var(--danger)", borderRadius: "10px", marginBottom: "20px", fontSize: "13px", fontWeight: "500" }}>
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "var(--danger-light)",
+            color: "var(--danger)",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            fontSize: "13px",
+            fontWeight: "500",
+          }}
+        >
           ⚠️ {error}
         </div>
       )}
@@ -471,15 +736,54 @@ const ReparationsList = () => {
           { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
         ].map((stat, i) => (
           <div key={i} className="col-6 col-lg-3">
-            <div style={{ background: "var(--gray-50)", border: "1px solid var(--gray-200)", borderRadius: "16px", padding: "18px", display: "flex", alignItems: "center", gap: "14px", transition: "all 200ms ease" }}>
-              <div style={{ width: "46px", height: "46px", borderRadius: "12px", background: stat.bg, color: stat.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>
+            <div
+              style={{
+                background: "var(--gray-50)",
+                border: "1px solid var(--gray-200)",
+                borderRadius: "16px",
+                padding: "18px",
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+              }}
+            >
+              <div
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "12px",
+                  background: stat.bg,
+                  color: stat.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "18px",
+                  flexShrink: 0,
+                }}
+              >
                 {stat.icon}
               </div>
               <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    color: "var(--gray-500)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: "2px",
+                  }}
+                >
                   {stat.label}
                 </div>
-                <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--gray-900)", lineHeight: 1 }}>
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "800",
+                    color: "var(--gray-900)",
+                    lineHeight: 1,
+                  }}
+                >
                   {stat.value}
                 </div>
               </div>
@@ -488,12 +792,17 @@ const ReparationsList = () => {
         ))}
       </div>
 
-      {/* ============================================================ */}
-      {/* BARRE DE FILTRES RÉORGANISÉE */}
-      {/* ============================================================ */}
+      {/* BARRE DE FILTRES */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
-        {/* Ligne 1 : Recherche principale + bouton reset */}
-        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "14px", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: "14px",
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: 0 }}>
             <FaSearch
               style={{
@@ -522,16 +831,13 @@ const ReparationsList = () => {
               className="btn-modern btn-modern-outline"
               style={{ height: "44px", padding: "0 18px", whiteSpace: "nowrap" }}
               onClick={resetFilters}
-              title="Réinitialiser les filtres"
             >
               <FaTimes size={12} /> Effacer {activeCount > 0 && `(${activeCount})`}
             </button>
           )}
         </div>
 
-        {/* Ligne 2 : Filtres secondaires groupés */}
         <div className="filters-grid-2">
-          {/* Catégorie */}
           <div className="filter-item">
             <label className="filter-label">
               <FaBoxes size={10} /> Catégorie
@@ -545,12 +851,13 @@ const ReparationsList = () => {
             >
               <option value="">Toutes</option>
               {categoriesTriees.map((c) => (
-                <option key={c._id} value={c._id}>{c.nom}</option>
+                <option key={c._id} value={c._id}>
+                  {c.nom}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Statut */}
           <div className="filter-item">
             <label className="filter-label">
               <FaFilter size={10} /> Statut
@@ -564,12 +871,13 @@ const ReparationsList = () => {
             >
               <option value="">Tous</option>
               {statuses.map((s) => (
-                <option key={s._id} value={s._id}>{s.label}</option>
+                <option key={s._id} value={s._id}>
+                  {s.label}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Réparateur */}
           <div className="filter-item">
             <label className="filter-label">
               <FaTools size={10} /> Réparateur
@@ -592,23 +900,26 @@ const ReparationsList = () => {
             </select>
           </div>
 
-          {/* Adresse */}
           <div className="filter-item">
             <label className="filter-label">
-              <FaMapMarkerAlt size={10} /> Adresse
+              <FaMapMarkedAlt size={10} /> Zone
             </label>
-            <input
-              type="text"
-              name="adresse"
+            <select
+              name="zone"
               className="form-control-modern"
               style={{ height: "42px" }}
-              placeholder="Filtrer..."
-              value={filters.adresse}
+              value={filters.zone}
               onChange={handleFilterChange}
-            />
+            >
+              <option value="">Toutes les zones</option>
+              {ZONES.map((zone) => (
+                <option key={zone} value={zone}>
+                  {zone}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Date début */}
           <div className="filter-item">
             <label className="filter-label">Du</label>
             <input
@@ -621,7 +932,6 @@ const ReparationsList = () => {
             />
           </div>
 
-          {/* Date fin */}
           <div className="filter-item">
             <label className="filter-label">Au</label>
             <input
@@ -635,16 +945,26 @@ const ReparationsList = () => {
           </div>
         </div>
 
-        {/* Info résultats */}
         {hasActiveFilters && (
-          <div style={{ marginTop: "12px", fontSize: "11.5px", color: "var(--gray-500)", display: "flex", alignItems: "center", gap: "6px" }}>
+          <div
+            style={{
+              marginTop: "12px",
+              fontSize: "11.5px",
+              color: "var(--gray-500)",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
             <span>🔎</span>
             <span>{reparations.length} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
 
-      {/* TABLEAU — avec wrapper pour forcer la largeur */}
+    
+
+      {/* TABLEAU */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
@@ -652,13 +972,21 @@ const ReparationsList = () => {
           loading={loading}
           actions={false}
           searchable={false}
-          onRowClicked={(row) => navigate(`/reparations/${row._id}`)}
+          onRowClicked={
+            selectedRows.length > 0
+              ? undefined
+              : (row) => navigate(`/reparations/${row._id}`)
+          }
           emptyMessage="Aucune réparation trouvée"
           paginationPerPage={10}
           dense={true}
+          selectableRows={true}
+          onSelectedRowsChange={handleSelectedRowsChange}
+          clearSelectedRows={toggleCleared}
         />
       </div>
 
+      {/* ✅ DIALOG SUPPRESSION SIMPLE */}
       <ConfirmDialog
         show={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
@@ -668,8 +996,24 @@ const ReparationsList = () => {
         confirmText="Supprimer"
       />
 
+      {/* ✅ DIALOG SUPPRESSION MULTIPLE */}
+      <ConfirmDialog
+        show={showDeleteManyDialog}
+        onClose={() => setShowDeleteManyDialog(false)}
+        onConfirm={handleDeleteMany}
+        title={`Supprimer ${selectedRows.length} réparation(s)`}
+        message={`Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} réparations sélectionnées ? Cette action est irréversible.\n\nN° : ${selectedRows
+          .slice(0, 5)
+          .map((r) => r.numero)
+          .join(", ")}${
+          selectedRows.length > 5
+            ? ` et ${selectedRows.length - 5} autre(s)...`
+            : ""
+        }`}
+        confirmText={deletingMany ? "Suppression..." : "Supprimer tout"}
+      />
+
       <style>{`
-        /* ✅ Grille de filtres secondaires */
         .filters-grid-2 {
           display: grid;
           grid-template-columns: repeat(6, 1fr);
@@ -696,7 +1040,6 @@ const ReparationsList = () => {
           padding-left: 2px;
         }
 
-        /* ✅ Responsive */
         @media (max-width: 1400px) {
           .filters-grid-2 { grid-template-columns: repeat(3, 1fr); }
         }
@@ -710,33 +1053,13 @@ const ReparationsList = () => {
           .filters-grid-2 > * { width: 100% !important; }
         }
 
-        /* ✅ Tableau plus compact */
-        .rdt_TableHeadRow {
-          min-height: 42px !important;
-        }
+        .rdt_TableHeadRow { min-height: 42px !important; }
+        .rdt_TableRow { min-height: 52px !important; }
+        .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
+        .rdt_TableCol { padding: 8px 10px !important; }
 
-        .rdt_TableRow {
-          min-height: 52px !important;
-        }
-
-        .rdt_TableCell {
-          padding: 8px 10px !important;
-          font-size: 12.5px !important;
-        }
-
-        .rdt_TableCol {
-          padding: 8px 10px !important;
-        }
-
-        /* ✅ Empêcher le scroll horizontal du tableau */
-        .rdt_TableWrapper {
-          width: 100% !important;
-          overflow-x: hidden !important;
-        }
-
-        .rdt_Table {
-          width: 100% !important;
-        }
+        .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
+        .rdt_Table { width: 100% !important; }
       `}</style>
     </div>
   );

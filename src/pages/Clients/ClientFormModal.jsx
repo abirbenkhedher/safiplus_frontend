@@ -1,17 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FaSave, FaTimes, FaUser, FaPhone, FaEnvelope, 
-  FaMapMarkerAlt, FaToggleOn, FaToggleOff, FaExclamationTriangle,
-  FaCheckCircle
-} from 'react-icons/fa';
-import { createClient, updateClient, findClientByPhone } from '../../api/clients';
-import { ZONES } from '../../constants/zones';
+import React, { useState, useEffect } from "react";
+import {
+  FaSave,
+  FaTimes,
+  FaUser,
+  FaPhone,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaToggleOn,
+  FaToggleOff,
+  FaExclamationTriangle,
+  FaCheckCircle,
+} from "react-icons/fa";
+import {
+  createClient,
+  updateClient,
+  findClientByPhone,
+} from "../../api/clients";
+import { ZONES } from "../../constants/zones";
 
 // ============================================================
 // ✅ Helper : limite à 8 chiffres (chiffres uniquement)
 // ============================================================
 const formatPhoneInput = (value) => {
-  const digitsOnly = String(value || '').replace(/[^0-9]/g, '');
+  const digitsOnly = String(value || "").replace(/[^0-9]/g, "");
   return digitsOnly.slice(0, 8);
 };
 
@@ -20,9 +31,16 @@ const formatPhoneInput = (value) => {
 // ============================================================
 const handlePhoneKeyDown = (e) => {
   const allowedKeys = [
-    'Backspace', 'Delete', 'Tab', 'Enter',
-    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-    'Home', 'End',
+    "Backspace",
+    "Delete",
+    "Tab",
+    "Enter",
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Home",
+    "End",
   ];
 
   if (allowedKeys.includes(e.key)) return;
@@ -38,52 +56,71 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   const isEdit = Boolean(client);
 
   const [formData, setFormData] = useState({
-  nom: '', phone: '', phone2: '', email: '', adresse: '', zone: '', isActive: true,
-});
+    nom: "",
+    phone: "",
+    phone2: "",
+    email: "",
+    adresse: "",
+    zone: "",
+    codeFidelite: "",
+    isActive: true,
+  });
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [existingClient, setExistingClient] = useState(null);
 
   // Reset quand le modal s'ouvre
-useEffect(() => {
-  if (show) {
-    setFormData(client ? {
-      nom: client.nom || '',
-      phone: client.phone || '',
-      phone2: client.phone2 || '',
-      email: client.email || '',
-      adresse: client.adresse || '',
-      zone: client.zone || '',
-      isActive: client.isActive !== undefined ? client.isActive : true,
-    } : {
-      nom: '', phone: '', phone2: '', email: '', adresse: '', zone: '', isActive: true,
-    });
-    setError('');
-    setExistingClient(null);
-  }
-}, [show, client]);
+  useEffect(() => {
+    if (show) {
+      setFormData(
+        client
+          ? {
+              nom: client.nom || "",
+              phone: client.phone || "",
+              phone2: client.phone2 || "",
+              email: client.email || "",
+              adresse: client.adresse || "",
+              zone: client.zone || "",
+              codeFidelite: client.codeFidelite || "", // ✅ NOUVEAU
+              isActive: client.isActive !== undefined ? client.isActive : true,
+            }
+          : {
+              nom: "",
+              phone: "",
+              phone2: "",
+              email: "",
+              adresse: "",
+              zone: "",
+              codeFidelite: "", // ✅ NOUVEAU
+              isActive: true,
+            },
+      );
+      setError("");
+      setExistingClient(null);
+    }
+  }, [show, client]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
     // ✅ Limiter phone et phone2 à 8 chiffres max
-    if (name === 'phone' || name === 'phone2') {
+    if (name === "phone" || name === "phone2") {
       setFormData({
         ...formData,
         [name]: formatPhoneInput(value),
       });
 
-      if (name === 'phone') {
+      if (name === "phone") {
         setExistingClient(null);
-        setError('');
+        setError("");
       }
       return;
     }
 
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
 
@@ -94,54 +131,57 @@ useEffect(() => {
 
     setChecking(true);
     setExistingClient(null);
-    setError('');
+    setError("");
 
     try {
       const result = await findClientByPhone(formData.phone);
-      
+
       if (result.exists && result.data) {
         setExistingClient(result.data);
-        setError('');
+        setError("");
       }
     } catch (err) {
-      console.error('Erreur vérification:', err);
+      console.error("Erreur vérification:", err);
     } finally {
       setChecking(false);
     }
   };
 
   const handleUseExistingClient = () => {
-  if (existingClient) {
-    setFormData({
-      nom: existingClient.nom,
-      phone: existingClient.phone,
-      phone2: existingClient.phone2 || '',
-      email: existingClient.email || '',
-      adresse: existingClient.adresse || '',
-      zone: existingClient.zone || '',
-      isActive: existingClient.isActive,
-    });
-    setExistingClient(null);
-  }
-};
+    if (existingClient) {
+      setFormData({
+        nom: existingClient.nom,
+        phone: existingClient.phone,
+        phone2: existingClient.phone2 || "",
+        email: existingClient.email || "",
+        adresse: existingClient.adresse || "",
+        zone: existingClient.zone || "",
+        codeFidelite: existingClient.codeFidelite || "", // ✅ NOUVEAU
+        isActive: existingClient.isActive,
+      });
+      setExistingClient(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setExistingClient(null);
 
     // Validation
-    if (!formData.nom.trim()) return setError('Le nom est obligatoire');
-    if (!formData.phone.trim()) return setError('Le téléphone est obligatoire');
+    if (!formData.nom.trim()) return setError("Le nom est obligatoire");
+    if (!formData.phone.trim()) return setError("Le téléphone est obligatoire");
 
     setLoading(true);
     try {
       // DOUBLE VÉRIFICATION : Avant de créer, vérifier que le téléphone n'existe pas
       if (!isEdit) {
         const checkResult = await findClientByPhone(formData.phone);
-        
+
         if (checkResult.exists && checkResult.data) {
-          setError(`Un client avec ce numéro existe déjà : ${checkResult.data.nom} (${checkResult.data.code})`);
+          setError(
+            `Un client avec ce numéro existe déjà : ${checkResult.data.nom} (${checkResult.data.code})`,
+          );
           setExistingClient(checkResult.data);
           setLoading(false);
           return;
@@ -156,7 +196,9 @@ useEffect(() => {
       onSuccess();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      setError(
+        err.response?.data?.message || "Erreur lors de l'enregistrement",
+      );
     } finally {
       setLoading(false);
     }
@@ -165,72 +207,104 @@ useEffect(() => {
   if (!show) return null;
 
   return (
-    <div 
-      className="modal fade show d-block" 
-      style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1050 }} 
+    <div
+      className="modal fade show d-block"
+      style={{ background: "rgba(0,0,0,0.5)", zIndex: 1050 }}
       tabIndex="-1"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '520px' }}>
-        <div className="modal-content" style={{ 
-          border: 'none', 
-          borderRadius: '20px', 
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
-        }}>
-          
+      <div
+        className="modal-dialog modal-dialog-centered"
+        style={{ maxWidth: "520px" }}
+      >
+        <div
+          className="modal-content"
+          style={{
+            border: "none",
+            borderRadius: "20px",
+            overflow: "hidden",
+            boxShadow: "0 25px 50px rgba(0, 0, 0, 0.25)",
+          }}
+        >
           {/* Header */}
-          <div style={{
-            padding: '24px 28px 20px',
-            borderBottom: '1px solid var(--gray-200)',
-            background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-          }}>
-            <div style={{
-              width: '52px', height: '52px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-              color: 'white', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '22px',
-              boxShadow: '0 6px 16px rgba(67, 97, 238, 0.35)',
-              flexShrink: 0,
-            }}>
+          <div
+            style={{
+              padding: "24px 28px 20px",
+              borderBottom: "1px solid var(--gray-200)",
+              background:
+                "linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "14px",
+                background:
+                  "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "22px",
+                boxShadow: "0 6px 16px rgba(67, 97, 238, 0.35)",
+                flexShrink: 0,
+              }}
+            >
               <FaUser />
             </div>
             <div style={{ flex: 1 }}>
-              <h5 style={{
-                fontSize: '18px', fontWeight: '700',
-                color: 'var(--gray-900)', margin: 0,
-              }}>
-                {isEdit ? 'Modifier le client' : 'Nouveau client'}
+              <h5
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "700",
+                  color: "var(--gray-900)",
+                  margin: 0,
+                }}
+              >
+                {isEdit ? "Modifier le client" : "Nouveau client"}
               </h5>
-              <p style={{
-                fontSize: '12.5px', color: 'var(--gray-500)',
-                margin: '3px 0 0',
-              }}>
-                {isEdit ? `Code: ${client?.code}` : 'Remplissez les informations ci-dessous'}
+              <p
+                style={{
+                  fontSize: "12.5px",
+                  color: "var(--gray-500)",
+                  margin: "3px 0 0",
+                }}
+              >
+                {isEdit
+                  ? `Code: ${client?.code}`
+                  : "Remplissez les informations ci-dessous"}
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
               style={{
-                width: '36px', height: '36px', borderRadius: '10px',
-                border: 'none', background: 'white',
-                color: 'var(--gray-500)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 150ms ease', fontSize: '16px',
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                border: "none",
+                background: "white",
+                color: "var(--gray-500)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 150ms ease",
+                fontSize: "16px",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--danger-light)';
-                e.currentTarget.style.color = 'var(--danger)';
+                e.currentTarget.style.background = "var(--danger-light)";
+                e.currentTarget.style.color = "var(--danger)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'white';
-                e.currentTarget.style.color = 'var(--gray-500)';
+                e.currentTarget.style.background = "white";
+                e.currentTarget.style.color = "var(--gray-500)";
               }}
             >
               <FaTimes />
@@ -239,14 +313,28 @@ useEffect(() => {
 
           <form onSubmit={handleSubmit}>
             {/* Body */}
-            <div style={{ padding: '24px 28px', maxHeight: '65vh', overflowY: 'auto' }}>
+            <div
+              style={{
+                padding: "24px 28px",
+                maxHeight: "65vh",
+                overflowY: "auto",
+              }}
+            >
               {error && (
-                <div style={{
-                  padding: '12px 16px', background: 'var(--danger-light)',
-                  color: 'var(--danger)', borderRadius: '10px',
-                  marginBottom: '20px', fontSize: '13px',
-                  fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    background: "var(--danger-light)",
+                    color: "var(--danger)",
+                    borderRadius: "10px",
+                    marginBottom: "20px",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
                   <span>⚠️</span>
                   {error}
                 </div>
@@ -254,55 +342,73 @@ useEffect(() => {
 
               {/* Alerte : client existant détecté */}
               {existingClient && (
-                <div style={{
-                  padding: '14px 16px',
-                  background: 'var(--warning-light)',
-                  border: '1px solid var(--warning)',
-                  borderRadius: '12px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                }}>
-                  <FaExclamationTriangle size={20} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: "var(--warning-light)",
+                    border: "1px solid var(--warning)",
+                    borderRadius: "12px",
+                    marginBottom: "20px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "12px",
+                  }}
+                >
+                  <FaExclamationTriangle
+                    size={20}
+                    style={{
+                      color: "var(--warning)",
+                      flexShrink: 0,
+                      marginTop: "2px",
+                    }}
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '13.5px',
-                      fontWeight: '700',
-                      color: 'var(--warning)',
-                      marginBottom: '4px',
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "13.5px",
+                        fontWeight: "700",
+                        color: "var(--warning)",
+                        marginBottom: "4px",
+                      }}
+                    >
                       Ce numéro existe déjà
                     </div>
-                    <div style={{
-                      fontSize: '12.5px',
-                      color: 'var(--warning)',
-                      opacity: 0.9,
-                      marginBottom: '12px',
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "12.5px",
+                        color: "var(--warning)",
+                        opacity: 0.9,
+                        marginBottom: "12px",
+                      }}
+                    >
                       Un client est déjà enregistré avec ce numéro :
                     </div>
 
-                    <div style={{
-                      padding: '10px 14px',
-                      background: 'white',
-                      borderRadius: '8px',
-                      marginBottom: '12px',
-                      border: '1px solid rgba(245, 158, 11, 0.3)',
-                    }}>
-                      <div style={{
-                        fontSize: '13.5px',
-                        fontWeight: '700',
-                        color: 'var(--gray-900)',
-                        marginBottom: '4px',
-                      }}>
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        background: "white",
+                        borderRadius: "8px",
+                        marginBottom: "12px",
+                        border: "1px solid rgba(245, 158, 11, 0.3)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "13.5px",
+                          fontWeight: "700",
+                          color: "var(--gray-900)",
+                          marginBottom: "4px",
+                        }}
+                      >
                         {existingClient.nom}
                       </div>
-                      <div style={{
-                        fontSize: '11.5px',
-                        color: 'var(--gray-600)',
-                      }}>
+                      <div
+                        style={{ fontSize: "11.5px", color: "var(--gray-600)" }}
+                      >
                         {existingClient.code} • {existingClient.phone}
+                        {existingClient.codeFidelite &&
+                          ` • 🎁 ${existingClient.codeFidelite}`}
                       </div>
                     </div>
 
@@ -310,7 +416,12 @@ useEffect(() => {
                       type="button"
                       onClick={handleUseExistingClient}
                       className="btn-modern btn-modern-primary"
-                      style={{ fontSize: '12px', padding: '8px 14px', width: '100%', justifyContent: 'center' }}
+                      style={{
+                        fontSize: "12px",
+                        padding: "8px 14px",
+                        width: "100%",
+                        justifyContent: "center",
+                      }}
                     >
                       <FaCheckCircle size={12} /> Utiliser ce client
                     </button>
@@ -319,10 +430,13 @@ useEffect(() => {
               )}
 
               {/* Nom complet */}
-              <div style={{ marginBottom: '18px' }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
-                  <FaUser size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-                  Nom complet <span style={{ color: 'var(--danger)' }}>*</span>
+                  <FaUser
+                    size={11}
+                    style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                  />
+                  Nom complet <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -333,18 +447,21 @@ useEffect(() => {
                   autoFocus
                   className="form-control-modern"
                   placeholder="Ex: Ahmed Ben Ali"
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                 />
               </div>
 
               {/* Téléphone + Téléphone 2 */}
-              <div className="row g-3" style={{ marginBottom: '18px' }}>
+              <div className="row g-3" style={{ marginBottom: "18px" }}>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
-                    <FaPhone size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-                    Téléphone <span style={{ color: 'var(--danger)' }}>*</span>
+                    <FaPhone
+                      size={11}
+                      style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                    />
+                    Téléphone <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
-                  <div style={{ position: 'relative' }}>
+                  <div style={{ position: "relative" }}>
                     <input
                       type="tel"
                       name="phone"
@@ -357,37 +474,50 @@ useEffect(() => {
                       inputMode="numeric"
                       className="form-control-modern"
                       placeholder="20 123 456"
-                      style={{ 
-                        width: '100%',
-                        paddingRight: checking ? '40px' : '14px',
+                      style={{
+                        width: "100%",
+                        paddingRight: checking ? "40px" : "14px",
                       }}
                     />
                     {checking && (
-                      <div style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                      }}>
-                        <span className="spinner-border spinner-border-sm text-primary" role="status"></span>
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: "12px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                        }}
+                      >
+                        <span
+                          className="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                        ></span>
                       </div>
                     )}
                   </div>
                   {/* ✅ Compteur de chiffres */}
-                  <div style={{
-                    fontSize: '10.5px',
-                    color: formData.phone.length === 8 ? 'var(--success)' : 'var(--gray-500)',
-                    marginTop: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                  }}>
+                  <div
+                    style={{
+                      fontSize: "10.5px",
+                      color:
+                        formData.phone.length === 8
+                          ? "var(--success)"
+                          : "var(--gray-500)",
+                      marginTop: "4px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
                     <span>{formData.phone.length}/8 chiffres</span>
                     {formData.phone.length === 8 && <span>✅</span>}
                   </div>
                 </div>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
-                    <FaPhone size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                    <FaPhone
+                      size={11}
+                      style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                    />
                     Deuxième téléphone
                   </label>
                   <input
@@ -400,14 +530,19 @@ useEffect(() => {
                     inputMode="numeric"
                     className="form-control-modern"
                     placeholder="55 789 123"
-                    style={{ width: '100%' }}
+                    style={{ width: "100%" }}
                   />
                   {formData.phone2 && (
-                    <div style={{
-                      fontSize: '10.5px',
-                      color: formData.phone2.length === 8 ? 'var(--success)' : 'var(--gray-500)',
-                      marginTop: '4px',
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "10.5px",
+                        color:
+                          formData.phone2.length === 8
+                            ? "var(--success)"
+                            : "var(--gray-500)",
+                        marginTop: "4px",
+                      }}
+                    >
                       {formData.phone2.length}/8 chiffres
                     </div>
                   )}
@@ -415,9 +550,12 @@ useEffect(() => {
               </div>
 
               {/* Email */}
-              <div style={{ marginBottom: '18px' }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
-                  <FaEnvelope size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                  <FaEnvelope
+                    size={11}
+                    style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                  />
                   Email
                 </label>
                 <input
@@ -427,77 +565,151 @@ useEffect(() => {
                   onChange={handleChange}
                   className="form-control-modern"
                   placeholder="client@email.com"
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                 />
               </div>
 
-           {/* Adresse */}
-<div style={{ marginBottom: '18px' }}>
-  <label className="form-label-modern">
-    <FaMapMarkerAlt size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-    Adresse
-  </label>
-  <input
-    type="text"
-    name="adresse"
-    value={formData.adresse}
-    onChange={handleChange}
-    className="form-control-modern"
-    placeholder="Ex: 123 Rue de la République"
-    style={{ width: '100%' }}
-  />
-</div>
+              {/* Adresse */}
+              <div style={{ marginBottom: "18px" }}>
+                <label className="form-label-modern">
+                  <FaMapMarkerAlt
+                    size={11}
+                    style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                  />
+                  Adresse
+                </label>
+                <input
+                  type="text"
+                  name="adresse"
+                  value={formData.adresse}
+                  onChange={handleChange}
+                  className="form-control-modern"
+                  placeholder="Ex: 123 Rue de la République"
+                  style={{ width: "100%" }}
+                />
+              </div>
 
-{/* ✅ NOUVEAU : Zone */}
-<div style={{ marginBottom: '18px' }}>
-  <label className="form-label-modern">
-    <FaMapMarkerAlt size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
-    Zone <span style={{ fontSize: '11px', color: 'var(--gray-500)', fontWeight: '400' }}>(optionnel)</span>
-  </label>
-  <select
-    name="zone"
-    value={formData.zone}
-    onChange={handleChange}
-    className="form-control-modern"
-    style={{ width: '100%' }}
-  >
-    <option value="">— Sélectionnez une zone —</option>
-    {ZONES.map((z) => (
-      <option key={z} value={z}>{z}</option>
-    ))}
-  </select>
-</div>
+              {/* ✅ NOUVEAU : Zone */}
+              <div style={{ marginBottom: "18px" }}>
+                <label className="form-label-modern">
+                  <FaMapMarkerAlt
+                    size={11}
+                    style={{ marginRight: "6px", color: "var(--gray-400)" }}
+                  />
+                  Zone{" "}
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--gray-500)",
+                      fontWeight: "400",
+                    }}
+                  >
+                    (optionnel)
+                  </span>
+                </label>
+                <select
+                  name="zone"
+                  value={formData.zone}
+                  onChange={handleChange}
+                  className="form-control-modern"
+                  style={{ width: "100%" }}
+                >
+                  <option value="">— Sélectionnez une zone —</option>
+                  {ZONES.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ NOUVEAU : Code fidélité */}
+              <div style={{ marginBottom: "18px" }}>
+                <label className="form-label-modern">
+                  🎁 Code fidélité{" "}
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--gray-500)",
+                      fontWeight: "400",
+                    }}
+                  >
+                    (généré automatiquement si vide)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  name="codeFidelite"
+                  value={formData.codeFidelite}
+                  onChange={handleChange}
+                  className="form-control-modern"
+                  placeholder="FID-XXXXXXX"
+                  style={{ width: "100%", textTransform: "uppercase" }}
+                  disabled={isEdit && !!client?.codeFidelite}
+                />
+                {!isEdit && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--gray-500)",
+                      marginTop: "4px",
+                    }}
+                  >
+                    💡 Laissez vide pour une génération automatique
+                  </div>
+                )}
+              </div>
 
               {/* Statut (uniquement en édition) */}
               {isEdit && (
-                <div style={{
-                  padding: '14px 16px',
-                  background: formData.isActive ? 'var(--success-light)' : 'var(--gray-100)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 200ms ease',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{
-                      fontSize: '22px',
-                      color: formData.isActive ? 'var(--success)' : 'var(--gray-400)',
-                    }}>
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: formData.isActive
+                      ? "var(--success-light)"
+                      : "var(--gray-100)",
+                    borderRadius: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    transition: "all 200ms ease",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "22px",
+                        color: formData.isActive
+                          ? "var(--success)"
+                          : "var(--gray-400)",
+                      }}
+                    >
                       {formData.isActive ? <FaToggleOn /> : <FaToggleOff />}
                     </span>
                     <div>
-                      <div style={{
-                        fontWeight: '600',
-                        fontSize: '13.5px',
-                        color: formData.isActive ? 'var(--success)' : 'var(--gray-600)',
-                      }}>
-                        Client {formData.isActive ? 'actif' : 'inactif'}
+                      <div
+                        style={{
+                          fontWeight: "600",
+                          fontSize: "13.5px",
+                          color: formData.isActive
+                            ? "var(--success)"
+                            : "var(--gray-600)",
+                        }}
+                      >
+                        Client {formData.isActive ? "actif" : "inactif"}
                       </div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--gray-500)' }}>
-                        {formData.isActive 
-                          ? 'Le client peut passer des réparations'
-                          : 'Le client ne peut plus passer de réparations'}
+                      <div
+                        style={{ fontSize: "11.5px", color: "var(--gray-500)" }}
+                      >
+                        {formData.isActive
+                          ? "Le client peut passer des réparations"
+                          : "Le client ne peut plus passer de réparations"}
                       </div>
                     </div>
                   </div>
@@ -515,17 +727,19 @@ useEffect(() => {
 
               {/* Info nouveau client */}
               {!isEdit && !existingClient && (
-                <div style={{
-                  padding: '10px 14px',
-                  background: 'var(--primary-light)',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginTop: '8px',
-                }}>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "var(--primary-light)",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    color: "var(--primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginTop: "8px",
+                  }}
+                >
                   <span>💡</span>
                   Un code client sera généré automatiquement (ex: C001)
                 </div>
@@ -533,14 +747,16 @@ useEffect(() => {
             </div>
 
             {/* Footer */}
-            <div style={{
-              padding: '16px 28px',
-              borderTop: '1px solid var(--gray-200)',
-              background: 'var(--gray-50)',
-              display: 'flex',
-              gap: '10px',
-              justifyContent: 'flex-end',
-            }}>
+            <div
+              style={{
+                padding: "16px 28px",
+                borderTop: "1px solid var(--gray-200)",
+                background: "var(--gray-50)",
+                display: "flex",
+                gap: "10px",
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 type="button"
                 onClick={onClose}
@@ -556,12 +772,15 @@ useEffect(() => {
               >
                 {loading ? (
                   <>
-                    <span className="spinner-border spinner-border-sm" role="status"></span>
+                    <span
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                    ></span>
                     Enregistrement...
                   </>
                 ) : (
                   <>
-                    <FaSave /> {isEdit ? 'Enregistrer' : 'Créer'}
+                    <FaSave /> {isEdit ? "Enregistrer" : "Créer"}
                   </>
                 )}
               </button>

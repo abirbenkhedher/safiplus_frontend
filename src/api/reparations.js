@@ -60,3 +60,10 @@ export const getReparationPublic = async (numero) => {
   return response.data;
 };
 
+export const deleteManyReparations = async (ids) => {
+  const response = await apiClient.delete('/reparations/many', {
+    data: { ids },
+  });
+  return response.data;
+};
+

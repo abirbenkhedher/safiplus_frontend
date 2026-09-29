@@ -134,12 +134,34 @@ const ClientDetail = () => {
                   }}>
                     {client.nom}
                   </h1>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <span className="badge-modern badge-modern-primary">{client.code}</span>
-                    <span className={`badge-modern ${client.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}>
-                      {client.isActive ? '✓ Actif' : '✗ Inactif'}
-                    </span>
-                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+  <span className="badge-modern badge-modern-primary">{client.code}</span>
+  <span className={`badge-modern ${client.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}>
+    {client.isActive ? '✓ Actif' : '✗ Inactif'}
+  </span>
+
+  {/* ✅ Code fidélité juste ici, à la suite des autres badges */}
+  {client.codeFidelite && (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '4px 10px',
+        background: 'var(--warning-light)',
+        color: 'var(--warning)',
+        borderRadius: '20px',
+        fontSize: '11px',
+        fontWeight: '700',
+        fontFamily: 'monospace',
+        letterSpacing: '0.3px',
+        border: '1px solid rgba(245, 158, 11, 0.3)',
+      }}
+    >
+      🎁 {client.codeFidelite}
+    </span>
+  )}
+</div>
                 </div>
               </div>
             </div>

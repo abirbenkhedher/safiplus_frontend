@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FaPhone, FaCheckCircle, FaExclamationTriangle, FaUserPlus,
-  FaTimes, FaCheck, FaEdit, FaMapMarkerAlt, FaSearch, FaIdCard
+  FaTimes, FaCheck, FaEdit, FaMapMarkerAlt, FaSearch, FaIdCard,
+  FaGift,
 } from 'react-icons/fa';
 import { getClients, createClient, updateClient } from '../../api/clients';
 import { ZONES } from '../../constants/zones';
@@ -32,10 +33,11 @@ const handlePhoneKeyDown = (e) => {
 /**
  * ✅ Sélecteur de client avec suggestions
  * - Liste déroulante au fur et à mesure de la saisie
- * - Recherche dans téléphone 1, téléphone 2, code client
+ * - Recherche dans téléphone 1, téléphone 2, code client, code fidélité
  * - Sélection par clic (pas d'auto-sélection)
- * - Création inline possible
- * - ✅ Limité à 8 chiffres max
+ * - Création / modification inline possible
+ * - ✅ Limité à 8 chiffres max pour les téléphones
+ * - ✅ Champ code fidélité ajouté (création / modification)
  */
 const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [clients, setClients] = useState([]);
@@ -45,13 +47,14 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
- const [formData, setFormData] = useState({
-  nom: '',
-  phone: '',
-  phone2: '',
-  adresse: '',
-  zone: '',
-});
+  const [formData, setFormData] = useState({
+    nom: '',
+    phone: '',
+    phone2: '',
+    adresse: '',
+    zone: '',
+    codeFidelite: '',   // ✅ NOUVEAU
+  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -107,14 +110,22 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   // ============================================================
   const getSuggestions = () => {
     const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
+    const cleanText = searchTerm.trim().toUpperCase();
 
-    if (cleanDigits.length === 0) return [];
+    // Autoriser la recherche si 3+ caractères (pour FID-...)
+    if (cleanDigits.length === 0 && cleanText.length < 3) return [];
 
     return clients.filter((c) => {
       const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
       const cPhone2 = (c.phone2 || '').replace(/[^0-9]/g, '');
       const cCode = (c.code || '').replace(/[^0-9]/g, '');
+      const cFid = (c.codeFidelite || '').toUpperCase();
 
+      // ✅ Recherche par code fidélité
+      if (cleanText && cFid.includes(cleanText)) return true;
+
+      // Recherche par chiffres
+      if (cleanDigits.length === 0) return false;
       if (cPhone.includes(cleanDigits)) return true;
       if (cPhone2 && cPhone2.includes(cleanDigits)) return true;
       if (cCode && cCode.includes(cleanDigits)) return true;
@@ -130,9 +141,8 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   // SAISIE
   // ============================================================
   const handleSearchChange = (val) => {
-    // ✅ Limiter à 8 chiffres max (chiffres uniquement)
-    const limited = formatPhoneInput(val);
-
+    // ✅ Autoriser lettres (FID-) + chiffres, max 20 caractères
+    const limited = String(val || '').slice(0, 20);
     setSearchTerm(limited);
     setError('');
     setShowSuggestions(true);
@@ -152,38 +162,40 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   // ============================================================
   // OUVRIR LE FORMULAIRE DE CRÉATION
   // ============================================================
-const handleOpenCreate = () => {
-  const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
-  setFormData({
-    nom: '',
-    phone: cleanDigits.length >= 8 ? searchTerm : '',
-    phone2: '',
-    adresse: '',
-    zone: '',
-  });
-  setIsEditMode(false);
-  setShowForm(true);
-  setShowSuggestions(false);
-  setError('');
-};
+  const handleOpenCreate = () => {
+    const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
+    setFormData({
+      nom: '',
+      phone: cleanDigits.length >= 8 ? searchTerm : '',
+      phone2: '',
+      adresse: '',
+      zone: '',
+      codeFidelite: '',   // ✅ NOUVEAU
+    });
+    setIsEditMode(false);
+    setShowForm(true);
+    setShowSuggestions(false);
+    setError('');
+  };
 
   // ============================================================
   // OUVRIR LE FORMULAIRE DE MODIFICATION
   // ============================================================
-const handleOpenEdit = () => {
-  if (!foundClient) return;
+  const handleOpenEdit = () => {
+    if (!foundClient) return;
 
-  setFormData({
-    nom: foundClient.nom || '',
-    phone: foundClient.phone || '',
-    phone2: foundClient.phone2 || '',
-    adresse: foundClient.adresse || '',
-    zone: foundClient.zone || '',
-  });
-  setIsEditMode(true);
-  setShowForm(true);
-  setError('');
-};
+    setFormData({
+      nom: foundClient.nom || '',
+      phone: foundClient.phone || '',
+      phone2: foundClient.phone2 || '',
+      adresse: foundClient.adresse || '',
+      zone: foundClient.zone || '',
+      codeFidelite: foundClient.codeFidelite || '',   // ✅ NOUVEAU
+    });
+    setIsEditMode(true);
+    setShowForm(true);
+    setError('');
+  };
 
   // ============================================================
   // ENREGISTRER
@@ -278,15 +290,13 @@ const handleOpenEdit = () => {
           type="text"
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
-          onKeyDown={handlePhoneKeyDown}
           onFocus={() => {
-            if (!foundClient && cleanDigits.length > 0) {
+            if (!foundClient && searchTerm.trim().length > 0) {
               setShowSuggestions(true);
             }
           }}
-          maxLength={8}
-          inputMode="numeric"
-          placeholder="Tapez le téléphone ou le code..."
+          maxLength={20}
+          placeholder="Tapez le téléphone, code client ou FID-..."
           className="form-control-modern"
           style={{
             paddingLeft: '38px',
@@ -330,14 +340,15 @@ const handleOpenEdit = () => {
         >
           <span>💡</span>
           <span>
-            Tapez les <strong>chiffres du téléphone</strong> (max 8) ou le{' '}
-            <strong>code client</strong> (ex: 001)
+            Tapez les <strong>chiffres du téléphone</strong> (max 8), le{' '}
+            <strong>code client</strong> (001) ou le{' '}
+            <strong>code fidélité</strong> (FID-...)
           </span>
         </div>
       )}
 
-      {/* COMPTEUR */}
-      {!foundClient && searchTerm && (
+      {/* COMPTEUR (uniquement si saisie numérique) */}
+      {!foundClient && searchTerm && cleanDigits.length > 0 && (
         <div
           style={{
             marginTop: '4px',
@@ -350,7 +361,9 @@ const handleOpenEdit = () => {
       )}
 
       {/* LISTE DE SUGGESTIONS */}
-      {!foundClient && showSuggestions && cleanDigits.length > 0 && (
+      {!foundClient &&
+        showSuggestions &&
+        (cleanDigits.length > 0 || searchTerm.trim().length >= 3) && (
         <div
           style={{
             marginTop: '6px',
@@ -440,6 +453,21 @@ const handleOpenEdit = () => {
                             }}
                           >
                             {client.code}
+                          </span>
+                        )}
+                        {client.codeFidelite && (
+                          <span
+                            style={{
+                              background: 'var(--warning-light)',
+                              color: 'var(--warning)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontFamily: 'monospace',
+                              fontWeight: '700',
+                              fontSize: '10px',
+                            }}
+                          >
+                            🎁 {client.codeFidelite}
                           </span>
                         )}
                         {client.phone && <span>📞 {client.phone}</span>}
@@ -539,6 +567,10 @@ const handleOpenEdit = () => {
                 color: 'var(--success)',
                 opacity: 0.85,
                 marginTop: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                flexWrap: 'wrap',
               }}
             >
               {foundClient.code && (
@@ -549,15 +581,31 @@ const handleOpenEdit = () => {
                     borderRadius: '6px',
                     fontSize: '10px',
                     fontWeight: '700',
-                    marginRight: '6px',
                     fontFamily: 'monospace',
                   }}
                 >
                   {foundClient.code}
                 </span>
               )}
-              {foundClient.phone}
-              {foundClient.phone2 && ` • ${foundClient.phone2}`}
+              {foundClient.codeFidelite && (
+                <span
+                  style={{
+                    background: 'white',
+                    padding: '1px 6px',
+                    borderRadius: '6px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    fontFamily: 'monospace',
+                    color: 'var(--warning)',
+                  }}
+                >
+                  🎁 {foundClient.codeFidelite}
+                </span>
+              )}
+              <span>
+                {foundClient.phone}
+                {foundClient.phone2 && ` • ${foundClient.phone2}`}
+              </span>
             </div>
             {foundClient.adresse && (
               <div
@@ -672,6 +720,7 @@ const handleOpenEdit = () => {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Nom */}
             <div>
               <label className="form-label-modern">
                 Nom complet <span style={{ color: 'var(--danger)' }}>*</span>
@@ -689,6 +738,7 @@ const handleOpenEdit = () => {
               />
             </div>
 
+            {/* Téléphones */}
             <div className="row g-2">
               <div className="col-12 col-sm-6">
                 <label className="form-label-modern">
@@ -741,41 +791,111 @@ const handleOpenEdit = () => {
               </div>
             </div>
 
+            {/* Adresse */}
             <div>
-  <label className="form-label-modern">Adresse</label>
-  <input
-    type="text"
-    value={formData.adresse}
-    onChange={(e) =>
-      setFormData({ ...formData, adresse: e.target.value })
-    }
-    placeholder="Ex: Av Habib Bourguiba, Hawaria"
-    className="form-control-modern"
-    style={{ width: '100%' }}
-  />
-</div>
+              <label className="form-label-modern">Adresse</label>
+              <input
+                type="text"
+                value={formData.adresse}
+                onChange={(e) =>
+                  setFormData({ ...formData, adresse: e.target.value })
+                }
+                placeholder="Ex: Av Habib Bourguiba, Hawaria"
+                className="form-control-modern"
+                style={{ width: '100%' }}
+              />
+            </div>
 
-{/* ✅ NOUVEAU : Zone */}
-<div>
-  <label className="form-label-modern">
-    Zone <span style={{ fontSize: '11px', color: 'var(--gray-500)', fontWeight: '400' }}>(optionnel)</span>
-  </label>
-  <select
-    value={formData.zone}
-    onChange={(e) =>
-      setFormData({ ...formData, zone: e.target.value })
-    }
-    className="form-control-modern"
-    style={{ width: '100%' }}
-  >
-    <option value="">— Sélectionnez une zone —</option>
-    {ZONES.map((z) => (
-      <option key={z} value={z}>{z}</option>
-    ))}
-  </select>
-</div>
+            {/* Zone */}
+            <div>
+              <label className="form-label-modern">
+                Zone{' '}
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--gray-500)',
+                    fontWeight: '400',
+                  }}
+                >
+                  (optionnel)
+                </span>
+              </label>
+              <select
+                value={formData.zone}
+                onChange={(e) =>
+                  setFormData({ ...formData, zone: e.target.value })
+                }
+                className="form-control-modern"
+                style={{ width: '100%' }}
+              >
+                <option value="">— Sélectionnez une zone —</option>
+                {ZONES.map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ✅ NOUVEAU : Code fidélité */}
+            <div>
+              <label className="form-label-modern">
+                🎁 Code fidélité{' '}
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--gray-500)',
+                    fontWeight: '400',
+                  }}
+                >
+                  (généré automatiquement si vide)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={formData.codeFidelite}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    codeFidelite: e.target.value.toUpperCase(),
+                  })
+                }
+                placeholder="FID-XXXXXXX"
+                className="form-control-modern"
+                style={{
+                  width: '100%',
+                  fontFamily: 'monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+                disabled={isEditMode && !!foundClient?.codeFidelite}
+              />
+              {isEditMode && foundClient?.codeFidelite ? (
+                <div
+                  style={{
+                    fontSize: '10.5px',
+                    color: 'var(--warning)',
+                    marginTop: '4px',
+                    fontWeight: '600',
+                  }}
+                >
+                  🎁 Code attribué — non modifiable
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: '10.5px',
+                    color: 'var(--gray-500)',
+                    marginTop: '4px',
+                  }}
+                >
+                  💡 Laissez vide pour une génération automatique
+                </div>
+              )}
+            </div>
           </div>
 
+          {/* Actions */}
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
             <button
               type="button"

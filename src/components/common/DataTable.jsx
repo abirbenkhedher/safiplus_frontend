@@ -77,11 +77,13 @@ const DataTable = ({
   onRowClicked,
   selectableRows = false,
   onSelectedRowsChange,
+  clearSelectedRows = false,             // ✅ NOUVEAU : pour reset la sélection
   emptyMessage = 'Aucune donnée à afficher',
   exportable = false,
   onExport,
   exportLabel = 'Exporter',
   striped = false,
+  dense = false,
 }) => {
   // Ajouter la colonne Actions si nécessaire
   const finalColumns = useMemo(() => {
@@ -206,11 +208,17 @@ const DataTable = ({
         highlightOnHover
         pointerOnHover={!!onRowClicked}
         onRowClicked={onRowClicked}
+        // ✅ Sélection
         selectableRows={selectableRows}
         onSelectedRowsChange={onSelectedRowsChange}
+        clearSelectedRows={clearSelectedRows}   // ✅ NOUVEAU
+        // ✅ Style de la case de sélection
+        selectableRowsComponentProps={{
+          'aria-label': 'Sélectionner la ligne',
+        }}
         responsive
         striped={striped}
-        dense={false}
+        dense={dense}
         persistTableHead
       />
 
@@ -275,6 +283,14 @@ const DataTable = ({
         .btn-icon-danger:hover {
           background: var(--danger);
           border-color: var(--danger);
+        }
+
+        /* ✅ Style de la case à cocher */
+        .rdt_Table [type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: var(--primary);
         }
 
         /* Responsive */

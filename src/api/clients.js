@@ -31,3 +31,10 @@ export const deleteClient = async (id) => {
   const response = await apiClient.delete(`/clients/${id}`);
   return response.data;
 };
+
+export const deleteManyClients = async (ids) => {
+  const response = await apiClient.delete('/clients/many', {
+    data: { ids },
+  });
+  return response.data;
+};
