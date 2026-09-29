@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import useAutoLogout from '../../hooks/useAutoLogout'; // ✅ AJOUT
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,11 +12,14 @@ const Layout = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
+  // ✅ Déconnexion auto pour les COMMERCIAUX (10 min d'inactivité)
+  useAutoLogout();
+
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 992;
       setIsMobile(mobile);
-      
+
       if (mobile) {
         setSidebarCollapsed(false);
         setSidebarOpen(false);
@@ -38,8 +42,8 @@ const Layout = () => {
 
   return (
     <div className="app-layout">
-      <Sidebar 
-        isOpen={sidebarOpen} 
+      <Sidebar
+        isOpen={sidebarOpen}
         onClose={closeSidebar}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={toggleCollapse}

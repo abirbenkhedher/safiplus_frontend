@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth';
 
 const AuthContext = createContext();
@@ -16,6 +16,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ============================================================
+  // ✅ Vérification de session au démarrage
+  // ============================================================
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('accessToken');
@@ -40,16 +43,19 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // ============================================================
+  // ✅ LOGIN
+  // ============================================================
   const login = async (username, password) => {
     setError(null);
     try {
       const response = await loginApi(username, password);
       const { user, accessToken, refreshToken } = response.data;
-      
+
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       setUser(user);
-      
+
       return { success: true, user };
     } catch (err) {
       const message = err.response?.data?.message || 'Erreur de connexion';
@@ -58,7 +64,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  // ============================================================
+  // ✅ LOGOUT
+  // ============================================================
+  const logout = useCallback(async () => {
     try {
       await logoutApi();
     } catch (err) {
@@ -68,12 +77,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('refreshToken');
       setUser(null);
     }
-  };
+  }, []);
 
+  // ============================================================
+  // ✅ Rôles
+  // ============================================================
   const hasRole = (role) => user?.role === role;
   const hasAnyRole = (roles) => roles.includes(user?.role);
 
-  // ✅ Nouvelles méthodes de permissions
+  // ✅ Permissions
   const hasPermission = (module) => {
     if (!user) return false;
     if (user.role === 'ADMIN') return true;
