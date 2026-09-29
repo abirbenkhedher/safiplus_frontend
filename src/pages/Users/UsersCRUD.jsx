@@ -168,7 +168,7 @@ const UsersCRUD = () => {
       item
         ? {
             username: item.username,
-            email: item.email,
+            email: item.email || "",
             phone: item.phone || "",
             password: "",
             firstName: item.firstName,
@@ -234,13 +234,24 @@ const UsersCRUD = () => {
     setFormData({ ...formData, permissions: updated });
   };
 
+  // ============================================================
+  // ✅ SUBMIT : Email FACULTATIF
+  // ============================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     if (!formData.username.trim())
       return setError("Le nom d'utilisateur est obligatoire");
-    if (!formData.email.trim()) return setError("L'email est obligatoire");
+
+    // ✅ Email facultatif — validation uniquement si rempli
+    if (formData.email && formData.email.trim()) {
+      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        return setError("Format d'email invalide");
+      }
+    }
+
     if (!formData.firstName.trim())
       return setError("Le prénom est obligatoire");
     if (!formData.lastName.trim()) return setError("Le nom est obligatoire");
@@ -254,7 +265,18 @@ const UsersCRUD = () => {
 
     try {
       const data = { ...formData };
-      if (!data.password || data.password.trim() === "") delete data.password;
+
+      // ✅ Ne pas envoyer le mot de passe s'il est vide (édition)
+      if (!data.password || data.password.trim() === "") {
+        delete data.password;
+      }
+
+      // ✅ Ne pas envoyer l'email s'il est vide
+      if (!data.email || data.email.trim() === "") {
+        delete data.email;
+      } else {
+        data.email = data.email.trim().toLowerCase();
+      }
 
       if (editingItem) {
         await updateUser(editingItem._id, data);
@@ -375,10 +397,25 @@ const UsersCRUD = () => {
       sortable: true,
       cell: (row) => (
         <div style={{ fontSize: "12px", color: "var(--gray-600)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <FaEnvelope size={10} style={{ color: "var(--gray-400)" }} />
-            {row.email}
-          </div>
+          {row.email ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <FaEnvelope size={10} style={{ color: "var(--gray-400)" }} />
+              {row.email}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                color: "var(--gray-400)",
+                fontStyle: "italic",
+              }}
+            >
+              <FaEnvelope size={10} />
+              Pas d'email
+            </div>
+          )}
           {row.phone && (
             <div
               style={{
@@ -471,7 +508,6 @@ const UsersCRUD = () => {
         </span>
       ),
     },
-    // ✅ COLONNE RESTAURÉE
     {
       name: "Dernière connexion",
       selector: (row) => row.lastLogin,
@@ -968,6 +1004,7 @@ const UsersCRUD = () => {
                         />
                       </div>
 
+                      {/* ✅ EMAIL FACULTATIF */}
                       <div className="col-12">
                         <label className="form-label-modern">
                           <FaEnvelope
@@ -978,12 +1015,20 @@ const UsersCRUD = () => {
                             }}
                           />
                           Email{" "}
-                          <span style={{ color: "var(--danger)" }}>*</span>
+                          <span
+                            style={{
+                              color: "var(--gray-400)",
+                              fontWeight: "400",
+                              fontSize: "11px",
+                            }}
+                          >
+                            (facultatif)
+                          </span>
                         </label>
                         <input
                           type="email"
                           className="form-control-modern"
-                          placeholder="Ex: user@example.com"
+                          placeholder="Ex: user@example.com (facultatif)"
                           value={formData.email}
                           onChange={(e) =>
                             setFormData({ ...formData, email: e.target.value })
@@ -1131,8 +1176,7 @@ const UsersCRUD = () => {
 
                   {activeTab === "permissions" && (
                     <div>
-                      <div
-                        style={{
+                      <div                        style={{
                           padding: "14px 16px",
                           background: "var(--primary-light)",
                           border: "1px solid var(--primary)",
