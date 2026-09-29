@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FaTools, FaUser, FaLock, FaEye, FaEyeSlash, 
+  FaUser, FaLock, FaEye, FaEyeSlash, 
   FaExclamationCircle 
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
@@ -34,11 +34,9 @@ const Login = () => {
 
   const handleUsernameChange = (e) => {
     setUsername(e.target.value);
-    // Effacer l'erreur de ce champ quand on tape
     if (fieldErrors.username) {
       setFieldErrors({ ...fieldErrors, username: '' });
     }
-    // Effacer l'erreur globale
     if (globalError) setGlobalError('');
   };
 
@@ -83,7 +81,6 @@ const Login = () => {
       if (result.success) {
         navigate('/dashboard');
       } else {
-        // Message d'erreur global
         setGlobalError(result.message || 'Nom d\'utilisateur ou mot de passe incorrect');
       }
     } catch (err) {
@@ -104,10 +101,13 @@ const Login = () => {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-{/* ✅ Image à la place de l'icône FaWrench — même taille 40x40 */}
-            <img src={logo} alt="Safi Info +" className="sidebar-logo-img" />          </div>
+            <img 
+              src={logo} 
+              alt="Safi Info +" 
+              className="login-logo-img" 
+            />
+          </div>
           <h1 className="login-title">Safi Info +</h1>
-          <p className="login-subtitle">Gestion de réparation</p>
         </div>
 
         {/* Message d'erreur global */}
@@ -200,35 +200,6 @@ const Login = () => {
             )}
           </button>
         </form>
-
-        {/* Comptes démo */}
-        <div className="login-demo">
-          <div className="login-demo-title">Comptes de démonstration (cliquez pour remplir)</div>
-          <div className="login-demo-accounts">
-            {[
-              { label: '👑 Admin', creds: 'admin / admin123', user: 'admin', pass: 'admin123' },
-              { label: '💼 Commercial', creds: 'commercial / commercial123', user: 'commercial', pass: 'commercial123' },
-              { label: '🔧 Réparateur', creds: 'reparateur / reparateur123', user: 'reparateur', pass: 'reparateur123' },
-            ].map((item) => (
-              <div 
-                key={item.user}
-                className="login-demo-item"
-                onClick={() => {
-                  setUsername(item.user);
-                  setPassword(item.pass);
-                  setTouched({ username: false, password: false });
-                  setFieldErrors({ username: '', password: '' });
-                  setGlobalError('');
-                }}
-                style={{ cursor: 'pointer' }}
-                title="Cliquer pour remplir automatiquement"
-              >
-                <span className="login-demo-label">{item.label}</span>
-                <code>{item.creds}</code>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       <style>{`
@@ -288,18 +259,27 @@ const Login = () => {
           margin-bottom: 32px;
         }
 
+        /* ✅ Logo bien centré et proprement affiché */
         .login-logo {
-          width: 72px;
-          height: 72px;
+          width: 88px;
+          height: 88px;
           margin: 0 auto 16px;
           background: linear-gradient(135deg, #4361ee, #3a52c9);
-          border-radius: 20px;
+          border-radius: 22px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          font-size: 32px;
+          overflow: hidden;
           box-shadow: 0 12px 30px rgba(67, 97, 238, 0.4);
+        }
+
+        /* ✅ L'image remplit le container sans déborder */
+        .login-logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          padding: 12px;
+          display: block;
         }
 
         .login-title {
@@ -440,69 +420,18 @@ const Login = () => {
           margin-top: 8px;
         }
 
-        .login-demo {
-          margin-top: 28px;
-          padding-top: 24px;
-          border-top: 1px dashed #e5e7eb;
-        }
-
-        .login-demo-title {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #9ca3af;
-          text-align: center;
-          margin-bottom: 12px;
-        }
-
-        .login-demo-accounts {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .login-demo-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 12px;
-          background: #f9fafb;
-          border-radius: 8px;
-          font-size: 12px;
-          transition: all 150ms ease;
-          border: 1px solid transparent;
-        }
-
-        .login-demo-item:hover {
-          background: #f3f4f6;
-          border-color: #e5e7eb;
-          transform: translateX(2px);
-        }
-
-        .login-demo-label {
-          font-weight: 600;
-          color: #374151;
-        }
-
-        .login-demo-item code {
-          font-size: 11px;
-          color: #6b7280;
-          background: white;
-          padding: 2px 8px;
-          border-radius: 4px;
-          border: 1px solid #e5e7eb;
-        }
-
         @media (max-width: 480px) {
           .login-card {
             padding: 32px 24px;
           }
 
           .login-logo {
-            width: 60px;
-            height: 60px;
-            font-size: 26px;
+            width: 72px;
+            height: 72px;
+          }
+
+          .login-logo-img {
+            padding: 10px;
           }
 
           .login-title {
