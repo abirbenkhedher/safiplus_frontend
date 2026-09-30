@@ -4,6 +4,7 @@ import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
   FaTools, FaCheckCircle, FaSpinner, FaPrint,
   FaMoneyBillWave, FaMapMarkedAlt, FaFilter, FaBoxes,
+  FaBriefcase,
 } from "react-icons/fa";
 import {
   getReparations,
@@ -18,6 +19,7 @@ import ExportButton from "../../components/common/ExportButton";
 import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
+import { useAuth } from "../../context/AuthContext";   // ✅ AJOUT
 import { ZONES } from "../../constants/zones";
 
 const STATUTS_TERMINES = [
@@ -34,12 +36,17 @@ const ReparationsList = () => {
     useReparationModal();
   const { categories } = useReparationData();
 
+  // ✅ Récupérer l'utilisateur connecté
+  const { user } = useAuth();
+
+  // ✅ Seul ADMIN peut supprimer
+  const canDelete = user?.role === "ADMIN";
+
   const [reparations, setReparations] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Sélection multiple
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
@@ -48,16 +55,15 @@ const ReparationsList = () => {
     status: "",
     categorie: "",
     reparateur: "",
+    commercial: "",
     zone: "",
     dateDebut: "",
     dateFin: "",
   });
 
-  // ✅ Dialog suppression simple
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReparation, setSelectedReparation] = useState(null);
 
-  // ✅ Dialog suppression multiple
   const [showDeleteManyDialog, setShowDeleteManyDialog] = useState(false);
   const [deletingMany, setDeletingMany] = useState(false);
 
@@ -110,7 +116,6 @@ const ReparationsList = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Vider la sélection (state + RDT)
   const clearSelection = () => {
     setSelectedRows([]);
     setToggleCleared((prev) => !prev);
@@ -122,6 +127,7 @@ const ReparationsList = () => {
       status: "",
       categorie: "",
       reparateur: "",
+      commercial: "",
       zone: "",
       dateDebut: "",
       dateFin: "",
@@ -137,10 +143,27 @@ const ReparationsList = () => {
     (v) => v && v.trim() !== ""
   ).length;
 
+  const commerciaux = useMemo(
+    () => users.filter((u) => u.role === "COMMERCIAL"),
+    [users]
+  );
+
+  const reparateurs = useMemo(
+    () => users.filter((u) => u.role === "REPARATEUR"),
+    [users]
+  );
+
   // ============================================================
-  // SUPPRESSION SIMPLE
+  // SUPPRESSION SIMPLE — avec vérification rôle
   // ============================================================
   const handleDelete = async () => {
+    // ✅ Double sécurité côté front
+    if (!canDelete) {
+      setError("Vous n'avez pas la permission de supprimer");
+      setShowDeleteDialog(false);
+      return;
+    }
+
     try {
       await deleteReparation(selectedReparation._id);
       setSuccess("Réparation supprimée avec succès");
@@ -154,9 +177,16 @@ const ReparationsList = () => {
   };
 
   // ============================================================
-  // ✅ SUPPRESSION MULTIPLE
+  // SUPPRESSION MULTIPLE — avec vérification rôle
   // ============================================================
   const handleDeleteMany = async () => {
+    // ✅ Double sécurité côté front
+    if (!canDelete) {
+      setError("Vous n'avez pas la permission de supprimer");
+      setShowDeleteManyDialog(false);
+      return;
+    }
+
     setDeletingMany(true);
     try {
       const ids = selectedRows.map((r) => r._id);
@@ -201,9 +231,6 @@ const ReparationsList = () => {
     });
   };
 
-  // ============================================================
-  // HANDLER SÉLECTION
-  // ============================================================
   const handleSelectedRowsChange = ({ selectedRows }) => {
     setSelectedRows(selectedRows);
   };
@@ -552,6 +579,57 @@ const ReparationsList = () => {
         ),
     },
     {
+      name: "Commercial",
+      selector: (row) => row.createdBy?.firstName,
+      sortable: true,
+      width: "120px",
+      cell: (row) =>
+        row.createdBy ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div
+              style={{
+                width: "24px",
+                height: "24px",
+                borderRadius: "6px",
+                background:
+                  "linear-gradient(135deg, var(--warning), #d97706)",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "9px",
+                fontWeight: "700",
+                flexShrink: 0,
+              }}
+            >
+              {row.createdBy.firstName?.charAt(0)}
+              {row.createdBy.lastName?.charAt(0)}
+            </div>
+            <span
+              style={{
+                fontSize: "11.5px",
+                color: "var(--gray-700)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {row.createdBy.firstName}
+            </span>
+          </div>
+        ) : (
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--gray-400)",
+              fontStyle: "italic",
+            }}
+          >
+            —
+          </span>
+        ),
+    },
+    {
       name: "Date",
       selector: (row) => row.createdAt,
       sortable: true,
@@ -610,17 +688,21 @@ const ReparationsList = () => {
           >
             <FaPrint size={11} />
           </button>
-          <button
-            className="btn-icon btn-icon-danger"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedReparation(row);
-              setShowDeleteDialog(true);
-            }}
-            title="Supprimer"
-          >
-            <FaTrash size={11} />
-          </button>
+
+          {/* ✅ Bouton Supprimer UNIQUEMENT pour ADMIN */}
+          {canDelete && (
+            <button
+              className="btn-icon btn-icon-danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedReparation(row);
+                setShowDeleteDialog(true);
+              }}
+              title="Supprimer"
+            >
+              <FaTrash size={11} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -670,8 +752,8 @@ const ReparationsList = () => {
             </button>
           )}
 
-          {/* ✅ Bouton Supprimer la sélection */}
-          {selectedRows.length > 0 && (
+          {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
+          {selectedRows.length > 0 && canDelete && (
             <button
               className="btn-modern btn-modern-danger"
               onClick={() => setShowDeleteManyDialog(true)}
@@ -837,7 +919,7 @@ const ReparationsList = () => {
           )}
         </div>
 
-        <div className="filters-grid-2">
+        <div className="filters-grid">
           <div className="filter-item">
             <label className="filter-label">
               <FaBoxes size={10} /> Catégorie
@@ -890,13 +972,31 @@ const ReparationsList = () => {
               onChange={handleFilterChange}
             >
               <option value="">Tous</option>
-              {users
-                .filter((u) => u.role === "REPARATEUR")
-                .map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.firstName} {u.lastName}
-                  </option>
-                ))}
+              {reparateurs.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.firstName} {u.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <label className="filter-label">
+              <FaBriefcase size={10} /> Commercial
+            </label>
+            <select
+              name="commercial"
+              className="form-control-modern"
+              style={{ height: "42px" }}
+              value={filters.commercial}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous</option>
+              {commerciaux.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.firstName} {u.lastName}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -962,8 +1062,6 @@ const ReparationsList = () => {
         )}
       </div>
 
-    
-
       {/* TABLEAU */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
@@ -986,37 +1084,41 @@ const ReparationsList = () => {
         />
       </div>
 
-      {/* ✅ DIALOG SUPPRESSION SIMPLE */}
-      <ConfirmDialog
-        show={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        onConfirm={handleDelete}
-        title="Supprimer la réparation"
-        message={`Êtes-vous sûr de vouloir supprimer la réparation ${selectedReparation?.numero} ?`}
-        confirmText="Supprimer"
-      />
+      {/* ✅ DIALOG SUPPRESSION SIMPLE (rendu uniquement si admin) */}
+      {canDelete && (
+        <ConfirmDialog
+          show={showDeleteDialog}
+          onClose={() => setShowDeleteDialog(false)}
+          onConfirm={handleDelete}
+          title="Supprimer la réparation"
+          message={`Êtes-vous sûr de vouloir supprimer la réparation ${selectedReparation?.numero} ?`}
+          confirmText="Supprimer"
+        />
+      )}
 
-      {/* ✅ DIALOG SUPPRESSION MULTIPLE */}
-      <ConfirmDialog
-        show={showDeleteManyDialog}
-        onClose={() => setShowDeleteManyDialog(false)}
-        onConfirm={handleDeleteMany}
-        title={`Supprimer ${selectedRows.length} réparation(s)`}
-        message={`Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} réparations sélectionnées ? Cette action est irréversible.\n\nN° : ${selectedRows
-          .slice(0, 5)
-          .map((r) => r.numero)
-          .join(", ")}${
-          selectedRows.length > 5
-            ? ` et ${selectedRows.length - 5} autre(s)...`
-            : ""
-        }`}
-        confirmText={deletingMany ? "Suppression..." : "Supprimer tout"}
-      />
+      {/* ✅ DIALOG SUPPRESSION MULTIPLE (rendu uniquement si admin) */}
+      {canDelete && (
+        <ConfirmDialog
+          show={showDeleteManyDialog}
+          onClose={() => setShowDeleteManyDialog(false)}
+          onConfirm={handleDeleteMany}
+          title={`Supprimer ${selectedRows.length} réparation(s)`}
+          message={`Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} réparations sélectionnées ? Cette action est irréversible.\n\nN° : ${selectedRows
+            .slice(0, 5)
+            .map((r) => r.numero)
+            .join(", ")}${
+            selectedRows.length > 5
+              ? ` et ${selectedRows.length - 5} autre(s)...`
+              : ""
+          }`}
+          confirmText={deletingMany ? "Suppression..." : "Supprimer tout"}
+        />
+      )}
 
       <style>{`
-        .filters-grid-2 {
+        .filters-grid {
           display: grid;
-          grid-template-columns: repeat(6, 1fr);
+          grid-template-columns: repeat(7, 1fr);
           gap: 10px;
           align-items: end;
         }
@@ -1040,17 +1142,17 @@ const ReparationsList = () => {
           padding-left: 2px;
         }
 
-        @media (max-width: 1400px) {
-          .filters-grid-2 { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 1500px) {
+          .filters-grid { grid-template-columns: repeat(4, 1fr); }
         }
 
         @media (max-width: 992px) {
-          .filters-grid-2 { grid-template-columns: repeat(2, 1fr); }
+          .filters-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 576px) {
-          .filters-grid-2 { grid-template-columns: 1fr; }
-          .filters-grid-2 > * { width: 100% !important; }
+          .filters-grid { grid-template-columns: 1fr; }
+          .filters-grid > * { width: 100% !important; }
         }
 
         .rdt_TableHeadRow { min-height: 42px !important; }

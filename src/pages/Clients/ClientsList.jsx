@@ -10,9 +10,17 @@ import { exportClients } from '../../api/export';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
 import ClientFormModal from './ClientFormModal';
+import { useAuth } from '../../context/AuthContext';   // ✅ AJOUT
 
 const ClientsList = () => {
   const navigate = useNavigate();
+
+  // ✅ Récupérer l'utilisateur connecté
+  const { user } = useAuth();
+
+  // ✅ Seul ADMIN peut supprimer
+  const canDelete = user?.role === 'ADMIN';
+
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -25,7 +33,6 @@ const ClientsList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
-  // ✅ Dialog de suppression multiple
   const [showDeleteManyDialog, setShowDeleteManyDialog] = useState(false);
   const [deletingMany, setDeletingMany] = useState(false);
 
@@ -115,7 +122,6 @@ const ClientsList = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Vider la sélection (state + RDT)
   const clearSelection = () => {
     setSelectedRows([]);
     setToggleCleared((prev) => !prev);
@@ -131,8 +137,14 @@ const ClientsList = () => {
     clearSelection();
   };
 
-  // ✅ Suppression simple (une ligne)
+  // ✅ Suppression simple — vérification rôle
   const handleDelete = async () => {
+    if (!canDelete) {
+      setError("Vous n'avez pas la permission de supprimer");
+      setShowDeleteDialog(false);
+      return;
+    }
+
     try {
       const res = await deleteClient(selectedClient._id);
       setSuccess(res.message || 'Client supprimé avec succès');
@@ -145,8 +157,14 @@ const ClientsList = () => {
     }
   };
 
-  // ✅ Suppression multiple
+  // ✅ Suppression multiple — vérification rôle
   const handleDeleteMany = async () => {
+    if (!canDelete) {
+      setError("Vous n'avez pas la permission de supprimer");
+      setShowDeleteManyDialog(false);
+      return;
+    }
+
     setDeletingMany(true);
     try {
       const ids = selectedRows.map((r) => r._id);
@@ -342,7 +360,6 @@ const ClientsList = () => {
     },
   ];
 
-  // ✅ Calcul des réparations à supprimer en cascade
   const selectedReparationsCount = selectedRows.reduce(
     (sum, r) => sum + (r.totalReparations || 0),
     0
@@ -375,8 +392,8 @@ const ClientsList = () => {
             </button>
           )}
 
-          {/* ✅ Bouton supprimer la sélection */}
-          {selectedRows.length > 0 && (
+          {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
+          {selectedRows.length > 0 && canDelete && (
             <button
               className="btn-modern btn-modern-danger"
               onClick={() => setShowDeleteManyDialog(true)}
@@ -550,10 +567,15 @@ const ClientsList = () => {
         onRowClicked={selectedRows.length > 0 ? undefined : (row) => navigate(`/clients/${row._id}`)}
         onView={(row) => navigate(`/clients/${row._id}`)}
         onEdit={(row) => openFormModal(row)}
-        onDelete={(row) => {
-          setSelectedClient(row);
-          setShowDeleteDialog(true);
-        }}
+        // ✅ Bouton supprimer uniquement si admin
+        onDelete={
+          canDelete
+            ? (row) => {
+                setSelectedClient(row);
+                setShowDeleteDialog(true);
+              }
+            : undefined
+        }
         searchable={false}
         emptyMessage="Aucun client trouvé"
         paginationPerPage={10}
@@ -576,45 +598,49 @@ const ClientsList = () => {
         client={editingClient}
       />
 
-      {/* ✅ Dialog suppression simple — avec avertissement cascade */}
-      <ConfirmDialog
-        show={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        onConfirm={handleDelete}
-        title="Supprimer le client"
-        message={
-          `Êtes-vous sûr de vouloir supprimer "${selectedClient?.nom}" ?\n\n` +
-          ((selectedClient?.totalReparations || 0) > 0
-            ? `⚠️ ${selectedClient.totalReparations} réparation(s) associée(s) seront également supprimées.\n\n`
-            : '') +
-          `Cette action est irréversible.`
-        }
-        confirmText="Supprimer"
-      />
+      {/* ✅ Dialog suppression simple — uniquement si admin */}
+      {canDelete && (
+        <ConfirmDialog
+          show={showDeleteDialog}
+          onClose={() => setShowDeleteDialog(false)}
+          onConfirm={handleDelete}
+          title="Supprimer le client"
+          message={
+            `Êtes-vous sûr de vouloir supprimer "${selectedClient?.nom}" ?\n\n` +
+            ((selectedClient?.totalReparations || 0) > 0
+              ? `⚠️ ${selectedClient.totalReparations} réparation(s) associée(s) seront également supprimées.\n\n`
+              : '') +
+            `Cette action est irréversible.`
+          }
+          confirmText="Supprimer"
+        />
+      )}
 
-      {/* ✅ Dialog suppression multiple — avec avertissement cascade */}
-      <ConfirmDialog
-        show={showDeleteManyDialog}
-        onClose={() => setShowDeleteManyDialog(false)}
-        onConfirm={handleDeleteMany}
-        title={`Supprimer ${selectedRows.length} client(s)`}
-        message={
-          `Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} clients sélectionnés ?\n\n` +
-          (selectedReparationsCount > 0
-            ? `⚠️ ${selectedReparationsCount} réparation(s) associée(s) seront également supprimées.\n\n`
-            : '') +
-          `Clients : ${selectedRows
-            .slice(0, 5)
-            .map((r) => r.nom)
-            .join(', ')}${
-            selectedRows.length > 5
-              ? ` et ${selectedRows.length - 5} autre(s)...`
-              : ''
-          }\n\n` +
-          `Cette action est irréversible.`
-        }
-        confirmText={deletingMany ? 'Suppression...' : 'Supprimer tout'}
-      />
+      {/* ✅ Dialog suppression multiple — uniquement si admin */}
+      {canDelete && (
+        <ConfirmDialog
+          show={showDeleteManyDialog}
+          onClose={() => setShowDeleteManyDialog(false)}
+          onConfirm={handleDeleteMany}
+          title={`Supprimer ${selectedRows.length} client(s)`}
+          message={
+            `Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} clients sélectionnés ?\n\n` +
+            (selectedReparationsCount > 0
+              ? `⚠️ ${selectedReparationsCount} réparation(s) associée(s) seront également supprimées.\n\n`
+              : '') +
+            `Clients : ${selectedRows
+              .slice(0, 5)
+              .map((r) => r.nom)
+              .join(', ')}${
+              selectedRows.length > 5
+                ? ` et ${selectedRows.length - 5} autre(s)...`
+                : ''
+            }\n\n` +
+            `Cette action est irréversible.`
+          }
+          confirmText={deletingMany ? 'Suppression...' : 'Supprimer tout'}
+        />
+      )}
 
       <style>{`
         .clients-filters-grid {

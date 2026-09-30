@@ -62,7 +62,9 @@ const UsersCRUD = () => {
   const [success, setSuccess] = useState("");
   const [activeTab, setActiveTab] = useState("info");
 
+  // ============================================================
   // ✅ Configuration des modules avec LECTURE et ÉCRITURE
+  // ============================================================
   const MODULE_CONFIG = {
     // Principal
     dashboard: { label: "Tableau de bord", icon: "📊", category: "principal" },
@@ -103,6 +105,33 @@ const UsersCRUD = () => {
     statuses: { label: "Statuts", icon: "🏷️", category: "configuration" },
     "statuses:read": {
       label: "Statuts (lecture seule)",
+      icon: "👁️",
+      category: "configuration",
+      isRead: true,
+    },
+
+    // ✅ Configuration - Marques
+    marques: { label: "Marques", icon: "🏭", category: "configuration" },
+    "marques:read": {
+      label: "Marques (lecture seule)",
+      icon: "👁️",
+      category: "configuration",
+      isRead: true,
+    },
+
+    // ✅ Configuration - Modèles
+    modeles: { label: "Modèles", icon: "📱", category: "configuration" },
+    "modeles:read": {
+      label: "Modèles (lecture seule)",
+      icon: "👁️",
+      category: "configuration",
+      isRead: true,
+    },
+
+    // ✅ Configuration - Pannes
+    pannes: { label: "Pannes", icon: "⚠️", category: "configuration" },
+    "pannes:read": {
+      label: "Pannes (lecture seule)",
       icon: "👁️",
       category: "configuration",
       isRead: true,
@@ -266,12 +295,10 @@ const UsersCRUD = () => {
     try {
       const data = { ...formData };
 
-      // ✅ Ne pas envoyer le mot de passe s'il est vide (édition)
       if (!data.password || data.password.trim() === "") {
         delete data.password;
       }
 
-      // ✅ Ne pas envoyer l'email s'il est vide
       if (!data.email || data.email.trim() === "") {
         delete data.email;
       } else {
@@ -335,7 +362,6 @@ const UsersCRUD = () => {
     },
   };
 
-  // ✅ FORMATER LA DATE DE DERNIÈRE CONNEXION
   const formatLastLogin = (date) => {
     if (!date) return null;
     const d = new Date(date);
@@ -1176,7 +1202,8 @@ const UsersCRUD = () => {
 
                   {activeTab === "permissions" && (
                     <div>
-                      <div                        style={{
+                      <div
+                        style={{
                           padding: "14px 16px",
                           background: "var(--primary-light)",
                           border: "1px solid var(--primary)",
@@ -1265,7 +1292,6 @@ const UsersCRUD = () => {
                               key={categoryKey}
                               style={{ marginBottom: "24px" }}
                             >
-                              {/* Header catégorie */}
                               <div
                                 style={{
                                   display: "flex",
@@ -1305,7 +1331,6 @@ const UsersCRUD = () => {
                                 </div>
                               </div>
 
-                              {/* Liste des modules */}
                               <div
                                 style={{
                                   display: "flex",
@@ -1363,7 +1388,6 @@ const UsersCRUD = () => {
                                             : "var(--gray-200)";
                                       }}
                                     >
-                                      {/* Checkbox */}
                                       <div
                                         style={{
                                           width: "22px",
@@ -1385,12 +1409,10 @@ const UsersCRUD = () => {
                                         )}
                                       </div>
 
-                                      {/* Icon */}
                                       <span style={{ fontSize: "18px" }}>
                                         {moduleConfig.icon}
                                       </span>
 
-                                      {/* Label */}
                                       <div style={{ flex: 1, minWidth: 0 }}>
                                         <div
                                           style={{
@@ -1423,7 +1445,6 @@ const UsersCRUD = () => {
                                         )}
                                       </div>
 
-                                      {/* Badge LECTURE */}
                                       {isRead && (
                                         <span
                                           style={{

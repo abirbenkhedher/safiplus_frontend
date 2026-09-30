@@ -32,12 +32,9 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        {/* ✅ ReparationModalProvider enveloppe TOUTES les routes
-            → permet d'ouvrir le modal depuis n'importe quelle page
-            (y compris depuis la Sidebar) */}
         <ReparationModalProvider>
           <Routes>
-            {/* ✅ ROUTES PUBLIQUES (avant tout, hors ProtectedRoute) */}
+            {/* ✅ ROUTES PUBLIQUES */}
             <Route path="/login" element={<Login />} />
             <Route path="/suivi/:numero" element={<SuiviPublic />} />
 
@@ -142,10 +139,12 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* ✅ PANNES : accessible à tous (pannes OU pannes:read) */}
               <Route
                 path="pannes"
                 element={
-                  <ProtectedRoute permission="pannes">
+                  <ProtectedRoute anyPermission={["pannes", "pannes:read"]}>
                     <PannesCRUD />
                   </ProtectedRoute>
                 }
