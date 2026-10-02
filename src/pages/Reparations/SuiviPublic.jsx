@@ -463,44 +463,6 @@ const formatPannes = (pannes) => {
             </div>
           </div>
         </div>
-
-        {/* RÉPARATEUR */}
-        {reparation.reparateur && (
-          <div style={{
-            background: "white", padding: "20px",
-            borderRadius: "20px", marginBottom: "16px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          }}>
-            <h3 style={{
-              fontSize: "12.5px", fontWeight: "700", color: "#374151",
-              margin: "0 0 14px 0", textTransform: "uppercase",
-              letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "8px",
-            }}>
-              <FaUser size={12} /> Technicien
-            </h3>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "44px", height: "44px", borderRadius: "12px",
-                background: "linear-gradient(135deg, #4361ee, #3a52c9)",
-                color: "white",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "16px", fontWeight: "700",
-              }}>
-                {reparation.reparateur.firstName?.charAt(0)}
-                {reparation.reparateur.lastName?.charAt(0)}
-              </div>
-              <div>
-                <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>
-                  {reparation.reparateur.firstName} {reparation.reparateur.lastName}
-                </div>
-                <div style={{ fontSize: "12px", color: "#64748b" }}>
-                  Réparateur assigné
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* FOOTER */}
         <div style={{
           textAlign: "center", padding: "20px",
