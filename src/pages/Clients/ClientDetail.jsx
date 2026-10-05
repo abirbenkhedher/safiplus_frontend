@@ -94,9 +94,7 @@ const ClientDetail = () => {
     <>
       <div className="fade-in-up" style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
-        {/* ========================================== */}
         {/* BOUTON RETOUR */}
-        {/* ========================================== */}
         <button 
           className="btn-modern btn-modern-outline mb-3" 
           onClick={() => navigate('/clients')} 
@@ -105,9 +103,7 @@ const ClientDetail = () => {
           <FaArrowLeft size={12} /> Retour aux clients
         </button>
 
-        {/* ========================================== */}
         {/* EN-TÊTE CLIENT */}
-        {/* ========================================== */}
         <div className="card-modern mb-3" style={{ 
           padding: '28px',
           background: 'white',
@@ -135,33 +131,32 @@ const ClientDetail = () => {
                     {client.nom}
                   </h1>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-  <span className="badge-modern badge-modern-primary">{client.code}</span>
-  <span className={`badge-modern ${client.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}>
-    {client.isActive ? '✓ Actif' : '✗ Inactif'}
-  </span>
+                    <span className="badge-modern badge-modern-primary">{client.code}</span>
+                    <span className={`badge-modern ${client.isActive ? 'badge-modern-success' : 'badge-modern-gray'}`}>
+                      {client.isActive ? '✓ Actif' : '✗ Inactif'}
+                    </span>
 
-  {/* ✅ Code fidélité juste ici, à la suite des autres badges */}
-  {client.codeFidelite && (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '4px 10px',
-        background: 'var(--warning-light)',
-        color: 'var(--warning)',
-        borderRadius: '20px',
-        fontSize: '11px',
-        fontWeight: '700',
-        fontFamily: 'monospace',
-        letterSpacing: '0.3px',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
-      }}
-    >
-      🎁 {client.codeFidelite}
-    </span>
-  )}
-</div>
+                    {client.codeFidelite && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '4px 10px',
+                          background: 'var(--warning-light)',
+                          color: 'var(--warning)',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          fontFamily: 'monospace',
+                          letterSpacing: '0.3px',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                        }}
+                      >
+                        🎁 {client.codeFidelite}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -169,16 +164,16 @@ const ClientDetail = () => {
             <div className="col-12 col-md-6">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-  <FaPhone size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
-  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray-800)', fontFamily: 'monospace' }}>
-    {client.phone}
-    {client.phone2 && (
-      <span style={{ color: 'var(--gray-500)', marginLeft: '8px' }}>
-        • {client.phone2}
-      </span>
-    )}
-  </span>
-</div>
+                  <FaPhone size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray-800)', fontFamily: 'monospace' }}>
+                    {client.phone}
+                    {client.phone2 && (
+                      <span style={{ color: 'var(--gray-500)', marginLeft: '8px' }}>
+                        • {client.phone2}
+                      </span>
+                    )}
+                  </span>
+                </div>
                 
                 {client.email && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -189,24 +184,23 @@ const ClientDetail = () => {
                   </div>
                 )}
 
-              {client.adresse && (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
-    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
-      {client.adresse}
-    </span>
-  </div>
-)}
+                {client.adresse && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
+                      {client.adresse}
+                    </span>
+                  </div>
+                )}
 
-{/* ✅ NOUVEAU : Zone */}
-{client.zone && (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
-    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
-      🗺️ {client.zone}
-    </span>
-  </div>
-)}
+                {client.zone && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FaMapMarkerAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
+                      🗺️ {client.zone}
+                    </span>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <FaCalendarAlt size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
@@ -269,9 +263,7 @@ const ClientDetail = () => {
           </div>
         </div>
 
-        {/* ========================================== */}
         {/* RÉSUMÉ - 3 CARTES */}
-        {/* ========================================== */}
         <div className="row g-3 mb-3">
           <div className="col-12 col-md-4">
             <div className="card-modern" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -345,9 +337,7 @@ const ClientDetail = () => {
           </div>
         </div>
 
-        {/* ========================================== */}
         {/* DÉTAILS DU CRÉDIT */}
-        {/* ========================================== */}
         <div className="card-modern mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
             <div style={{
@@ -451,9 +441,7 @@ const ClientDetail = () => {
           </div>
         </div>
 
-        {/* ========================================== */}
         {/* HISTORIQUE DES RÉPARATIONS */}
-        {/* ========================================== */}
         <div className="card-modern mb-3" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{
             padding: '20px 24px',
@@ -563,7 +551,8 @@ const ClientDetail = () => {
                         </td>
                         <td style={{ padding: '14px 20px' }}>
                           <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--gray-800)' }}>
-                            {rep.marque} {rep.modele}
+                            {/* ✅ CORRIGÉ : marque?.nom et modele?.nom */}
+                            {rep.marque?.nom || "-"} {rep.modele?.nom || ""}
                           </div>
                           <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '2px' }}>
                             {rep.objet?.nom}
@@ -619,9 +608,7 @@ const ClientDetail = () => {
           )}
         </div>
 
-        {/* ========================================== */}
         {/* HISTORIQUE DES VENTES */}
-        {/* ========================================== */}
         <div className="card-modern" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{
             padding: '20px 24px',
@@ -722,7 +709,6 @@ const ClientDetail = () => {
         </div>
       </div>
 
-      {/* ✅ MODAL - EN DEHORS DU CONTENEUR .fade-in-up */}
       <ReparationModal
         show={showReparationModal}
         onClose={() => setShowReparationModal(false)}

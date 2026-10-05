@@ -19,7 +19,7 @@ import ExportButton from "../../components/common/ExportButton";
 import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
-import { useAuth } from "../../context/AuthContext";   // ✅ AJOUT
+import { useAuth } from "../../context/AuthContext";
 import { ZONES } from "../../constants/zones";
 
 const STATUTS_TERMINES = [
@@ -36,10 +36,7 @@ const ReparationsList = () => {
     useReparationModal();
   const { categories } = useReparationData();
 
-  // ✅ Récupérer l'utilisateur connecté
   const { user } = useAuth();
-
-  // ✅ Seul ADMIN peut supprimer
   const canDelete = user?.role === "ADMIN";
 
   const [reparations, setReparations] = useState([]);
@@ -153,11 +150,43 @@ const ReparationsList = () => {
     [users]
   );
 
+  // ✅ NOUVEAU : Map des users par _id pour résoudre modifiedBy
+  const usersById = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => map.set(u._id, u));
+    return map;
+  }, [users]);
+
+  // ✅ Helper : dernière modification (hors _create) + user résolu
+  const getLastModificationInfo = (row) => {
+    const mods = row.modifications || [];
+    if (mods.length === 0) return { user: null, date: null };
+
+    // Ignorer les modifications "_create"
+    const filtered = mods.filter((m) => m.field !== "_create");
+    const list = filtered.length > 0 ? filtered : mods;
+
+    const last = [...list].sort(
+      (a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt)
+    )[0];
+
+    if (!last) return { user: null, date: null };
+
+    // ✅ modifiedBy peut être : string (ID) OU objet (déjà populé)
+    let user = null;
+    if (typeof last.modifiedBy === "string") {
+      user = usersById.get(last.modifiedBy) || null;
+    } else if (last.modifiedBy && typeof last.modifiedBy === "object") {
+      user = last.modifiedBy;
+    }
+
+    return { user, date: last.modifiedAt };
+  };
+
   // ============================================================
-  // SUPPRESSION SIMPLE — avec vérification rôle
+  // SUPPRESSION SIMPLE
   // ============================================================
   const handleDelete = async () => {
-    // ✅ Double sécurité côté front
     if (!canDelete) {
       setError("Vous n'avez pas la permission de supprimer");
       setShowDeleteDialog(false);
@@ -177,10 +206,9 @@ const ReparationsList = () => {
   };
 
   // ============================================================
-  // SUPPRESSION MULTIPLE — avec vérification rôle
+  // SUPPRESSION MULTIPLE
   // ============================================================
   const handleDeleteMany = async () => {
-    // ✅ Double sécurité côté front
     if (!canDelete) {
       setError("Vous n'avez pas la permission de supprimer");
       setShowDeleteManyDialog(false);
@@ -270,6 +298,74 @@ const ReparationsList = () => {
   // COLONNES
   // ============================================================
   const columns = [
+    // Actions
+    {
+      name: "Actions",
+      center: true,
+      width: "130px",
+      cell: (row) => (
+        <div style={{ display: "flex", gap: "3px", justifyContent: "center" }}>
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/reparations/${row._id}`);
+            }}
+            title="Voir"
+          >
+            <FaEye size={11} />
+          </button>
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(row);
+            }}
+            title="Modifier"
+          >
+            <FaEdit size={11} />
+          </button>
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              const token = localStorage.getItem("accessToken");
+              const apiUrl =
+                import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+              fetch(`${apiUrl}/reparations/${row._id}/ticket`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+                .then((res) => res.text())
+                .then((html) => {
+                  const win = window.open("", "_blank", "width=400,height=600");
+                  win.document.write(html);
+                  win.document.close();
+                  win.onload = () => setTimeout(() => win.print(), 500);
+                });
+            }}
+            title="Imprimer"
+          >
+            <FaPrint size={11} />
+          </button>
+
+          {canDelete && (
+            <button
+              className="btn-icon btn-icon-danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedReparation(row);
+                setShowDeleteDialog(true);
+              }}
+              title="Supprimer"
+            >
+              <FaTrash size={11} />
+            </button>
+          )}
+        </div>
+      ),
+    },
+
+    // N°
     {
       name: "N°",
       selector: (row) => row.numero,
@@ -284,6 +380,8 @@ const ReparationsList = () => {
         </span>
       ),
     },
+
+    // Client
     {
       name: "Client",
       selector: (row) => row.client?.nom,
@@ -332,6 +430,8 @@ const ReparationsList = () => {
         </div>
       ),
     },
+
+    // Appareil
     {
       name: "Appareil",
       selector: (row) =>
@@ -367,6 +467,8 @@ const ReparationsList = () => {
         </div>
       ),
     },
+
+    // Panne(s)
     {
       name: "Panne(s)",
       selector: (row) => {
@@ -435,6 +537,8 @@ const ReparationsList = () => {
         );
       },
     },
+
+    // Statut
     {
       name: "Statut",
       selector: (row) => row.status?.label,
@@ -482,6 +586,8 @@ const ReparationsList = () => {
         );
       },
     },
+
+    // Prix
     {
       name: "Prix",
       selector: (row) => row.prix,
@@ -503,6 +609,8 @@ const ReparationsList = () => {
         </div>
       ),
     },
+
+    // Reste
     {
       name: "Reste",
       selector: (row) => (row.prix || 0) - (row.acompte || 0),
@@ -527,6 +635,77 @@ const ReparationsList = () => {
         );
       },
     },
+
+    // ✅ NOUVEAU : Modifié par (juste avant Réparateur)
+    {
+      name: "Modifié par",
+      selector: (row) => {
+        const { user: u } = getLastModificationInfo(row);
+        return u?.firstName || "";
+      },
+      sortable: true,
+      width: "140px",
+      cell: (row) => {
+        const { user: u, date } = getLastModificationInfo(row);
+
+        if (!u) {
+          return (
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--gray-400)",
+                fontStyle: "italic",
+              }}
+            >
+              —
+            </span>
+          );
+        }
+
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div
+              style={{
+                width: "24px",
+                height: "24px",
+                borderRadius: "6px",
+                background: "linear-gradient(135deg, #8b5cf6, #6d28d9)",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "9px",
+                fontWeight: "700",
+                flexShrink: 0,
+              }}
+            >
+              {u.firstName?.charAt(0) || u.username?.charAt(0) || "?"}
+              {u.lastName?.charAt(0) || ""}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: "11.5px",
+                  color: "var(--gray-700)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {u.firstName || u.username || "—"}
+              </div>
+              {date && (
+                <div style={{ fontSize: "9.5px", color: "var(--gray-400)" }}>
+                  {new Date(date).toLocaleDateString("fr-FR")}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+
+    // Réparateur
     {
       name: "Réparateur",
       selector: (row) => row.reparateur?.firstName,
@@ -578,6 +757,8 @@ const ReparationsList = () => {
           </span>
         ),
     },
+
+    // Commercial
     {
       name: "Commercial",
       selector: (row) => row.createdBy?.firstName,
@@ -591,8 +772,7 @@ const ReparationsList = () => {
                 width: "24px",
                 height: "24px",
                 borderRadius: "6px",
-                background:
-                  "linear-gradient(135deg, var(--warning), #d97706)",
+                background: "linear-gradient(135deg, var(--warning), #d97706)",
                 color: "white",
                 display: "flex",
                 alignItems: "center",
@@ -629,6 +809,8 @@ const ReparationsList = () => {
           </span>
         ),
     },
+
+    // Date
     {
       name: "Date",
       selector: (row) => row.createdAt,
@@ -638,72 +820,6 @@ const ReparationsList = () => {
         <span style={{ fontSize: "11px", color: "var(--gray-600)" }}>
           {new Date(row.createdAt).toLocaleDateString("fr-FR")}
         </span>
-      ),
-    },
-    {
-      name: "Actions",
-      center: true,
-      width: "130px",
-      cell: (row) => (
-        <div style={{ display: "flex", gap: "3px", justifyContent: "center" }}>
-          <button
-            className="btn-icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/reparations/${row._id}`);
-            }}
-            title="Voir"
-          >
-            <FaEye size={11} />
-          </button>
-          <button
-            className="btn-icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(row);
-            }}
-            title="Modifier"
-          >
-            <FaEdit size={11} />
-          </button>
-          <button
-            className="btn-icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              const token = localStorage.getItem("accessToken");
-              const apiUrl =
-                import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-              fetch(`${apiUrl}/reparations/${row._id}/ticket`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-                .then((res) => res.text())
-                .then((html) => {
-                  const win = window.open("", "_blank", "width=400,height=600");
-                  win.document.write(html);
-                  win.document.close();
-                  win.onload = () => setTimeout(() => win.print(), 500);
-                });
-            }}
-            title="Imprimer"
-          >
-            <FaPrint size={11} />
-          </button>
-
-          {/* ✅ Bouton Supprimer UNIQUEMENT pour ADMIN */}
-          {canDelete && (
-            <button
-              className="btn-icon btn-icon-danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedReparation(row);
-                setShowDeleteDialog(true);
-              }}
-              title="Supprimer"
-            >
-              <FaTrash size={11} />
-            </button>
-          )}
-        </div>
       ),
     },
   ];
@@ -752,7 +868,6 @@ const ReparationsList = () => {
             </button>
           )}
 
-          {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
           {selectedRows.length > 0 && canDelete && (
             <button
               className="btn-modern btn-modern-danger"
@@ -1084,7 +1199,6 @@ const ReparationsList = () => {
         />
       </div>
 
-      {/* ✅ DIALOG SUPPRESSION SIMPLE (rendu uniquement si admin) */}
       {canDelete && (
         <ConfirmDialog
           show={showDeleteDialog}
@@ -1096,7 +1210,6 @@ const ReparationsList = () => {
         />
       )}
 
-      {/* ✅ DIALOG SUPPRESSION MULTIPLE (rendu uniquement si admin) */}
       {canDelete && (
         <ConfirmDialog
           show={showDeleteManyDialog}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   FaTimes, FaUser, FaTools, FaMoneyBillWave, FaClipboardList,
@@ -37,7 +37,9 @@ const INITIAL_FORM = {
   },
 };
 
-// ✅ Helper de tri : ordre croissant puis nom alphabétique
+// ✅ NOUVEAU : rôles autorisés pour le champ Technicien
+const ROLES_AUTORISES = ["REPARATEUR", "COMMERCIAL"];
+
 const sortByOrdre = (arr = []) =>
   [...arr].sort(
     (a, b) =>
@@ -45,12 +47,101 @@ const sortByOrdre = (arr = []) =>
       (a.nom || "").localeCompare(b.nom || "")
   );
 
+// ============================================================
+// Composant Section mémoïsé
+// ============================================================
+const SectionBlock = memo(({ icon, title, color = "var(--primary)", children }) => (
+  <div style={{ marginBottom: "14px" }}>
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        marginBottom: "8px", paddingBottom: "6px",
+        borderBottom: `1px solid ${color}20`,
+      }}
+    >
+      <div
+        style={{
+          width: "24px", height: "24px", borderRadius: "7px",
+          background: `${color}15`, color, display: "flex",
+          alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <h6
+        style={{
+          fontSize: "11.5px", fontWeight: 700, color, margin: 0,
+          textTransform: "uppercase", letterSpacing: "0.5px",
+        }}
+      >
+        {title}
+      </h6>
+    </div>
+    {children}
+  </div>
+));
+
+// ============================================================
+// Section repliable mémoïsée
+// ============================================================
+const CollapsibleSection = memo(({
+  icon, title, color = "var(--primary)", isOpen, onToggle, badge = 0, children,
+}) => (
+  <div style={{ marginBottom: "14px" }}>
+    <div
+      onClick={onToggle}
+      style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        paddingBottom: "6px", borderBottom: `1px solid ${color}20`,
+        cursor: "pointer", userSelect: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "24px", height: "24px", borderRadius: "7px",
+          background: `${color}15`, color, display: "flex",
+          alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <h6
+        style={{
+          fontSize: "11.5px", fontWeight: 700, color, margin: 0,
+          textTransform: "uppercase", letterSpacing: "0.5px", flex: 1,
+        }}
+      >
+        {title}
+      </h6>
+      {badge > 0 && (
+        <span
+          style={{
+            padding: "2px 8px", borderRadius: "10px",
+            background: "var(--warning-light)", color: "var(--warning)",
+            fontSize: "10.5px", fontWeight: 700,
+          }}
+        >
+          ⚠️ {badge}
+        </span>
+      )}
+      <FaChevronDown
+        size={11}
+        style={{
+          color,
+          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+          transition: "transform 200ms ease", flexShrink: 0,
+        }}
+      />
+    </div>
+    {isOpen && <div style={{ marginTop: "10px" }}>{children}</div>}
+  </div>
+));
+
+// ============================================================
+// ReparationModal
+// ============================================================
 const ReparationModal = ({
-  show,
-  onClose,
-  onSuccess,
-  reparation = null,
-  initialClientId = null,
+  show, onClose, onSuccess, reparation = null, initialClientId = null,
 }) => {
   const isEdit = Boolean(reparation);
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -61,30 +152,20 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
+  const formDataRef = useRef(formData);
+  useEffect(() => { formDataRef.current = formData; }, [formData]);
+
   const {
-    categories,
-    objets,
-    statuses,
-    reparateurs,
-    marques,
-    modeles,
-    pannes,
-    refresh,
+    categories, objets, statuses, reparateurs, marques, modeles, pannes, refresh,
   } = useReparationData();
 
-  // ============================================================
-  // Recharger les données de référence à chaque ouverture
-  // ============================================================
+  // ---- Refresh à l'ouverture ----
   useEffect(() => {
-    if (show) {
-      refresh?.();
-    }
+    if (show) refresh?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
-  // ============================================================
-  // CHARGER LES DONNÉES DU FORMULAIRE
-  // ============================================================
+  // ---- Chargement des données du formulaire ----
   useEffect(() => {
     if (!show) return;
 
@@ -104,9 +185,7 @@ const ReparationModal = ({
         problemeDeclare: reparation.problemeDeclare || "",
         panneType: Array.isArray(reparation.panneType)
           ? reparation.panneType
-          : reparation.panneType
-            ? [reparation.panneType]
-            : [],
+          : reparation.panneType ? [reparation.panneType] : [],
         note: reparation.note || "",
         prix: reparation.prix || 0,
         acompte: reparation.acompte || 0,
@@ -118,31 +197,25 @@ const ReparationModal = ({
             ? reparation.observations
             : [{ text: "", date: new Date().toISOString() }],
         diagnosticImprevus: reparation.diagnosticImprevus || {
-          constat: "",
-          imprevus: [],
+          constat: "", imprevus: [],
           decisionClient: { statut: "en_attente", note: "" },
         },
       });
 
       const diag = reparation.diagnosticImprevus;
-      if (
-        diag &&
-        (diag.constat ||
+      setShowDiagnostic(
+        !!(diag && (
+          diag.constat ||
           (diag.imprevus && diag.imprevus.length > 0) ||
-          (diag.decisionClient?.statut &&
-            diag.decisionClient.statut !== "en_attente"))
-      ) {
-        setShowDiagnostic(true);
-      } else {
-        setShowDiagnostic(false);
-      }
+          (diag.decisionClient?.statut && diag.decisionClient.statut !== "en_attente")
+        ))
+      );
     } else if (!isEdit) {
       const draft = localStorage.getItem(DRAFT_KEY);
-
       if (draft && !initialClientId) {
         try {
           const parsed = JSON.parse(draft);
-          if (!parsed.observations || parsed.observations.length === 0) {
+          if (!parsed.observations?.length) {
             parsed.observations = [{ text: "", date: new Date().toISOString() }];
           }
           if (!parsed.diagnosticImprevus) {
@@ -154,11 +227,8 @@ const ReparationModal = ({
           delete parsed.accessoires;
           setFormData(parsed);
           setHasDraft(true);
-        } catch (e) {
-          setFormData({
-            ...INITIAL_FORM,
-            client: initialClientId || "",
-          });
+        } catch {
+          setFormData({ ...INITIAL_FORM, client: initialClientId || "" });
         }
       } else {
         setFormData({
@@ -175,47 +245,34 @@ const ReparationModal = ({
     setEnvoyerSMS(false);
   }, [show, reparation, isEdit, initialClientId]);
 
-  // ============================================================
-  // STATUT PAR DÉFAUT
-  // ============================================================
+  // ---- Statut par défaut ----
   useEffect(() => {
-    if (statuses.length === 0) return;
-    if (isEdit) return;
-    if (formData.status) return;
-
+    if (statuses.length === 0 || isEdit || formData.status) return;
     const enAttente = statuses.find((s) =>
-      s.label.toLowerCase().includes("attente"),
+      s.label.toLowerCase().includes("attente")
     );
-    const defaultStatus =
-      enAttente || statuses.find((s) => s.parDefault) || statuses[0];
-
+    const defaultStatus = enAttente || statuses.find((s) => s.parDefault) || statuses[0];
     if (defaultStatus) {
       setFormData((prev) => ({ ...prev, status: defaultStatus._id }));
     }
   }, [statuses, isEdit, formData.status]);
 
-  // ============================================================
-  // AUTO-SAVE BROUILLON
-  // ============================================================
+  // ---- Auto-save brouillon (debounced 2s) ----
   useEffect(() => {
-    if (!isEdit && show) {
-      const timer = setTimeout(() => {
-        if (formData.client || formData.marque) {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
+    if (isEdit || !show) return;
+    if (!formData.client && !formData.marque) return;
+    const t = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+    }, 2000);
+    return () => clearTimeout(t);
   }, [formData, isEdit, show]);
 
+  // ---- Handlers stables ----
   const handleFieldChange = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  // ============================================================
-  // CHANGEMENT DE CATÉGORIE → AUTO-COCHER LA 1ère PANNE
-  // ============================================================
-  const handleCategorieChange = (categorieId) => {
+  const handleCategorieChange = useCallback((categorieId) => {
     const pannesDeLaCategorie = pannes
       .filter((p) => {
         const catId =
@@ -226,40 +283,56 @@ const ReparationModal = ({
       })
       .sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
 
-    const autoPanne =
-      pannesDeLaCategorie.length > 0 ? [pannesDeLaCategorie[0].nom] : [];
+    const autoPanne = pannesDeLaCategorie.length > 0
+      ? [pannesDeLaCategorie[0].nom]
+      : [];
 
     setFormData((prev) => ({
-      ...prev,
-      categorie: categorieId,
-      panneType: autoPanne,
+      ...prev, categorie: categorieId, panneType: autoPanne,
     }));
-  };
+  }, [pannes]);
 
-  // ============================================================
-  // SUBMIT
-  // ============================================================
-  const handleSubmit = async (shouldPrint = false) => {
+  // ---- Impression ----
+  const printTicket = useCallback(async (reparationId) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const html = await res.text();
+      const win = window.open("", "_blank", "width=400,height=600");
+      win.document.write(html);
+      win.document.close();
+      win.onload = () => setTimeout(() => win.print(), 500);
+    } catch (err) {
+      console.error("Erreur impression:", err);
+    }
+  }, []);
+
+  // ---- Submit ----
+  const handleSubmit = useCallback(async (shouldPrint = false) => {
     setError("");
     setSuccess("");
 
-    if (!formData.client) return setError("Le client est obligatoire");
-    if (!formData.categorie) return setError("La catégorie est obligatoire");
-    if (!formData.objet) return setError("L'objet est obligatoire");
-    if (!formData.marque) return setError("La marque est obligatoire");
-    if (!Array.isArray(formData.panneType) || formData.panneType.length === 0) {
+    const fd = formDataRef.current;
+    if (!fd.client) return setError("Le client est obligatoire");
+    if (!fd.categorie) return setError("La catégorie est obligatoire");
+    if (!fd.objet) return setError("L'objet est obligatoire");
+    if (!fd.marque) return setError("La marque est obligatoire");
+    if (!Array.isArray(fd.panneType) || fd.panneType.length === 0) {
       return setError("Au moins une panne est obligatoire");
     }
-    if (!formData.note.trim()) return setError("La note est obligatoire");
-    if (!formData.status) return setError("Le statut est obligatoire");
+    if (!fd.note.trim()) return setError("La note est obligatoire");
+    if (!fd.status) return setError("Le statut est obligatoire");
 
     setSaving(true);
     try {
       const cleanData = {
-        ...formData,
-        panneType: formData.panneType,
-        observations: formData.observations.filter((o) => o.text.trim() !== ""),
-        envoyerSMS: envoyerSMS,
+        ...fd,
+        panneType: fd.panneType,
+        observations: fd.observations.filter((o) => o.text.trim() !== ""),
+        envoyerSMS,
       };
 
       const response = isEdit
@@ -284,26 +357,9 @@ const ReparationModal = ({
     } finally {
       setSaving(false);
     }
-  };
+  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose]);
 
-  const printTicket = async (reparationId) => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const html = await res.text();
-      const win = window.open("", "_blank", "width=400,height=600");
-      win.document.write(html);
-      win.document.close();
-      win.onload = () => setTimeout(() => win.print(), 500);
-    } catch (err) {
-      console.error("Erreur impression:", err);
-    }
-  };
-
+  // ---- Listener clavier ----
   useEffect(() => {
     if (!show) return;
     const handleKey = (e) => {
@@ -315,38 +371,31 @@ const ReparationModal = ({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [show, saving, formData, envoyerSMS]);
+  }, [show, saving, handleSubmit, onClose]);
 
-  if (!show) return null;
+  // ---- Filtres mémoïsés ----
+  const categoriesTriees = useMemo(() => sortByOrdre(categories), [categories]);
+  const objetsTries = useMemo(() => sortByOrdre(objets), [objets]);
 
-  const imprevusEnAttente = (
-    formData.diagnosticImprevus?.imprevus || []
-  ).filter((i) => i.accepte === null || i.accepte === undefined).length;
-
-  const categoriesTriees = sortByOrdre(categories);
-  const objetsTries = sortByOrdre(objets);
-
-  const marquesFiltrees = sortByOrdre(
+  const marquesFiltrees = useMemo(() => sortByOrdre(
     marques.filter((m) => {
       if (!formData.objet) return true;
       const objetId =
         typeof m.objet === "object" && m.objet !== null ? m.objet._id : m.objet;
       return objetId === formData.objet;
     })
-  );
+  ), [marques, formData.objet]);
 
-  const modelesFiltres = sortByOrdre(
+  const modelesFiltres = useMemo(() => sortByOrdre(
     modeles.filter((m) => {
       if (!formData.marque) return true;
       const marqueId =
-        typeof m.marque === "object" && m.marque !== null
-          ? m.marque._id
-          : m.marque;
+        typeof m.marque === "object" && m.marque !== null ? m.marque._id : m.marque;
       return marqueId === formData.marque;
     })
-  );
+  ), [modeles, formData.marque]);
 
-  const pannesFiltrees = pannes
+  const pannesFiltrees = useMemo(() => pannes
     .filter((p) => {
       if (!formData.categorie) return false;
       const catId =
@@ -355,738 +404,383 @@ const ReparationModal = ({
           : p.categorie;
       return catId === formData.categorie;
     })
-    .sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
-
-  return createPortal(
-    <>
-      <div
-        className="modal fade show d-block"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 9999,
-          overflowY: "auto",
-          padding: "40px 20px",
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !saving) onClose();
-        }}
-      >
-        <div
-          className="modal-dialog modal-dialog-centered modal-lg"
-          style={{ maxWidth: "780px", margin: "0 auto", width: "100%" }}
-        >
-          <div
-            className="modal-content"
-            style={{
-              border: "none",
-              borderRadius: "20px",
-              overflow: "hidden",
-              boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
-              maxHeight: "92vh",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {/* HEADER */}
-            <div
-              style={{
-                padding: "18px 24px",
-                background:
-                  "linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)",
-                borderBottom: "1px solid var(--gray-200)",
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "12px",
-                  background:
-                    "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "17px",
-                  flexShrink: 0,
-                  boxShadow: "0 4px 12px rgba(67, 97, 238, 0.3)",
-                }}
-              >
-                <FaTools />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h5
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    color: "var(--gray-900)",
-                    margin: 0,
-                  }}
-                >
-                  {isEdit
-                    ? `Modifier ${reparation?.numero}`
-                    : "Nouvelle réparation"}
-                </h5>
-                <p
-                  style={{
-                    fontSize: "11.5px",
-                    color: "var(--gray-500)",
-                    margin: "2px 0 0",
-                  }}
-                >
-                  {isEdit
-                    ? "Modifiez les informations"
-                    : "Ctrl+S pour enregistrer"}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                disabled={saving}
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: "white",
-                  color: "var(--gray-500)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "16px",
-                }}
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            {/* BODY */}
-            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-              {hasDraft && !isEdit && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    background: "var(--warning-light)",
-                    color: "var(--warning)",
-                    borderRadius: "10px",
-                    marginBottom: "16px",
-                    fontSize: "12px",
-                    fontWeight: "500",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                  }}
-                >
-                  <span>📝 Brouillon récupéré</span>
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem(DRAFT_KEY);
-                      setHasDraft(false);
-                      setFormData({
-                        ...INITIAL_FORM,
-                        client: initialClientId || "",
-                      });
-                    }}
-                    style={{
-                      background: "white",
-                      border: "none",
-                      color: "var(--warning)",
-                      fontSize: "11px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    Effacer
-                  </button>
-                </div>
-              )}
-
-              {success && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    background: "var(--success-light)",
-                    color: "var(--success)",
-                    borderRadius: "10px",
-                    marginBottom: "16px",
-                    fontSize: "12.5px",
-                    fontWeight: "500",
-                  }}
-                >
-                  ✅ {success}
-                </div>
-              )}
-              {error && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    background: "var(--danger-light)",
-                    color: "var(--danger)",
-                    borderRadius: "10px",
-                    marginBottom: "16px",
-                    fontSize: "12.5px",
-                    fontWeight: "500",
-                  }}
-                >
-                  ⚠️ {error}
-                </div>
-              )}
-
-              {/* CLIENT */}
-              <SectionBlock
-                icon={<FaUser size={13} />}
-                title="Client"
-                color="var(--primary)"
-              >
-                <ClientSelector
-                  value={formData.client}
-                  onChange={(id) => handleFieldChange("client", id)}
-                />
-              </SectionBlock>
-
-              {/* APPAREIL */}
-              <SectionBlock
-                icon={<FaTools size={13} />}
-                title="Appareil"
-                color="var(--info)"
-              >
-                <div className="row g-2">
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">
-                      Catégorie{" "}
-                      <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <SearchSelect
-                      options={categoriesTriees.map((c) => ({
-                        value: c._id,
-                        label: c.nom,
-                      }))}
-                      value={formData.categorie}
-                      onChange={handleCategorieChange}
-                      placeholder="Rechercher..."
-                    />
-                  </div>
-
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">
-                      Objet <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <SearchSelect
-                      options={objetsTries.map((o) => ({
-                        value: o._id,
-                        label: o.nom,
-                      }))}
-                      value={formData.objet}
-                      onChange={(val) => {
-                        handleFieldChange("objet", val);
-                        handleFieldChange("marque", "");
-                        handleFieldChange("modele", "");
-                      }}
-                      placeholder="Rechercher..."
-                    />
-                  </div>
-                </div>
-
-                <div className="row g-2" style={{ marginTop: "8px" }}>
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">
-                      Marque <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <SearchSelect
-                      options={marquesFiltrees.map((m) => ({
-                        value: m._id,
-                        label: m.nom,
-                      }))}
-                      value={formData.marque}
-                      onChange={(val) => {
-                        handleFieldChange("marque", val);
-                        handleFieldChange("modele", "");
-                      }}
-                      placeholder={
-                        formData.objet
-                          ? "Rechercher une marque..."
-                          : "Choisissez d'abord un objet"
-                      }
-                      disabled={!formData.objet}
-                    />
-                  </div>
-
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">Modèle</label>
-                    <SearchSelect
-                      options={modelesFiltres.map((m) => ({
-                        value: m._id,
-                        label: m.nom,
-                      }))}
-                      value={formData.modele}
-                      onChange={(val) => handleFieldChange("modele", val)}
-                      placeholder={
-                        formData.marque
-                          ? "Rechercher un modèle..."
-                          : "Choisissez d'abord une marque"
-                      }
-                      disabled={!formData.marque}
-                    />
-                  </div>
-                </div>
-              </SectionBlock>
-
-              {/* PANNE */}
-              <SectionBlock
-                icon={<FaClipboardList size={13} />}
-                title="Panne"
-                color="var(--warning)"
-              >
-                <div className="row g-2">
-                  <div className="col-12">
-                    <label className="form-label-modern">
-                      Type de panne{" "}
-                      <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <PannesMultiSelect
-                      options={pannesFiltrees}
-                      value={formData.panneType}
-                      onChange={(val) => handleFieldChange("panneType", val)}
-                      disabled={!formData.categorie}
-                      placeholder={
-                        formData.categorie
-                          ? "Sélectionnez les pannes..."
-                          : "Choisissez d'abord une catégorie"
-                      }
-                    />
-                    {formData.categorie && pannesFiltrees.length === 0 && (
-                      <div
-                        style={{
-                          fontSize: "11px",
-                          color: "var(--warning)",
-                          marginTop: "4px",
-                        }}
-                      >
-                        💡 Aucune panne configurée pour cette catégorie.
-                        Ajoutez-en dans la page « Pannes ».
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="col-12">
-                    <label className="form-label-modern">
-                      Description du problème{" "}
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "var(--gray-500)",
-                          fontWeight: "400",
-                        }}
-                      >
-                        (optionnel)
-                      </span>
-                    </label>
-                    <textarea
-                      value={formData.problemeDeclare}
-                      onChange={(e) =>
-                        handleFieldChange("problemeDeclare", e.target.value)
-                      }
-                      rows={2}
-                      placeholder="Décrivez le problème en détail..."
-                      className="form-control-modern"
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        padding: "10px 14px",
-                        resize: "vertical",
-                        fontFamily: "inherit",
-                      }}
-                    />
-                  </div>
-
-                  <div className="col-12">
-                    <label className="form-label-modern">
-                      Note interne{" "}
-                      <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <textarea
-                      value={formData.note}
-                      onChange={(e) =>
-                        handleFieldChange("note", e.target.value)
-                      }
-                      rows={2}
-                      placeholder="Note obligatoire..."
-                      className="form-control-modern"
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        padding: "10px 14px",
-                        resize: "vertical",
-                        fontFamily: "inherit",
-                      }}
-                    />
-                  </div>
-                </div>
-              </SectionBlock>
-
-              {/* DIAGNOSTIC & IMPRÉVUS */}
-              <CollapsibleSection
-                icon={<FaStethoscope size={13} />}
-                title="Diagnostic & Imprévus"
-                color="var(--warning)"
-                isOpen={showDiagnostic}
-                onToggle={() => setShowDiagnostic(!showDiagnostic)}
-                badge={imprevusEnAttente}
-              >
-                <DiagnosticSection
-                  diagnostic={formData.diagnosticImprevus}
-                  onChange={(diag) =>
-                    handleFieldChange("diagnosticImprevus", diag)
-                  }
-                  prixInitial={formData.prix}
-                  acompte={formData.acompte}
-                />
-              </CollapsibleSection>
-
-              {/* PAIEMENT */}
-              <SectionBlock
-                icon={<FaMoneyBillWave size={13} />}
-                title="Paiement"
-                color="var(--success)"
-              >
-                <PaymentSection formData={formData} onChange={setFormData} />
-              </SectionBlock>
-
-              {/* OBSERVATIONS */}
-              <SectionBlock
-                icon={<FaCommentAlt size={13} />}
-                title="Observations"
-                color="var(--gray-600)"
-              >
-                <ObservationsList
-                  observations={formData.observations}
-                  onChange={(obs) => handleFieldChange("observations", obs)}
-                />
-              </SectionBlock>
-
-              {/* GESTION */}
-              <SectionBlock
-                icon={<FaHourglassHalf size={13} />}
-                title="Gestion"
-                color="var(--primary)"
-              >
-                <div className="row g-2">
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">
-                      Statut <span style={{ color: "var(--danger)" }}>*</span>
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        handleFieldChange("status", e.target.value)
-                      }
-                      className="form-control-modern"
-                      style={{ width: "100%" }}
-                    >
-                      <option value="">Sélectionnez</option>
-                      {statuses.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.label} {s.parDefault && "(défaut)"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-12 col-sm-6">
-                    <label className="form-label-modern">Technicien</label>
-                    <select
-                      value={formData.reparateur}
-                      onChange={(e) =>
-                        handleFieldChange("reparateur", e.target.value)
-                      }
-                      className="form-control-modern"
-                      style={{ width: "100%" }}
-                    >
-                      <option value="">Non assigné</option>
-                      {reparateurs.map((u) => (
-                        <option key={u._id} value={u._id}>
-                          {u.firstName} {u.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "16px",
-                    padding: "14px 16px",
-                    background: envoyerSMS
-                      ? "var(--primary-light)"
-                      : "var(--gray-50)",
-                    borderRadius: "12px",
-                    border: envoyerSMS
-                      ? "1px solid var(--primary)40"
-                      : "1px solid var(--gray-200)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    cursor: "pointer",
-                    transition: "all 150ms ease",
-                  }}
-                  onClick={() => setEnvoyerSMS(!envoyerSMS)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={envoyerSMS}
-                    onChange={(e) => setEnvoyerSMS(e.target.checked)}
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      cursor: "pointer",
-                      accentColor: "var(--primary)",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "700",
-                        color: envoyerSMS
-                          ? "var(--primary)"
-                          : "var(--gray-700)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
-                    >
-                      📱 Envoyer un SMS au client
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "11.5px",
-                        color: "var(--gray-500)",
-                        marginTop: "2px",
-                      }}
-                    >
-                      {envoyerSMS
-                        ? "Le client sera notifié par SMS après l'enregistrement"
-                        : "Cochez pour informer le client par SMS"}
-                    </div>
-                  </div>
-                </div>
-              </SectionBlock>
-            </div>
-
-            {/* FOOTER */}
-            <div
-              style={{
-                padding: "14px 24px",
-                background: "var(--gray-50)",
-                borderTop: "1px solid var(--gray-200)",
-                display: "flex",
-                gap: "8px",
-                justifyContent: "flex-end",
-                flexWrap: "wrap",
-                flexShrink: 0,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => handleSubmit(true)}
-                disabled={saving}
-                className="btn-modern btn-modern-outline"
-                style={{
-                  borderColor: "var(--success)",
-                  color: "var(--success)",
-                }}
-              >
-                <FaPrint /> Enregistrer + Imprimer
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSubmit(false)}
-                disabled={saving}
-                className="btn-modern btn-modern-primary"
-              >
-                {saving ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm"
-                      role="status"
-                    ></span>
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <FaSave /> {isEdit ? "Modifier" : "Enregistrer"}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>,
-    document.body,
+    .sort((a, b) => (a.ordre || 0) - (b.ordre || 0)),
+    [pannes, formData.categorie]
   );
-};
 
-// ============================================================
-// Composant Section réutilisable
-// ============================================================
-const SectionBlock = ({ icon, title, color = "var(--primary)", children }) => (
-  <div style={{ marginBottom: "20px" }}>
+  // ✅ NOUVEAU : filtre les users (Réparateur + Commercial) + tri alphabétique
+  const usersAutorises = useMemo(() => {
+    return (reparateurs || [])
+      .filter((u) =>
+        ROLES_AUTORISES.includes((u.role || "").toUpperCase().trim())
+      )
+      .sort((a, b) => {
+        const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+        const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+        return nameA.localeCompare(nameB);
+      });
+  }, [reparateurs]);
+
+  if (!show) return null;
+
+  const imprevusEnAttente = (
+    formData.diagnosticImprevus?.imprevus || []
+  ).filter((i) => i.accepte === null || i.accepte === undefined).length;
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  return createPortal(
     <div
+      className="modal fade show d-block"
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        marginBottom: "10px",
-        paddingBottom: "8px",
-        borderBottom: `1px solid ${color}20`,
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0,0,0,0.6)", zIndex: 9999,
+        overflowY: "auto", padding: "20px",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
       <div
         style={{
-          width: "26px",
-          height: "26px",
-          borderRadius: "8px",
-          background: `${color}15`,
-          color: color,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
+          maxWidth: "1180px", width: "100%", margin: "0 auto",
+          background: "white", borderRadius: "18px",
+          boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+          maxHeight: "95vh", display: "flex", flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        {icon}
-      </div>
-      <h6
-        style={{
-          fontSize: "12px",
-          fontWeight: "700",
-          color: color,
-          margin: 0,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}
-      >
-        {title}
-      </h6>
-    </div>
-    {children}
-  </div>
-);
-
-// ============================================================
-// Composant Section repliable
-// ============================================================
-const CollapsibleSection = ({
-  icon,
-  title,
-  color = "var(--primary)",
-  isOpen,
-  onToggle,
-  badge = 0,
-  children,
-}) => (
-  <div style={{ marginBottom: "20px" }}>
-    <div
-      onClick={onToggle}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        paddingBottom: "8px",
-        borderBottom: `1px solid ${color}20`,
-        cursor: "pointer",
-        userSelect: "none",
-        transition: "opacity 150ms ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.opacity = "0.75";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.opacity = "1";
-      }}
-    >
-      <div
-        style={{
-          width: "26px",
-          height: "26px",
-          borderRadius: "8px",
-          background: `${color}15`,
-          color: color,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-
-      <h6
-        style={{
-          fontSize: "12px",
-          fontWeight: "700",
-          color: color,
-          margin: 0,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          flex: 1,
-        }}
-      >
-        {title}
-      </h6>
-
-      {badge > 0 && (
-        <span
+        {/* HEADER compact */}
+        <div
           style={{
-            padding: "2px 8px",
-            borderRadius: "10px",
-            background: "var(--warning-light)",
-            color: "var(--warning)",
-            fontSize: "10.5px",
-            fontWeight: "700",
-            display: "flex",
-            alignItems: "center",
-            gap: "3px",
+            padding: "14px 20px",
+            background: "linear-gradient(135deg, rgba(67,97,238,0.05) 0%, rgba(67,97,238,0.02) 100%)",
+            borderBottom: "1px solid var(--gray-200)",
+            display: "flex", alignItems: "center", gap: "12px",
+            flexShrink: 0,
           }}
         >
-          ⚠️ {badge}
-        </span>
-      )}
+          <div
+            style={{
+              width: "38px", height: "38px", borderRadius: "10px",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+              color: "white", display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: "15px", flexShrink: 0,
+              boxShadow: "0 4px 12px rgba(67,97,238,0.3)",
+            }}
+          >
+            <FaTools />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h5 style={{ fontSize: "15px", fontWeight: 700, color: "var(--gray-900)", margin: 0 }}>
+              {isEdit ? `Modifier ${reparation?.numero}` : "Nouvelle réparation"}
+            </h5>
+            <p style={{ fontSize: "11px", color: "var(--gray-500)", margin: "1px 0 0" }}>
+              {isEdit ? "Modifiez les informations" : "Ctrl+S pour enregistrer"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            style={{
+              width: "30px", height: "30px", borderRadius: "8px",
+              border: "none", background: "white", color: "var(--gray-500)",
+              cursor: "pointer", display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: "15px",
+            }}
+          >
+            <FaTimes />
+          </button>
+        </div>
 
-      <FaChevronDown
-        size={11}
-        style={{
-          color: color,
-          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-          transition: "transform 200ms ease",
-          flexShrink: 0,
-        }}
-      />
-    </div>
+        {/* BODY : grille 2 colonnes */}
+        <div
+          style={{
+            padding: "16px 20px",
+            overflowY: "auto",
+            flex: 1,
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)",
+            gap: "20px",
+            alignItems: "start",
+          }}
+          className="reparation-modal-body"
+        >
+          {/* ============ COLONNE GAUCHE ============ */}
+          <div style={{ minWidth: 0 }}>
+            {hasDraft && !isEdit && (
+              <div
+                style={{
+                  padding: "8px 12px", background: "var(--warning-light)",
+                  color: "var(--warning)", borderRadius: "8px",
+                  marginBottom: "12px", fontSize: "11.5px", fontWeight: 500,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
+                }}
+              >
+                <span>📝 Brouillon récupéré</span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem(DRAFT_KEY);
+                    setHasDraft(false);
+                    setFormData({ ...INITIAL_FORM, client: initialClientId || "" });
+                  }}
+                  style={{
+                    background: "white", border: "none", color: "var(--warning)",
+                    fontSize: "10.5px", fontWeight: 600, cursor: "pointer",
+                    padding: "3px 8px", borderRadius: "5px",
+                  }}
+                >
+                  Effacer
+                </button>
+              </div>
+            )}
 
-    {isOpen && (
-      <div style={{ marginTop: "12px", animation: "fadeIn 200ms ease" }}>
-        {children}
+            {success && (
+              <div style={{ padding: "8px 12px", background: "var(--success-light)", color: "var(--success)", borderRadius: "8px", marginBottom: "12px", fontSize: "12px", fontWeight: 500 }}>
+                ✅ {success}
+              </div>
+            )}
+            {error && (
+              <div style={{ padding: "8px 12px", background: "var(--danger-light)", color: "var(--danger)", borderRadius: "8px", marginBottom: "12px", fontSize: "12px", fontWeight: 500 }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* CLIENT */}
+            <SectionBlock icon={<FaUser size={12} />} title="Client" color="var(--primary)">
+              <ClientSelector
+                value={formData.client}
+                onChange={(id) => handleFieldChange("client", id)}
+              />
+            </SectionBlock>
+
+            {/* APPAREIL */}
+            <SectionBlock icon={<FaTools size={12} />} title="Appareil" color="var(--info)">
+              <div className="row g-2">
+                <div className="col-12 col-sm-6">
+                  <SearchSelect
+                    options={categoriesTriees.map((c) => ({ value: c._id, label: c.nom }))}
+                    value={formData.categorie}
+                    onChange={handleCategorieChange}
+                    placeholder="Catégorie *"
+                  />
+                </div>
+                <div className="col-12 col-sm-6">
+                  <SearchSelect
+                    options={objetsTries.map((o) => ({ value: o._id, label: o.nom }))}
+                    value={formData.objet}
+                    onChange={(val) => {
+                      handleFieldChange("objet", val);
+                      handleFieldChange("marque", "");
+                      handleFieldChange("modele", "");
+                    }}
+                    placeholder="Objet *"
+                  />
+                </div>
+                <div className="col-12 col-sm-6">
+                  <SearchSelect
+                    options={marquesFiltrees.map((m) => ({ value: m._id, label: m.nom }))}
+                    value={formData.marque}
+                    onChange={(val) => {
+                      handleFieldChange("marque", val);
+                      handleFieldChange("modele", "");
+                    }}
+                    placeholder="Marque *"
+                    disabled={!formData.objet}
+                  />
+                </div>
+                <div className="col-12 col-sm-6">
+                  <SearchSelect
+                    options={modelesFiltres.map((m) => ({ value: m._id, label: m.nom }))}
+                    value={formData.modele}
+                    onChange={(val) => handleFieldChange("modele", val)}
+                    placeholder="Modèle (optionnel)"
+                    disabled={!formData.marque}
+                  />
+                </div>
+              </div>
+            </SectionBlock>
+
+            {/* PANNE */}
+            <SectionBlock icon={<FaClipboardList size={12} />} title="Panne" color="var(--warning)">
+              <PannesMultiSelect
+                options={pannesFiltrees}
+                value={formData.panneType}
+                onChange={(val) => handleFieldChange("panneType", val)}
+                disabled={!formData.categorie}
+                placeholder={formData.categorie ? "Pannes *" : "Choisissez une catégorie"}
+              />
+
+              <textarea
+                value={formData.problemeDeclare}
+                onChange={(e) => handleFieldChange("problemeDeclare", e.target.value)}
+                rows={2}
+                placeholder="Description du problème (optionnel)"
+                aria-label="Description du problème"
+                className="form-control-modern"
+                style={{ width: "100%", marginTop: "8px", padding: "10px 14px", resize: "vertical", fontFamily: "inherit" }}
+              />
+
+              <textarea
+                value={formData.note}
+                onChange={(e) => handleFieldChange("note", e.target.value)}
+                rows={2}
+                placeholder="Note interne *"
+                aria-label="Note interne"
+                className="form-control-modern"
+                style={{ width: "100%", marginTop: "8px", padding: "10px 14px", resize: "vertical", fontFamily: "inherit" }}
+              />
+            </SectionBlock>
+          </div>
+
+          {/* ============ COLONNE DROITE ============ */}
+          <div style={{ minWidth: 0 }}>
+            {/* DIAGNOSTIC */}
+            <CollapsibleSection
+              icon={<FaStethoscope size={12} />}
+              title="Diagnostic & Imprévus"
+              color="var(--warning)"
+              isOpen={showDiagnostic}
+              onToggle={() => setShowDiagnostic((v) => !v)}
+              badge={imprevusEnAttente}
+            >
+              <DiagnosticSection
+                diagnostic={formData.diagnosticImprevus}
+                onChange={(diag) => handleFieldChange("diagnosticImprevus", diag)}
+                prixInitial={formData.prix}
+                acompte={formData.acompte}
+              />
+            </CollapsibleSection>
+
+            {/* PAIEMENT */}
+            <SectionBlock icon={<FaMoneyBillWave size={12} />} title="Paiement" color="var(--success)">
+              <PaymentSection formData={formData} onChange={setFormData} />
+            </SectionBlock>
+
+            {/* GESTION */}
+            <SectionBlock icon={<FaHourglassHalf size={12} />} title="Gestion" color="var(--primary)">
+              <div className="row g-2">
+                <div className="col-12 col-sm-6">
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleFieldChange("status", e.target.value)}
+                    className="form-control-modern"
+                    style={{ width: "100%" }}
+                    aria-label="Statut"
+                  >
+                    <option value="">Statut *</option>
+                    {statuses.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.label} {s.parDefault && "(défaut)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* ✅ Technicien / Commercial (select simple, filtré) */}
+                <div className="col-12 col-sm-6">
+                  <select
+                    value={formData.reparateur}
+                    onChange={(e) => handleFieldChange("reparateur", e.target.value)}
+                    className="form-control-modern"
+                    style={{ width: "100%" }}
+                    aria-label="Technicien ou commercial"
+                  >
+                    <option value="">Technicien / Commercial</option>
+                    {usersAutorises.map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.firstName} {u.lastName}
+                        {u.role === "COMMERCIAL" ? " (Commercial)" : " (Réparateur)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* SMS toggle */}
+              <div
+                style={{
+                  marginTop: "10px", padding: "10px 12px",
+                  background: envoyerSMS ? "var(--primary-light)" : "var(--gray-50)",
+                  borderRadius: "10px",
+                  border: envoyerSMS ? "1px solid var(--primary)40" : "1px solid var(--gray-200)",
+                  display: "flex", alignItems: "center", gap: "10px",
+                  cursor: "pointer", transition: "all 150ms ease",
+                }}
+                onClick={() => setEnvoyerSMS((v) => !v)}
+              >
+                <input
+                  type="checkbox"
+                  checked={envoyerSMS}
+                  onChange={(e) => setEnvoyerSMS(e.target.checked)}
+                  style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "var(--primary)", flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, fontSize: "12px", fontWeight: 600, color: envoyerSMS ? "var(--primary)" : "var(--gray-700)" }}>
+                  📱 Envoyer un SMS au client
+                </div>
+              </div>
+            </SectionBlock>
+
+            {/* OBSERVATIONS */}
+            <SectionBlock icon={<FaCommentAlt size={12} />} title="Observations" color="var(--gray-600)">
+              <ObservationsList
+                observations={formData.observations}
+                onChange={(obs) => handleFieldChange("observations", obs)}
+              />
+            </SectionBlock>
+          </div>
+        </div>
+
+        {/* FOOTER sticky */}
+        <div
+          style={{
+            padding: "12px 20px",
+            background: "var(--gray-50)",
+            borderTop: "1px solid var(--gray-200)",
+            display: "flex", gap: "8px", justifyContent: "flex-end",
+            flexWrap: "wrap", flexShrink: 0,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleSubmit(true)}
+            disabled={saving}
+            className="btn-modern btn-modern-outline"
+            style={{ borderColor: "var(--success)", color: "var(--success)" }}
+          >
+            <FaPrint /> Enregistrer + Imprimer
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit(false)}
+            disabled={saving}
+            className="btn-modern btn-modern-primary"
+          >
+            {saving ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status"></span>
+                Enregistrement...
+              </>
+            ) : (
+              <><FaSave /> {isEdit ? "Modifier" : "Enregistrer"}</>
+            )}
+          </button>
+        </div>
       </div>
-    )}
-  </div>
-);
+
+      {/* Responsive : 1 colonne sous 900px */}
+      <style>{`
+        @media (max-width: 900px) {
+          .reparation-modal-body {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+    </div>,
+    document.body
+  );
+};
 
 export default ReparationModal;

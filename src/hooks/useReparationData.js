@@ -34,7 +34,7 @@ export const useReparationData = () => {
     modeles: [],
     pannes: [],
     statuses: [],
-    reparateurs: [],
+    reparateurs: [], // contient TOUS les users (filtrage fait côté composant)
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,7 +50,6 @@ export const useReparationData = () => {
             const age = Date.now() - timestamp;
 
             if (age < REF_CACHE_TTL && cachedData.pannes) {
-              // ✅ Tri défensif même sur le cache (au cas où l'ancien cache n'était pas trié)
               setData({
                 ...cachedData,
                 categories: sortByOrdre(cachedData.categories),
@@ -96,7 +95,8 @@ export const useReparationData = () => {
         modeles: sortByOrdre(modelesRes.data),
         pannes: sortByOrdreOnly(pannesRes.data),
         statuses: statusesRes.data,
-        reparateurs: usersRes.data.filter((u) => u.role === 'REPARATEUR'),
+        // ✅ Tous les users (le filtrage se fait dans le composant)
+        reparateurs: usersRes.data,
       };
 
       setData(freshData);

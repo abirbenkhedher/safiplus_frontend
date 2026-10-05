@@ -24,6 +24,8 @@ import { getStatuses } from "../../api/statuses";
 import { getUsers } from "../../api/users";
 import { getCategories } from "../../api/categories";
 import { getObjets } from "../../api/objets";
+import { getMarques } from "../../api/marques";   // ✅ AJOUT
+import { getModeles } from "../../api/modeles";   // ✅ AJOUT
 import ReparationQRCode from "../../components/reparations/ReparationQRCode";
 import ReparationModal from "../../components/reparations/ReparationModal";
 
@@ -47,7 +49,6 @@ const FIELD_LABELS = {
   smsEnvoye: "SMS envoyé",
 };
 
-// ✅ Constante du délai d'alerte
 const DELAI_ALERTE_HEURES = 48;
 
 const ReparationDetail = () => {
@@ -62,6 +63,8 @@ const ReparationDetail = () => {
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [objets, setObjets] = useState([]);
+  const [marques, setMarques] = useState([]);   // ✅ AJOUT
+  const [modeles, setModeles] = useState([]);   // ✅ AJOUT
 
   useEffect(() => {
     loadReferenceData();
@@ -70,16 +73,20 @@ const ReparationDetail = () => {
 
   const loadReferenceData = async () => {
     try {
-      const [s, u, c, o] = await Promise.all([
+      const [s, u, c, o, mq, md] = await Promise.all([
         getStatuses(),
         getUsers(),
         getCategories(),
         getObjets(),
+        getMarques(),   // ✅ AJOUT
+        getModeles(),   // ✅ AJOUT
       ]);
       setStatuses(s.data);
       setUsers(u.data);
       setCategories(c.data);
       setObjets(o.data);
+      setMarques(mq.data);   // ✅ AJOUT
+      setModeles(md.data);   // ✅ AJOUT
     } catch (err) {
       console.error("Erreur ref data:", err);
     }
@@ -131,34 +138,45 @@ const ReparationDetail = () => {
       const obj = objets.find((o) => o._id === String(value));
       return obj?.nom || String(value);
     }
-   if (field === "panneType") {
-  // ✅ Cas tableau (nouveau format)
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(", ") : "—";
-  }
-  // ✅ Cas string (ancien format ou migration)
-  if (typeof value === "string") {
-    const labels = {
-      lcd: "Écran (LCD)",
-      touch: "Tactile / Vitre",
-      battery: "Batterie",
-      charging_port: "Connecteur de charge",
-      camera_front: "Caméra frontale",
-      camera_back: "Caméra arrière",
-      speaker: "Haut-parleur",
-      microphone: "Microphone",
-      headphone: "Jack audio",
-      button_power: "Bouton Power",
-      button_volume: "Boutons volume",
-      software: "Logiciel / Système",
-      water_damage: "Dégât d'eau",
-      network: "Réseau / Signal",
-      other: "Autre",
-    };
-    return labels[value] || value;
-  }
-  return "—";
-}
+
+    // ✅ AJOUT : Résolution Marque
+    if (field === "marque") {
+      const marque = marques.find((m) => m._id === String(value));
+      return marque?.nom || "—";
+    }
+
+    // ✅ AJOUT : Résolution Modèle
+    if (field === "modele") {
+      const modele = modeles.find((m) => m._id === String(value));
+      return modele?.nom || "—";
+    }
+
+    if (field === "panneType") {
+      if (Array.isArray(value)) {
+        return value.length > 0 ? value.join(", ") : "—";
+      }
+      if (typeof value === "string") {
+        const labels = {
+          lcd: "Écran (LCD)",
+          touch: "Tactile / Vitre",
+          battery: "Batterie",
+          charging_port: "Connecteur de charge",
+          camera_front: "Caméra frontale",
+          camera_back: "Caméra arrière",
+          speaker: "Haut-parleur",
+          microphone: "Microphone",
+          headphone: "Jack audio",
+          button_power: "Bouton Power",
+          button_volume: "Boutons volume",
+          software: "Logiciel / Système",
+          water_damage: "Dégât d'eau",
+          network: "Réseau / Signal",
+          other: "Autre",
+        };
+        return labels[value] || value;
+      }
+      return "—";
+    }
     if (field === "observations") {
       if (Array.isArray(value)) {
         return value
@@ -172,34 +190,31 @@ const ReparationDetail = () => {
   };
 
   const timelineData = useMemo(() => {
-  if (!reparation) return [];
+    if (!reparation) return [];
 
-  // Modifications
-  const modifs = (reparation.modifications || []).map((m, i) => ({
-    id: `m-${i}-${m.field}`,
-    type: "modification",
-    field: m.field,
-    oldValue: m.oldValue,
-    newValue: m.newValue,
-    user: m.modifiedBy,
-    date: m.modifiedAt,
-  }));
+    const modifs = (reparation.modifications || []).map((m, i) => ({
+      id: `m-${i}-${m.field}`,
+      type: "modification",
+      field: m.field,
+      oldValue: m.oldValue,
+      newValue: m.newValue,
+      user: m.modifiedBy,
+      date: m.modifiedAt,
+    }));
 
-  // ✅ SMS envoyés
-  const sms = (reparation.smsEnvoyes || []).map((s, i) => ({
-    id: `sms-${i}`,
-    type: "sms",
-    field: "smsEnvoye",
-    smsData: s,
-    user: s.envoyePar,
-    date: s.envoyeLe,
-  }));
+    const sms = (reparation.smsEnvoyes || []).map((s, i) => ({
+      id: `sms-${i}`,
+      type: "sms",
+      field: "smsEnvoye",
+      smsData: s,
+      user: s.envoyePar,
+      date: s.envoyeLe,
+    }));
 
-  // Fusionner et trier par date (récent en haut)
-  return [...modifs, ...sms].sort(
-    (a, b) => new Date(b.date) - new Date(a.date)
-  );
-}, [reparation]);
+    return [...modifs, ...sms].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+  }, [reparation]);
 
   const columns = useMemo(
     () => [
@@ -253,76 +268,115 @@ const ReparationDetail = () => {
         ),
       },
       {
-  name: "Action",
-  sortable: false,
-  width: "140px",
-  cell: (row) => (
-    <span style={{
-      fontSize: "12px",
-      fontWeight: "600",
-      color: row.type === "sms" ? "#3b82f6" : "var(--gray-700)",
-    }}>
-      {row.type === "sms" ? "📱 SMS" : "✏️ Modification"}
-    </span>
-  ),
-},
+        name: "Action",
+        sortable: false,
+        width: "140px",
+        cell: (row) => (
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: "600",
+              color: row.type === "sms" ? "#3b82f6" : "var(--gray-700)",
+            }}
+          >
+            {row.type === "sms" ? "📱 SMS" : "✏️ Modification"}
+          </span>
+        ),
+      },
       {
         name: "Détails",
         grow: 3,
         cell: (row) => {
           let content = null;
-// ✅ SMS
-if (row.type === "sms") {
-  const s = row.smsData;
-  const isSuccess = s.statutEnvoi !== "echec";
 
-  return (
-    <div
-      style={{
-        display: "inline-block",
-        padding: "10px 12px",
-        background: isSuccess ? "#dbeafe" : "#fee2e2",
-        borderLeft: `3px solid ${isSuccess ? "#3b82f6" : "#ef4444"}`,
-        borderRadius: "8px",
-        maxWidth: "100%",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-        <span style={{
-          fontSize: "10px", fontWeight: "800", color: "white",
-          background: isSuccess ? "#3b82f6" : "#ef4444",
-          padding: "2px 8px", borderRadius: "4px", letterSpacing: "0.5px",
-        }}>
-          {isSuccess ? "📱 SMS ENVOYÉ" : "❌ SMS ÉCHOUÉ"}
-        </span>
-        <span style={{ fontSize: "11px", color: "var(--gray-600)", fontWeight: "600" }}>
-          {s.statut}
-        </span>
-      </div>
+          if (row.type === "sms") {
+            const s = row.smsData;
+            const isSuccess = s.statutEnvoi !== "echec";
 
-      <div style={{ fontSize: "12px", color: "var(--gray-700)", lineHeight: 1.5, marginBottom: "4px" }}>
-        <strong>À :</strong> {s.clientNom} ({s.telephone})
-      </div>
+            return (
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "10px 12px",
+                  background: isSuccess ? "#dbeafe" : "#fee2e2",
+                  borderLeft: `3px solid ${isSuccess ? "#3b82f6" : "#ef4444"}`,
+                  borderRadius: "8px",
+                  maxWidth: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "800",
+                      color: "white",
+                      background: isSuccess ? "#3b82f6" : "#ef4444",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {isSuccess ? "📱 SMS ENVOYÉ" : "❌ SMS ÉCHOUÉ"}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--gray-600)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {s.statut}
+                  </span>
+                </div>
 
-      <div style={{
-        fontSize: "12px", color: "var(--gray-800)",
-        background: "white", padding: "8px 10px",
-        borderRadius: "6px", fontStyle: "italic", lineHeight: 1.5,
-      }}>
-        "{s.message}"
-      </div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--gray-700)",
+                    lineHeight: 1.5,
+                    marginBottom: "4px",
+                  }}
+                >
+                  <strong>À :</strong> {s.clientNom} ({s.telephone})
+                </div>
 
-      {s.erreur && (
-        <div style={{
-          fontSize: "11px", color: "#dc2626",
-          marginTop: "4px", fontWeight: "600",
-        }}>
-          ⚠️ Erreur : {s.erreur}
-        </div>
-      )}
-    </div>
-  );
-}
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--gray-800)",
+                    background: "white",
+                    padding: "8px 10px",
+                    borderRadius: "6px",
+                    fontStyle: "italic",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  "{s.message}"
+                </div>
+
+                {s.erreur && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#dc2626",
+                      marginTop: "4px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    ⚠️ Erreur : {s.erreur}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           if (row.field === "_create") {
             content = <span>Réparation créée</span>;
           } else if (row.field === "_delete") {
@@ -481,7 +535,7 @@ if (row.type === "sms") {
         },
       },
     ],
-    [statuses, users, categories, objets]
+    [statuses, users, categories, objets, marques, modeles]  // ✅ AJOUT marques, modeles
   );
 
   const customStyles = {
@@ -515,43 +569,37 @@ if (row.type === "sms") {
     cells: { style: { paddingLeft: "16px", paddingRight: "16px" } },
   };
 
-  // ✅ ALERTE DÉLAI +48h (calcul AVANT les returns conditionnels)
- // ✅ ALERTE DÉLAI +48h (UNIQUEMENT pour le statut "En cours")
-const alertInfo = useMemo(() => {
-  if (!reparation) return null;
+  const alertInfo = useMemo(() => {
+    if (!reparation) return null;
 
-  // ✅ Vérifier que le statut contient "en cours"
-  const statusLabel = (reparation.status?.label || "").toLowerCase();
-  const isEnCours =
-    statusLabel.includes("en cours") || statusLabel.includes("cours");
+    const statusLabel = (reparation.status?.label || "").toLowerCase();
+    const isEnCours =
+      statusLabel.includes("en cours") || statusLabel.includes("cours");
 
-  // ❌ Si ce n'est PAS "en cours", pas d'alerte
-  if (!isEnCours) return null;
+    if (!isEnCours) return null;
 
-  // ✅ Calculer le temps écoulé depuis la réception
-  const dateReception = reparation.dateReception || reparation.createdAt;
-  if (!dateReception) return null;
+    const dateReception = reparation.dateReception || reparation.createdAt;
+    if (!dateReception) return null;
 
-  const maintenant = new Date();
-  const reception = new Date(dateReception);
-  const diffMs = maintenant - reception;
-  const diffHeures = diffMs / (1000 * 60 * 60);
+    const maintenant = new Date();
+    const reception = new Date(dateReception);
+    const diffMs = maintenant - reception;
+    const diffHeures = diffMs / (1000 * 60 * 60);
 
-  if (diffHeures < DELAI_ALERTE_HEURES) return null;
+    if (diffHeures < DELAI_ALERTE_HEURES) return null;
 
-  const jours = Math.floor(diffHeures / 24);
-  const heures = Math.floor(diffHeures % 24);
+    const jours = Math.floor(diffHeures / 24);
+    const heures = Math.floor(diffHeures % 24);
 
-  return {
-    heures: Math.floor(diffHeures),
-    jours,
-    heuresRestantes: heures,
-    dateReception: reception,
-    label:
-      jours > 0 ? `${jours}j ${heures}h` : `${Math.floor(diffHeures)}h`,
-    depassement: Math.floor(diffHeures - DELAI_ALERTE_HEURES),
-  };
-}, [reparation]);
+    return {
+      heures: Math.floor(diffHeures),
+      jours,
+      heuresRestantes: heures,
+      dateReception: reception,
+      label: jours > 0 ? `${jours}j ${heures}h` : `${Math.floor(diffHeures)}h`,
+      depassement: Math.floor(diffHeures - DELAI_ALERTE_HEURES),
+    };
+  }, [reparation]);
 
   if (loading) {
     return (
@@ -744,7 +792,7 @@ const alertInfo = useMemo(() => {
           </div>
         </div>
 
-        {/* ✅ ALERTE DÉLAI +48h */}
+        {/* ALERTE DÉLAI +48h */}
         {alertInfo && (
           <div
             style={{
@@ -762,7 +810,6 @@ const alertInfo = useMemo(() => {
               flexWrap: "wrap",
             }}
           >
-            {/* Icône animée */}
             <div
               style={{
                 width: "52px",
@@ -835,7 +882,6 @@ const alertInfo = useMemo(() => {
               </div>
             </div>
 
-            {/* Indicateur de dépassement */}
             <div
               style={{
                 textAlign: "center",
@@ -874,7 +920,7 @@ const alertInfo = useMemo(() => {
 
         {/* CORPS : 2 COLONNES */}
         <div className="row g-3 mb-3">
-          {/* ============ COLONNE GAUCHE ============ */}
+          {/* COLONNE GAUCHE */}
           <div className="col-12 col-lg-6">
             {/* CLIENT */}
             <div className="card-modern mb-3">
@@ -1082,35 +1128,33 @@ const alertInfo = useMemo(() => {
                   </span>
                 </div>
                 <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "8px 0",
-    borderTop: "1px solid var(--gray-100)",
-  }}
->
-  <span
-    style={{
-      fontSize: "12.5px",
-      color: "var(--gray-500)",
-      fontWeight: "500",
-    }}
-  >
-    Marque / Modèle
-  </span>
-  <span
-    style={{
-      fontSize: "13px",
-      color: "var(--gray-800)",
-      fontWeight: "600",
-    }}
-  >
-    {/* ✅ CORRIGÉ : marque?.nom et modele?.nom */}
-    {reparation.marque?.nom || "-"} {reparation.modele?.nom || ""}
-  </span>
-</div>
-            
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderTop: "1px solid var(--gray-100)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "12.5px",
+                      color: "var(--gray-500)",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Marque / Modèle
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      color: "var(--gray-800)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {reparation.marque?.nom || "-"} {reparation.modele?.nom || ""}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1166,23 +1210,23 @@ const alertInfo = useMemo(() => {
                 >
                   🔧 Type de panne
                 </div>
-               <div
-  style={{
-    padding: "12px 16px",
-    background: "var(--warning-light)",
-    borderRadius: "10px",
-    borderLeft: "4px solid var(--warning)",
-    fontSize: "13.5px",
-    color: "var(--gray-800)",
-    fontWeight: "600",
-    lineHeight: 1.6,
-  }}
->
-  {/* ✅ panneType est maintenant un tableau */}
-  {Array.isArray(reparation.panneType) && reparation.panneType.length > 0
-    ? reparation.panneType.join(", ")
-    : "Non défini"}
-</div>
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    background: "var(--warning-light)",
+                    borderRadius: "10px",
+                    borderLeft: "4px solid var(--warning)",
+                    fontSize: "13.5px",
+                    color: "var(--gray-800)",
+                    fontWeight: "600",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {Array.isArray(reparation.panneType) &&
+                  reparation.panneType.length > 0
+                    ? reparation.panneType.join(", ")
+                    : "Non défini"}
+                </div>
               </div>
               <div style={{ marginBottom: "14px" }}>
                 <div
@@ -1446,13 +1490,11 @@ const alertInfo = useMemo(() => {
             )}
           </div>
 
-          {/* ============ COLONNE DROITE : QR CODE + PAIEMENT DANS UNE SEULE CARTE ============ */}
+          {/* COLONNE DROITE */}
           <div className="col-12 col-lg-6">
             <div className="card-modern">
-              {/* QR CODE */}
               <ReparationQRCode reparation={reparation} />
 
-              {/* SÉPARATEUR */}
               <div
                 style={{
                   margin: "20px 0",
@@ -1460,7 +1502,6 @@ const alertInfo = useMemo(() => {
                 }}
               />
 
-              {/* PAIEMENT */}
               <div>
                 <div
                   style={{
@@ -1507,7 +1548,6 @@ const alertInfo = useMemo(() => {
                     gap: "12px",
                   }}
                 >
-                  {/* Prix de base */}
                   <div
                     style={{
                       display: "flex",
@@ -1538,7 +1578,6 @@ const alertInfo = useMemo(() => {
                     </strong>
                   </div>
 
-                  {/* Imprévus acceptés */}
                   {imprevusAcceptesList.length > 0 && (
                     <div
                       style={{
@@ -1631,7 +1670,6 @@ const alertInfo = useMemo(() => {
                     </div>
                   )}
 
-                  {/* Imprévus en attente */}
                   {imprevusEnAttenteList.length > 0 && (
                     <div
                       style={{
@@ -1654,7 +1692,6 @@ const alertInfo = useMemo(() => {
                     </div>
                   )}
 
-                  {/* Prix total */}
                   <div
                     style={{
                       display: "flex",
@@ -1691,7 +1728,6 @@ const alertInfo = useMemo(() => {
                     </strong>
                   </div>
 
-                  {/* Acompte */}
                   <div
                     style={{
                       display: "flex",
@@ -1722,7 +1758,6 @@ const alertInfo = useMemo(() => {
                     </strong>
                   </div>
 
-                  {/* Reste à payer */}
                   <div
                     style={{
                       display: "flex",
@@ -1769,7 +1804,7 @@ const alertInfo = useMemo(() => {
           </div>
         </div>
 
-        {/* ============ HISTORIQUE (PLEINE LARGEUR) ============ */}
+        {/* HISTORIQUE */}
         <div className="card-modern" style={{ padding: 0, overflow: "hidden" }}>
           <div
             style={{
@@ -1860,7 +1895,7 @@ const alertInfo = useMemo(() => {
 };
 
 // ============================================================
-// ✅ Composant d'affichage des différences de diagnostic
+// Composant d'affichage des différences de diagnostic
 // ============================================================
 const DiagnosticDiff = ({ oldValue, newValue }) => {
   const oldDiag = oldValue && typeof oldValue === "object" ? oldValue : {};
@@ -1994,7 +2029,7 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
 };
 
 // ============================================================
-// ✅ Sous-composant : affichage d'un imprévu modifié
+// Sous-composant : affichage d'un imprévu modifié
 // ============================================================
 const ImprevuDiffItem = ({ diff }) => {
   const getDecisionConfig = (accepte) => {
