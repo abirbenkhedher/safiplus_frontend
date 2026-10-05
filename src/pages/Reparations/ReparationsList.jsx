@@ -71,7 +71,7 @@ const ReparationsList = () => {
   const handleEdit = (rep) => openEditReparation(rep);
 
   // ============================================================
-  // CHARGEMENT
+  // CHARGEMENT  ← ✅ MODIFIÉ : limit=10000 pour tout récupérer
   // ============================================================
   const loadData = async () => {
     try {
@@ -80,6 +80,10 @@ const ReparationsList = () => {
       Object.keys(filters).forEach((k) => {
         if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
       });
+      // ✅ AJOUT : récupérer TOUTES les réparations (pas juste 50)
+      params.limit = 10000;
+      params.page = 1;
+
       const [repRes, statusesRes, usersRes] = await Promise.all([
         getReparations(params),
         getStatuses(),
@@ -150,19 +154,16 @@ const ReparationsList = () => {
     [users]
   );
 
-  // ✅ NOUVEAU : Map des users par _id pour résoudre modifiedBy
   const usersById = useMemo(() => {
     const map = new Map();
     users.forEach((u) => map.set(u._id, u));
     return map;
   }, [users]);
 
-  // ✅ Helper : dernière modification (hors _create) + user résolu
   const getLastModificationInfo = (row) => {
     const mods = row.modifications || [];
     if (mods.length === 0) return { user: null, date: null };
 
-    // Ignorer les modifications "_create"
     const filtered = mods.filter((m) => m.field !== "_create");
     const list = filtered.length > 0 ? filtered : mods;
 
@@ -172,7 +173,6 @@ const ReparationsList = () => {
 
     if (!last) return { user: null, date: null };
 
-    // ✅ modifiedBy peut être : string (ID) OU objet (déjà populé)
     let user = null;
     if (typeof last.modifiedBy === "string") {
       user = usersById.get(last.modifiedBy) || null;
@@ -205,9 +205,6 @@ const ReparationsList = () => {
     }
   };
 
-  // ============================================================
-  // SUPPRESSION MULTIPLE
-  // ============================================================
   const handleDeleteMany = async () => {
     if (!canDelete) {
       setError("Vous n'avez pas la permission de supprimer");
@@ -238,9 +235,6 @@ const ReparationsList = () => {
     }
   };
 
-  // ============================================================
-  // EXPORT
-  // ============================================================
   const handleExportExcel = async () => {
     if (selectedRows.length > 0) {
       await exportReparations({
@@ -263,9 +257,6 @@ const ReparationsList = () => {
     setSelectedRows(selectedRows);
   };
 
-  // ============================================================
-  // STATS
-  // ============================================================
   const stats = useMemo(() => {
     const total = reparations.length;
     const impayees = reparations.filter((r) => {
@@ -298,7 +289,6 @@ const ReparationsList = () => {
   // COLONNES
   // ============================================================
   const columns = [
-    // Actions
     {
       name: "Actions",
       center: true,
@@ -364,8 +354,6 @@ const ReparationsList = () => {
         </div>
       ),
     },
-
-    // N°
     {
       name: "N°",
       selector: (row) => row.numero,
@@ -380,8 +368,6 @@ const ReparationsList = () => {
         </span>
       ),
     },
-
-    // Client
     {
       name: "Client",
       selector: (row) => row.client?.nom,
@@ -430,8 +416,6 @@ const ReparationsList = () => {
         </div>
       ),
     },
-
-    // Appareil
     {
       name: "Appareil",
       selector: (row) =>
@@ -467,8 +451,6 @@ const ReparationsList = () => {
         </div>
       ),
     },
-
-    // Panne(s)
     {
       name: "Panne(s)",
       selector: (row) => {
@@ -537,8 +519,6 @@ const ReparationsList = () => {
         );
       },
     },
-
-    // Statut
     {
       name: "Statut",
       selector: (row) => row.status?.label,
@@ -586,8 +566,6 @@ const ReparationsList = () => {
         );
       },
     },
-
-    // Prix
     {
       name: "Prix",
       selector: (row) => row.prix,
@@ -609,8 +587,6 @@ const ReparationsList = () => {
         </div>
       ),
     },
-
-    // Reste
     {
       name: "Reste",
       selector: (row) => (row.prix || 0) - (row.acompte || 0),
@@ -635,8 +611,6 @@ const ReparationsList = () => {
         );
       },
     },
-
-    // ✅ NOUVEAU : Modifié par (juste avant Réparateur)
     {
       name: "Modifié par",
       selector: (row) => {
@@ -704,8 +678,6 @@ const ReparationsList = () => {
         );
       },
     },
-
-    // Réparateur
     {
       name: "Réparateur",
       selector: (row) => row.reparateur?.firstName,
@@ -757,8 +729,6 @@ const ReparationsList = () => {
           </span>
         ),
     },
-
-    // Commercial
     {
       name: "Commercial",
       selector: (row) => row.createdBy?.firstName,
@@ -809,8 +779,6 @@ const ReparationsList = () => {
           </span>
         ),
     },
-
-    // Date
     {
       name: "Date",
       selector: (row) => row.createdAt,
@@ -829,7 +797,6 @@ const ReparationsList = () => {
   // ============================================================
   return (
     <div className="fade-in-up">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1
@@ -924,7 +891,6 @@ const ReparationsList = () => {
         </div>
       )}
 
-      {/* CARTES STATS */}
       <div className="row g-3 mb-4">
         {[
           { label: "Total", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
@@ -989,7 +955,6 @@ const ReparationsList = () => {
         ))}
       </div>
 
-      {/* BARRE DE FILTRES */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
         <div
           style={{
@@ -1177,7 +1142,6 @@ const ReparationsList = () => {
         )}
       </div>
 
-      {/* TABLEAU */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
