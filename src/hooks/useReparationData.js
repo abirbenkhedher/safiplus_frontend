@@ -6,6 +6,7 @@ import { getModeles } from '../api/modeles';
 import { getPannes } from '../api/pannes';
 import { getStatuses } from '../api/statuses';
 import { getUsers } from '../api/users';
+import { getFamilles } from '../api/familles';   // ✅ AJOUT
 import { REF_CACHE_KEY, REF_CACHE_TTL } from '../constants/reparations';
 
 // ✅ Helper de tri par ordre puis nom
@@ -20,12 +21,6 @@ const sortByOrdre = (arr = []) =>
 const sortByOrdreOnly = (arr = []) =>
   [...arr].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
 
-/**
- * ✅ Hook avec cache intelligent
- * Charge les données de référence UNE SEULE FOIS
- * et les met en cache dans localStorage pendant 5 min
- * + expose refresh() pour forcer le rechargement sans reload de page
- */
 export const useReparationData = () => {
   const [data, setData] = useState({
     categories: [],
@@ -34,14 +29,40 @@ export const useReparationData = () => {
     modeles: [],
     pannes: [],
     statuses: [],
-    reparateurs: [], // contient TOUS les users (filtrage fait côté composant)
+    reparateurs: [],
+    familles: [],       // ✅ AJOUT
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ------------------------------------------------------------
+  // ✅ Helper : mise à jour du cache localStorage après un reload ciblé
+  // ------------------------------------------------------------
+  const updateCache = useCallback((partialData) => {
+    try {
+      const cached = localStorage.getItem(REF_CACHE_KEY);
+      if (!cached) return;
+
+      const parsed = JSON.parse(cached);
+      const merged = { ...parsed.data, ...partialData };
+
+      localStorage.setItem(
+        REF_CACHE_KEY,
+        JSON.stringify({
+          data: merged,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (e) {
+      localStorage.removeItem(REF_CACHE_KEY);
+    }
+  }, []);
+
+  // ------------------------------------------------------------
+  // ✅ Chargement global (avec cache)
+  // ------------------------------------------------------------
   const loadData = useCallback(async (forceRefresh = false) => {
     try {
-      // ✅ Vérifier le cache (sauf si refresh forcé)
       if (!forceRefresh) {
         const cached = localStorage.getItem(REF_CACHE_KEY);
         if (cached) {
@@ -49,7 +70,12 @@ export const useReparationData = () => {
             const { data: cachedData, timestamp } = JSON.parse(cached);
             const age = Date.now() - timestamp;
 
-            if (age < REF_CACHE_TTL && cachedData.pannes) {
+            // ✅ Vérifier aussi que familles existe dans le cache
+            if (
+              age < REF_CACHE_TTL &&
+              cachedData.pannes &&
+              cachedData.familles
+            ) {
               setData({
                 ...cachedData,
                 categories: sortByOrdre(cachedData.categories),
@@ -57,6 +83,7 @@ export const useReparationData = () => {
                 marques: sortByOrdre(cachedData.marques),
                 modeles: sortByOrdre(cachedData.modeles),
                 pannes: sortByOrdreOnly(cachedData.pannes),
+                familles: sortByOrdre(cachedData.familles || []),   // ✅ AJOUT
               });
               setLoading(false);
               return;
@@ -67,7 +94,6 @@ export const useReparationData = () => {
         }
       }
 
-      // ✅ Charger en parallèle
       setLoading(true);
       const [
         categoriesRes,
@@ -77,6 +103,7 @@ export const useReparationData = () => {
         pannesRes,
         statusesRes,
         usersRes,
+        famillesRes,      // ✅ AJOUT
       ] = await Promise.all([
         getCategories(),
         getObjets(),
@@ -85,9 +112,9 @@ export const useReparationData = () => {
         getPannes(),
         getStatuses(),
         getUsers(),
+        getFamilles(),    // ✅ AJOUT
       ]);
 
-      // ✅ Tri explicite côté client (ceinture + bretelles)
       const freshData = {
         categories: sortByOrdre(categoriesRes.data),
         objets: sortByOrdre(objetsRes.data),
@@ -95,13 +122,12 @@ export const useReparationData = () => {
         modeles: sortByOrdre(modelesRes.data),
         pannes: sortByOrdreOnly(pannesRes.data),
         statuses: statusesRes.data,
-        // ✅ Tous les users (le filtrage se fait dans le composant)
         reparateurs: usersRes.data,
+        familles: sortByOrdre(famillesRes.data || []),   // ✅ AJOUT
       };
 
       setData(freshData);
 
-      // ✅ Sauvegarder en cache
       localStorage.setItem(
         REF_CACHE_KEY,
         JSON.stringify({
@@ -122,11 +148,71 @@ export const useReparationData = () => {
     loadData();
   }, [loadData]);
 
-  // ✅ Forcer le rechargement SANS reload de page
+  // ------------------------------------------------------------
+  // ✅ Refresh GLOBAL
+  // ------------------------------------------------------------
   const refresh = useCallback(() => {
     localStorage.removeItem(REF_CACHE_KEY);
     return loadData(true);
   }, [loadData]);
 
-  return { ...data, loading, error, refresh };
+  // ------------------------------------------------------------
+  // ✅ Refresh CIBLÉ des modèles
+  // ------------------------------------------------------------
+  const reloadModeles = useCallback(async () => {
+    try {
+      const res = await getModeles();
+      const freshModeles = sortByOrdre(res.data || []);
+
+      setData((prev) => ({ ...prev, modeles: freshModeles }));
+      updateCache({ modeles: freshModeles });
+
+      return freshModeles;
+    } catch (err) {
+      console.error('Erreur reloadModeles:', err);
+      return [];
+    }
+  }, [updateCache]);
+
+  // ------------------------------------------------------------
+  // ✅ BONUS : reloadMarques
+  // ------------------------------------------------------------
+  const reloadMarques = useCallback(async () => {
+    try {
+      const res = await getMarques();
+      const freshMarques = sortByOrdre(res.data || []);
+      setData((prev) => ({ ...prev, marques: freshMarques }));
+      updateCache({ marques: freshMarques });
+      return freshMarques;
+    } catch (err) {
+      console.error('Erreur reloadMarques:', err);
+      return [];
+    }
+  }, [updateCache]);
+
+  // ------------------------------------------------------------
+  // ✅ BONUS : reloadObjets
+  // ------------------------------------------------------------
+  const reloadObjets = useCallback(async () => {
+    try {
+      const res = await getObjets();
+      const freshObjets = sortByOrdre(res.data || []);
+      setData((prev) => ({ ...prev, objets: freshObjets }));
+      updateCache({ objets: freshObjets });
+      return freshObjets;
+    } catch (err) {
+      console.error('Erreur reloadObjets:', err);
+      return [];
+    }
+  }, [updateCache]);
+
+  return {
+    ...data,
+    loading,
+    error,
+    refresh,
+    reloadModeles,
+    reloadMarques,
+    reloadObjets,
+  };
 };

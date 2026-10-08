@@ -28,8 +28,6 @@ const StatsCards = ({ stats, userRole }) => {
   const enCours = sumWhere((label) => label === "EN COURS");
 
   // ✅ RÉPARÉES → contient "REPARE", PAS "NON REPARE", PAS "SAV"
-  //    → inclut : REPARE, SORTIE REPARE
-  //    → exclut : SAV REPARE, NON REPARE, SORTIE NON REPARE, SAV NON REPARE
   const repare = sumWhere(
     (label) =>
       label.includes("REPARE") &&
@@ -39,10 +37,11 @@ const StatsCards = ({ stats, userRole }) => {
   );
 
   // ✅ NON RÉPARÉES → contient "NON REPARE", PAS "SAV"
-  //    → inclut : NON REPARE, SORTIE NON REPARE
-  //    → exclut : SAV NON REPARE
   const nonRepare = sumWhere(
-    (label) => label.includes("NON REPARE") && !label.includes("SAV")&& !label.includes("SORTIE")
+    (label) =>
+      label.includes("NON REPARE") &&
+      !label.includes("SAV") &&
+      !label.includes("SORTIE")
   );
 
   // ✅ 4 cartes réparations
@@ -111,7 +110,8 @@ const StatsCards = ({ stats, userRole }) => {
     },
   ];
 
-  const showFinance = userRole !== "REPARATEUR";
+  // ✅ NOUVEAU : réservé à l'ADMIN uniquement
+  const showFinance = userRole === "ADMIN";
 
   const CardItem = ({ card }) => (
     <div
@@ -195,7 +195,7 @@ const StatsCards = ({ stats, userRole }) => {
 
   return (
     <>
-      {/* ✅ 4 cartes réparations */}
+      {/* ✅ 4 cartes réparations (visibles pour tous) */}
       <div className="row g-3 mb-3">
         {mainCards.map((card, i) => (
           <div key={i} className="col-12 col-sm-6 col-lg-3">
@@ -204,7 +204,7 @@ const StatsCards = ({ stats, userRole }) => {
         ))}
       </div>
 
-      {/* ✅ 3 cartes financières */}
+      {/* ✅ 3 cartes financières — ADMIN uniquement */}
       {showFinance && (
         <div className="row g-3 mb-4">
           {financeCards.map((card, i) => (

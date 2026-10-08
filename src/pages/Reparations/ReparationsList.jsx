@@ -21,7 +21,15 @@ import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
 import { useAuth } from "../../context/AuthContext";
 import { ZONES } from "../../constants/zones";
+import {
+  saveFilters,
+  loadFilters,
+  clearFilters,
+} from "../../utils/filterStorage";   // ✅ AJOUT
 
+// ============================================================
+// ✅ Constantes
+// ============================================================
 const STATUTS_TERMINES = [
   "REPARE", "NON REPARE", "SORTIE NON REPARE", "SAV",
   "SORTIE REPARE", "SAV REPARE", "SAV NON REPARE",
@@ -30,11 +38,26 @@ const STATUTS_TERMINES = [
 
 const STATUT_EN_COURS = "EN COURS";
 
+// ✅ Valeurs par défaut des filtres (module-level, stable)
+const DEFAULT_FILTERS = {
+  search: "",
+  famille: "",
+  categorie: "",
+  reparateur: "",
+  commercial: "",
+  zone: "",
+  dateDebut: "",
+  dateFin: "",
+};
+
+// ============================================================
+// ReparationsList
+// ============================================================
 const ReparationsList = () => {
   const navigate = useNavigate();
   const { openNewReparation, openEditReparation, registerOnSuccess } =
     useReparationModal();
-  const { categories } = useReparationData();
+  const { categories, familles = [] } = useReparationData();   // ✅ protection familles
 
   const { user } = useAuth();
   const canDelete = user?.role === "ADMIN";
@@ -47,16 +70,8 @@ const ReparationsList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
-  const [filters, setFilters] = useState({
-    search: "",
-    status: "",
-    categorie: "",
-    reparateur: "",
-    commercial: "",
-    zone: "",
-    dateDebut: "",
-    dateFin: "",
-  });
+  // ✅ Initialisation : récupérer les filtres sauvegardés
+  const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReparation, setSelectedReparation] = useState(null);
@@ -71,16 +86,24 @@ const ReparationsList = () => {
   const handleEdit = (rep) => openEditReparation(rep);
 
   // ============================================================
-  // CHARGEMENT  ← ✅ MODIFIÉ : limit=10000 pour tout récupérer
+  // ✅ PERSISTANCE : sauvegarde automatique des filtres
+  // ============================================================
+  useEffect(() => {
+    saveFilters(filters);
+  }, [filters]);
+
+  // ============================================================
+  // CHARGEMENT
   // ============================================================
   const loadData = async () => {
     try {
       setLoading(true);
       const params = {};
       Object.keys(filters).forEach((k) => {
-        if (filters[k] && filters[k].trim() !== "") params[k] = filters[k];
+        if (filters[k] && String(filters[k]).trim() !== "") {
+          params[k] = filters[k];
+        }
       });
-      // ✅ AJOUT : récupérer TOUTES les réparations (pas juste 50)
       params.limit = 10000;
       params.page = 1;
 
@@ -112,9 +135,22 @@ const ReparationsList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ============================================================
+  // ✅ HANDLERS : reset en cascade
+  // ============================================================
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+
+    setFilters((prev) => {
+      const next = { ...prev, [name]: value };
+
+      // ✅ Famille → reset catégorie
+      if (name === "famille") {
+        next.categorie = "";
+      }
+
+      return next;
+    });
   };
 
   const clearSelection = () => {
@@ -122,26 +158,19 @@ const ReparationsList = () => {
     setToggleCleared((prev) => !prev);
   };
 
+  // ✅ Reset : réinitialise les filtres ET le localStorage
   const resetFilters = () => {
-    setFilters({
-      search: "",
-      status: "",
-      categorie: "",
-      reparateur: "",
-      commercial: "",
-      zone: "",
-      dateDebut: "",
-      dateFin: "",
-    });
+    setFilters(DEFAULT_FILTERS);
+    clearFilters();
     clearSelection();
   };
 
   const hasActiveFilters = Object.values(filters).some(
-    (v) => v && v.trim() !== ""
+    (v) => v && String(v).trim() !== ""
   );
 
   const activeCount = Object.values(filters).filter(
-    (v) => v && v.trim() !== ""
+    (v) => v && String(v).trim() !== ""
   ).length;
 
   const commerciaux = useMemo(
@@ -275,15 +304,27 @@ const ReparationsList = () => {
     return { total, impayees, enCours, terminees };
   }, [reparations]);
 
-  const categoriesTriees = useMemo(
-    () =>
-      [...categories].sort(
+  // ============================================================
+  // ✅ CATÉGORIES FILTRÉES PAR FAMILLE
+  // ============================================================
+  const categoriesTriees = useMemo(() => {
+    return [...categories]
+      .filter((c) => {
+        if (!filters.famille) return true;
+
+        const catFamilleId =
+          typeof c.famille === "object" && c.famille !== null
+            ? c.famille._id
+            : c.famille;
+
+        return String(catFamilleId) === String(filters.famille);
+      })
+      .sort(
         (a, b) =>
           (a.ordre ?? 0) - (b.ordre ?? 0) ||
           (a.nom || "").localeCompare(b.nom || "")
-      ),
-    [categories]
-  );
+      );
+  }, [categories, filters.famille]);
 
   // ============================================================
   // COLONNES
@@ -1000,6 +1041,28 @@ const ReparationsList = () => {
         </div>
 
         <div className="filters-grid">
+          {/* ✅ Filtre Famille */}
+          <div className="filter-item">
+            <label className="filter-label">
+              <FaBoxes size={10} /> Famille
+            </label>
+            <select
+              name="famille"
+              className="form-control-modern"
+              style={{ height: "42px" }}
+              value={filters.famille}
+              onChange={handleFilterChange}
+            >
+              <option value="">Toutes</option>
+              {familles.map((f) => (
+                <option key={f._id} value={f._id}>
+                  {f.nom}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* ✅ Filtre Catégorie (dépend de la famille) */}
           <div className="filter-item">
             <label className="filter-label">
               <FaBoxes size={10} /> Catégorie
@@ -1011,7 +1074,9 @@ const ReparationsList = () => {
               value={filters.categorie}
               onChange={handleFilterChange}
             >
-              <option value="">Toutes</option>
+              <option value="">
+                {filters.famille ? "Toutes (famille)" : "Toutes"}
+              </option>
               {categoriesTriees.map((c) => (
                 <option key={c._id} value={c._id}>
                   {c.nom}
@@ -1195,7 +1260,7 @@ const ReparationsList = () => {
       <style>{`
         .filters-grid {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(8, 1fr);
           gap: 10px;
           align-items: end;
         }

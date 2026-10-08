@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { FaSearch, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaPlus } from 'react-icons/fa';
 
 /**
  * ✅ Select avec recherche optimisée
  * - Recherche instantanée
  * - Navigation clavier
- * - Aucune dépendance externe
+ * - Bouton + optionnel pour création rapide (onCreate)
+ * - Affiche une option "fantôme" si la valeur existe mais pas dans options
  */
 const SearchSelect = ({
   options = [],
@@ -17,6 +18,8 @@ const SearchSelect = ({
   icon,
   required = false,
   disabled = false,
+  onCreate = null,
+  createLabel = 'Créer',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -33,19 +36,33 @@ const SearchSelect = ({
     );
   }, [options, search, labelField]);
 
-  // ✅ Option sélectionnée
-  const selectedOption = useMemo(
-    () => options.find(opt => opt[valueField] === value),
-    [options, value, valueField]
-  );
+  // ✅ Option sélectionnée (avec fallback "fantôme")
+  const selectedOption = useMemo(() => {
+    const found = options.find(opt => opt[valueField] === value);
+    if (found) return found;
+
+    // ✅ Fallback : valeur sélectionnée mais absente de la liste
+    // (ex : modèle tout juste créé, liste pas encore rechargée)
+    if (value) {
+      return {
+        [valueField]: value,
+        [labelField]: 'Chargement...',
+        __isGhost: true,
+      };
+    }
+    return null;
+  }, [options, value, valueField, labelField]);
 
   // ✅ Sync search avec la sélection
   useEffect(() => {
-    if (selectedOption && !isOpen) {
+    if (isOpen) return; // ne pas écraser pendant la saisie
+
+    if (selectedOption && !selectedOption.__isGhost) {
       setSearch(selectedOption[labelField]);
     } else if (!selectedOption) {
       setSearch('');
     }
+    // Si ghost : on garde "Chargement..." jusqu'à ce que la liste arrive
   }, [selectedOption, isOpen, labelField]);
 
   // ✅ Fermer au clic extérieur
@@ -90,6 +107,10 @@ const SearchSelect = ({
     inputRef.current?.focus();
   };
 
+  // ✅ Bouton + : visible seulement si onCreate fourni et non disabled
+  const showCreateBtn = Boolean(onCreate) && !disabled;
+  const paddingRight = showCreateBtn ? '68px' : '36px';
+
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
       <div style={{ position: 'relative' }}>
@@ -122,12 +143,46 @@ const SearchSelect = ({
           style={{
             width: '100%',
             paddingLeft: icon ? '38px' : '14px',
-            paddingRight: '36px',
+            paddingRight,
             cursor: disabled ? 'not-allowed' : 'text',
           }}
         />
-        
-        {/* Bouton effacer ou icône recherche */}
+
+        {/* ✅ Bouton "+" création rapide */}
+        {showCreateBtn && (
+          <button
+            type="button"
+            title={createLabel}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+              onCreate();
+            }}
+            style={{
+              position: 'absolute',
+              right: '34px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '22px',
+              height: '22px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'var(--primary-light, #e7ecff)',
+              color: 'var(--primary, #4361ee)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              zIndex: 2,
+            }}
+          >
+            <FaPlus size={9} />
+          </button>
+        )}
+
+        {/* Bouton effacer OU icône recherche */}
         {search && !disabled ? (
           <button
             type="button"

@@ -1,53 +1,80 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FaMoneyBillWave, FaPlusCircle } from 'react-icons/fa';
-import { PAYMENT_TYPES } from '../../constants/reparations';
+
+// ============================================================
+// ✅ Calcul auto du type de paiement (basé sur PRIX TOTAL)
+// ============================================================
+const computePaymentType = (prixTotal, acompte) => {
+  const p = Number(prixTotal) || 0;
+  const a = Number(acompte) || 0;
+
+  if (a <= 0) return 'unpaid';
+  if (p > 0 && a >= p) return 'paid';
+  return 'partial';
+};
 
 const PaymentSection = ({ formData, onChange }) => {
-  // ✅ Calcul des imprévus acceptés
+  // ✅ Imprévus acceptés (prix supplémentaires)
   const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
-    .filter(i => i.accepte === true)
+    .filter((i) => i.accepte === true)
     .reduce((sum, i) => sum + (Number(i.prixSupplementaire) || 0), 0);
 
   const prixBase = Number(formData.prix) || 0;
-  const prixTotal = prixBase + imprevusAcceptes;
+  const prixTotal = prixBase + imprevusAcceptes; // ✅ PRIX TOTAL
   const acompte = Number(formData.acompte) || 0;
   const reste = Math.max(0, prixTotal - acompte);
 
-  const handlePaymentTypeChange = (type) => {
-    let newAcompte = formData.acompte;
+  // ------------------------------------------------------------
+  // ✅ Changement de PRIX
+  // ------------------------------------------------------------
+  const handlePrixChange = useCallback(
+    (value) => {
+      const newPrix = parseFloat(value) || 0;
+      const newPrixTotal = newPrix + imprevusAcceptes;
 
-    if (type === 'unpaid') newAcompte = 0;
-    else if (type === 'paid') newAcompte = prixTotal;
+      onChange((prev) => {
+        const currentAcompte = Number(prev.acompte) || 0;
+        return {
+          ...prev,
+          prix: newPrix,
+          paymentType: computePaymentType(newPrixTotal, currentAcompte),
+        };
+      });
+    },
+    [onChange, imprevusAcceptes]
+  );
 
-    onChange({ ...formData, paymentType: type, acompte: newAcompte });
-  };
+  // ------------------------------------------------------------
+  // ✅ Changement d'ACOMPTE — basé sur PRIX TOTAL (imprévus inclus)
+  // ------------------------------------------------------------
+  const handleAcompteChange = useCallback(
+    (value) => {
+      const rawValue = parseFloat(value) || 0;
+      // ✅ On ne limite PAS à prixBase : on accepte jusqu'à prixTotal
+      const newAcompte = Math.max(0, rawValue);
 
-  const handlePrixChange = (value) => {
-    const prix = parseFloat(value) || 0;
-    let type = 'unpaid';
-    let acompte = formData.acompte;
-    const newPrixTotal = prix + imprevusAcceptes;
-
-    if (acompte >= newPrixTotal && newPrixTotal > 0) type = 'paid';
-    else if (acompte > 0) type = 'partial';
-
-    onChange({ ...formData, prix, paymentType: type });
-  };
-
-  const handleAcompteChange = (value) => {
-    const newAcompte = parseFloat(value) || 0;
-    let type = 'unpaid';
-
-    if (newAcompte >= prixTotal && prixTotal > 0) type = 'paid';
-    else if (newAcompte > 0) type = 'partial';
-
-    onChange({ ...formData, acompte: newAcompte, paymentType: type });
-  };
+      onChange((prev) => {
+        const currentPrixTotal =
+          (Number(prev.prix) || 0) + imprevusAcceptes;
+        return {
+          ...prev,
+          acompte: newAcompte,
+          // ✅ Type calculé sur PRIX TOTAL
+          paymentType: computePaymentType(currentPrixTotal, newAcompte),
+        };
+      });
+    },
+    [onChange, imprevusAcceptes]
+  );
 
   return (
     <div className="row g-3">
-      <div className="col-12 col-sm-4">
-        <label className="form-label-modern">Prix de base (DT)</label>
+      {/* PRIX DE BASE */}
+      <div className="col-12 col-sm-6">
+        <label className="form-label-modern">
+          <FaMoneyBillWave size={10} style={{ marginRight: 4, color: 'var(--gray-400)' }} />
+          Prix de base (DT)
+        </label>
         <input
           type="number"
           value={formData.prix}
@@ -60,39 +87,58 @@ const PaymentSection = ({ formData, onChange }) => {
         />
       </div>
 
-      <div className="col-12 col-sm-4">
-        <label className="form-label-modern">Type de paiement</label>
-        <select
-          value={formData.paymentType}
-          onChange={(e) => handlePaymentTypeChange(e.target.value)}
-          className="form-control-modern"
-          style={{ width: '100%' }}
-        >
-          {PAYMENT_TYPES.map(p => (
-            <option key={p.value} value={p.value}>{p.icon} {p.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="col-12 col-sm-4">
-        <label className="form-label-modern">Acompte (DT)</label>
+      {/* ACOMPTE — max = PRIX TOTAL (imprévus inclus) */}
+      <div className="col-12 col-sm-6">
+        <label className="form-label-modern">
+          Acompte versé (DT)
+          {imprevusAcceptes > 0 && (
+            <span style={{
+              marginLeft: 6,
+              fontSize: '10px',
+              color: 'var(--info)',
+              fontWeight: 600,
+            }}>
+              (max : {prixTotal.toFixed(2)})
+            </span>
+          )}
+        </label>
         <input
           type="number"
           value={formData.acompte}
           onChange={(e) => handleAcompteChange(e.target.value)}
           min="0"
+          // ✅ MAX = PRIX TOTAL (inclut les imprévus acceptés)
+          max={prixTotal > 0 ? prixTotal : undefined}
           step="0.01"
           placeholder="0.00"
-          disabled={formData.paymentType !== 'partial'}
           className="form-control-modern"
           style={{
-            width: '100%', fontSize: '15px', fontWeight: '600',
-            opacity: formData.paymentType !== 'partial' ? 0.6 : 1,
+            width: '100%',
+            fontSize: '15px',
+            fontWeight: '600',
+            borderColor:
+              acompte > 0
+                ? prixTotal > 0 && acompte >= prixTotal
+                  ? 'var(--success)'
+                  : 'var(--warning)'
+                : undefined,
+            transition: 'border-color 150ms ease',
           }}
         />
+        {/* ✅ Message d'aide si l'acompte dépasse le prix total */}
+        {acompte > prixTotal && prixTotal > 0 && (
+          <div style={{
+            fontSize: '10.5px',
+            color: 'var(--warning)',
+            marginTop: '4px',
+            fontWeight: 600,
+          }}>
+            ⚠️ L'acompte dépasse le prix total ({prixTotal.toFixed(2)} DT)
+          </div>
+        )}
       </div>
 
-      {/* ✅ Détail du prix */}
+      {/* DÉTAIL DU PRIX (imprévus) */}
       {imprevusAcceptes > 0 && (
         <div className="col-12">
           <div style={{
@@ -100,18 +146,12 @@ const PaymentSection = ({ formData, onChange }) => {
             background: 'var(--info-light)', border: '1px solid var(--info)30',
             display: 'flex', flexDirection: 'column', gap: '6px',
           }}>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', fontSize: '12.5px',
-            }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
               <span style={{ color: 'var(--gray-600)' }}>Prix de base</span>
               <strong style={{ color: 'var(--gray-800)' }}>{prixBase.toFixed(2)} DT</strong>
             </div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', fontSize: '12.5px',
-            }}>
-              <span style={{
-                color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px',
-              }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
+              <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <FaPlusCircle size={10} />
                 Imprévus acceptés
               </span>
@@ -130,7 +170,7 @@ const PaymentSection = ({ formData, onChange }) => {
         </div>
       )}
 
-      {/* ✅ Reste à payer */}
+      {/* RESTE À PAYER */}
       <div className="col-12">
         <div style={{
           padding: '12px 16px', borderRadius: '10px',
@@ -142,7 +182,7 @@ const PaymentSection = ({ formData, onChange }) => {
             color: reste > 0 ? 'var(--danger)' : 'var(--success)',
             textTransform: 'uppercase', letterSpacing: '0.3px',
           }}>
-            Reste à payer
+            {reste === 0 && acompte > 0 ? '✅ Entièrement payé' : 'Reste à payer'}
           </span>
           <span style={{
             fontSize: '20px', fontWeight: '800',
