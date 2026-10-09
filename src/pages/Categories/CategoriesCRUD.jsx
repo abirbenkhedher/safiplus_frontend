@@ -2,39 +2,62 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import {
   FaPlus, FaEdit, FaTrash, FaBoxes, FaTags,
-  FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown
+  FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown,
+  FaTools, FaCheckCircle, FaUserCog,
 } from 'react-icons/fa';
 import { getCategories, createCategorie, updateCategorie, deleteCategorie } from '../../api/categories';
 import { getFamilles } from '../../api/familles';
+import { getUsers } from '../../api/users';   // ✅ AJOUT
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
-import { invalidateRefCache } from '../../utils/refCache'; // ✅ AJOUT
+import { invalidateRefCache } from '../../utils/refCache';
+
+// ✅ Rôles autorisés à être assignés à une catégorie
+const ROLES_AUTORISES = ['REPARATEUR', 'COMMERCIAL'];
 
 const CategoriesCRUD = () => {
   const [categories, setCategories] = useState([]);
   const [familles, setFamilles] = useState([]);
+  const [reparateursDisponibles, setReparateursDisponibles] = useState([]);   // ✅ AJOUT
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nom: '', famille: '', ordre: 0 });
+  const [formData, setFormData] = useState({
+    nom: '',
+    famille: '',
+    ordre: 0,
+    reparateurs: [],   // ✅ AJOUT
+  });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFamille, setFilterFamille] = useState('');
+  const [searchReparateur, setSearchReparateur] = useState('');   // ✅ AJOUT
 
+  // ============================================================
+  // CHARGEMENT
+  // ============================================================
   const loadData = async () => {
     try {
       setLoading(true);
-      const [categoriesRes, famillesRes] = await Promise.all([
+      const [categoriesRes, famillesRes, usersRes] = await Promise.all([
         getCategories(),
-        getFamilles()
+        getFamilles(),
+        getUsers(),   // ✅ AJOUT
       ]);
+
       const sorted = [...categoriesRes.data].sort(
         (a, b) => (a.ordre || 0) - (b.ordre || 0) || (a.nom || '').localeCompare(b.nom || '')
       );
       setCategories(sorted);
       setFamilles(famillesRes.data);
+
+      // ✅ Filtrer les users par rôle autorisé
+      const filteredUsers = (usersRes.data || []).filter((u) =>
+        ROLES_AUTORISES.includes((u.role || '').toUpperCase().trim())
+      );
+      setReparateursDisponibles(filteredUsers);
     } catch (err) {
       setError('Erreur lors du chargement des données');
     } finally {
@@ -46,6 +69,9 @@ const CategoriesCRUD = () => {
     loadData();
   }, []);
 
+  // ============================================================
+  // FILTRES
+  // ============================================================
   const filteredCategories = useMemo(() => {
     let result = [...categories];
 
@@ -64,13 +90,25 @@ const CategoriesCRUD = () => {
     return result;
   }, [categories, searchTerm, filterFamille]);
 
+  // ============================================================
+  // MODAL
+  // ============================================================
   const handleOpenModal = (item = null) => {
     setEditingItem(item);
     setFormData(
       item
-        ? { nom: item.nom, famille: item.famille?._id || '', ordre: item.ordre ?? 0 }
-        : { nom: '', famille: '', ordre: 0 }
+        ? {
+            nom: item.nom,
+            famille: item.famille?._id || '',
+            ordre: item.ordre ?? 0,
+            // ✅ Charger les réparateurs (peut être peuplé ou ID)
+            reparateurs: (item.reparateurs || []).map((r) =>
+              typeof r === 'object' && r !== null ? r._id : r
+            ),
+          }
+        : { nom: '', famille: '', ordre: 0, reparateurs: [] }
     );
+    setSearchReparateur('');
     setError('');
     setShowModal(true);
   };
@@ -78,10 +116,43 @@ const CategoriesCRUD = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingItem(null);
-    setFormData({ nom: '', famille: '', ordre: 0 });
+    setFormData({ nom: '', famille: '', ordre: 0, reparateurs: [] });
+    setSearchReparateur('');
     setError('');
   };
 
+  // ============================================================
+  // TOGGLE RÉPARATEUR
+  // ============================================================
+  const handleToggleReparateur = (userId) => {
+    setFormData((prev) => {
+      const current = prev.reparateurs || [];
+      const exists = current.some((id) => String(id) === String(userId));
+
+      if (exists) {
+        return {
+          ...prev,
+          reparateurs: current.filter((id) => String(id) !== String(userId)),
+        };
+      }
+      return { ...prev, reparateurs: [...current, userId] };
+    });
+  };
+
+  const handleSelectAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      reparateurs: reparateursDisponibles.map((u) => u._id),
+    }));
+  };
+
+  const handleDeselectAll = () => {
+    setFormData((prev) => ({ ...prev, reparateurs: [] }));
+  };
+
+  // ============================================================
+  // SUBMIT
+  // ============================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -100,6 +171,7 @@ const CategoriesCRUD = () => {
         nom: formData.nom.trim(),
         famille: formData.famille,
         ordre: Number(formData.ordre) || 0,
+        reparateurs: formData.reparateurs || [],   // ✅ AJOUT
       };
 
       if (editingItem) {
@@ -110,7 +182,7 @@ const CategoriesCRUD = () => {
         setSuccess('Catégorie créée avec succès');
       }
 
-      invalidateRefCache(); // ✅ AJOUT — invalide le cache du modal
+      invalidateRefCache();
       handleCloseModal();
       loadData();
       setTimeout(() => setSuccess(''), 3000);
@@ -119,10 +191,13 @@ const CategoriesCRUD = () => {
     }
   };
 
+  // ============================================================
+  // DELETE
+  // ============================================================
   const handleDelete = async () => {
     try {
       await deleteCategorie(editingItem._id);
-      invalidateRefCache(); // ✅ AJOUT
+      invalidateRefCache();
       setSuccess('Catégorie supprimée avec succès');
       setShowDeleteDialog(false);
       loadData();
@@ -133,6 +208,22 @@ const CategoriesCRUD = () => {
     }
   };
 
+  // ============================================================
+  // RÉPARATEURS FILTRÉS (recherche dans le modal)
+  // ============================================================
+  const reparateursFiltres = useMemo(() => {
+    if (!searchReparateur.trim()) return reparateursDisponibles;
+    const term = searchReparateur.toLowerCase();
+    return reparateursDisponibles.filter((u) => {
+      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(term) || username.includes(term);
+    });
+  }, [reparateursDisponibles, searchReparateur]);
+
+  // ============================================================
+  // COLONNES
+  // ============================================================
   const columns = [
     {
       name: '#',
@@ -197,6 +288,80 @@ const CategoriesCRUD = () => {
         </span>
       ),
     },
+    // ✅ NOUVELLE COLONNE : Réparateurs autorisés
+    {
+      name: 'Réparateurs',
+      sortable: false,
+      grow: 1,
+      minWidth: '160px',
+      cell: (row) => {
+        const count = (row.reparateurs || []).length;
+        if (count === 0) {
+          return (
+            <span
+              style={{
+                fontSize: '11px',
+                color: 'var(--gray-400)',
+                fontStyle: 'italic',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <FaCheckCircle size={10} /> Tous
+            </span>
+          );
+        }
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+            {(row.reparateurs || []).slice(0, 2).map((r, idx) => {
+              const name =
+                typeof r === 'object' && r !== null
+                  ? `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.username
+                  : '...';
+              return (
+                <span
+                  key={idx}
+                  style={{
+                    padding: '2px 6px',
+                    background: 'var(--info-light)',
+                    color: 'var(--info)',
+                    borderRadius: '6px',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {name}
+                </span>
+              );
+            })}
+            {count > 2 && (
+              <span
+                style={{
+                  padding: '2px 6px',
+                  background: 'var(--gray-200)',
+                  color: 'var(--gray-700)',
+                  borderRadius: '6px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                }}
+                title={(row.reparateurs || [])
+                  .slice(2)
+                  .map((r) =>
+                    typeof r === 'object' && r !== null
+                      ? `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.username
+                      : ''
+                  )
+                  .join(', ')}
+              >
+                +{count - 2}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
     {
       name: 'Date de création',
       selector: (row) => row.createdAt,
@@ -210,6 +375,9 @@ const CategoriesCRUD = () => {
     },
   ];
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className="fade-in-up">
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
@@ -294,7 +462,7 @@ const CategoriesCRUD = () => {
         paginationPerPage={10}
       />
 
-      <Modal show={showModal} onHide={handleCloseModal} centered>
+      <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
         <Modal.Body style={{ padding: 0 }}>
           <div
             style={{
@@ -367,6 +535,7 @@ const CategoriesCRUD = () => {
                 </div>
               )}
 
+              {/* NOM */}
               <div className="mb-3">
                 <label className="form-label-modern">
                   Nom de la catégorie <span style={{ color: 'var(--danger)' }}>*</span>
@@ -382,6 +551,7 @@ const CategoriesCRUD = () => {
                 />
               </div>
 
+              {/* FAMILLE */}
               <div className="mb-3">
                 <label className="form-label-modern">
                   <FaTags size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
@@ -402,7 +572,8 @@ const CategoriesCRUD = () => {
                 </select>
               </div>
 
-              <div>
+              {/* ORDRE */}
+              <div className="mb-3">
                 <label className="form-label-modern">
                   <FaSortNumericDown size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
                   Ordre d'affichage
@@ -418,6 +589,196 @@ const CategoriesCRUD = () => {
                 />
                 <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
                   💡 Plus le chiffre est petit, plus l'élément apparaît en premier
+                </div>
+              </div>
+
+              {/* ✅ NOUVEAU : RÉPARATEURS AUTORISÉS */}
+              <div className="mb-3">
+                <label className="form-label-modern">
+                  <FaUserCog size={11} style={{ marginRight: '6px', color: 'var(--gray-400)' }} />
+                  Réparateurs autorisés
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)', marginLeft: 8, fontWeight: 400 }}>
+                    (aucun coché = tous les réparateurs)
+                  </span>
+                </label>
+
+                {/* Barre de sélection rapide */}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '6px',
+                    marginBottom: '8px',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="btn-modern btn-modern-outline"
+                    style={{ fontSize: '11px', padding: '4px 10px' }}
+                  >
+                    Tout sélectionner
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAll}
+                    className="btn-modern btn-modern-outline"
+                    style={{ fontSize: '11px', padding: '4px 10px' }}
+                  >
+                    Tout désélectionner
+                  </button>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--primary)',
+                      fontWeight: 700,
+                      background: 'var(--primary-light)',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {formData.reparateurs?.length || 0} sélectionné(s)
+                  </span>
+                </div>
+
+                {/* Recherche */}
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                  <FaSearch
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--gray-400)',
+                      fontSize: '12px',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="form-control-modern"
+                    style={{ paddingLeft: '36px', width: '100%', height: '38px', fontSize: '12.5px' }}
+                    placeholder="Rechercher un réparateur..."
+                    value={searchReparateur}
+                    onChange={(e) => setSearchReparateur(e.target.value)}
+                  />
+                </div>
+
+                {/* Liste des réparateurs */}
+                <div
+                  style={{
+                    maxHeight: '240px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--gray-200)',
+                    borderRadius: '10px',
+                    padding: '8px',
+                    background: 'white',
+                  }}
+                >
+                  {reparateursFiltres.length > 0 ? (
+                    reparateursFiltres.map((u) => {
+                      const isChecked = (formData.reparateurs || []).some(
+                        (id) => String(id) === String(u._id)
+                      );
+                      const initials = `${u.firstName?.charAt(0) || ''}${u.lastName?.charAt(0) || ''}`;
+                      return (
+                        <label
+                          key={u._id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: isChecked ? 'var(--primary-light)' : 'transparent',
+                            marginBottom: '2px',
+                            transition: 'background 100ms ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isChecked) e.currentTarget.style.background = 'var(--gray-50)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isChecked) e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleReparateur(u._id)}
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              accentColor: 'var(--primary)',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              background: isChecked
+                                ? 'var(--primary)'
+                                : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {initials || '?'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: '12.5px',
+                                fontWeight: isChecked ? 700 : 500,
+                                color: isChecked ? 'var(--primary)' : 'var(--gray-800)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {u.firstName} {u.lastName}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '10px',
+                                color: isChecked ? 'var(--primary)' : 'var(--gray-500)',
+                                opacity: 0.85,
+                              }}
+                            >
+                              {u.role === 'COMMERCIAL' ? '💼 Commercial' : '🔧 Réparateur'}
+                            </div>
+                          </div>
+                          {isChecked && (
+                            <FaCheckCircle size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                          )}
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        padding: '20px',
+                        textAlign: 'center',
+                        color: 'var(--gray-400)',
+                        fontSize: '12px',
+                      }}
+                    >
+                      Aucun réparateur trouvé
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '6px' }}>
+                  💡 Si aucun réparateur n'est coché, tous les réparateurs seront disponibles dans le modal de réparation pour cette catégorie.
                 </div>
               </div>
             </div>

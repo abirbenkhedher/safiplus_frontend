@@ -278,7 +278,6 @@ const ReparationModal = ({
   useEffect(() => {
     if (!show) return;
 
-    // Calcul du prix total (base + imprévus acceptés)
     const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
       .filter((i) => i.accepte === true)
       .reduce((sum, i) => sum + (Number(i.prixSupplementaire) || 0), 0);
@@ -288,7 +287,6 @@ const ReparationModal = ({
 
     const nextPaymentType = computePaymentType(prixTotal, acompte);
 
-    // ⚠️ Mise à jour uniquement si changement (évite boucle infinie)
     if (formData.paymentType !== nextPaymentType) {
       setFormData((prev) => ({ ...prev, paymentType: nextPaymentType }));
     }
@@ -299,6 +297,36 @@ const ReparationModal = ({
     formData.paymentType,
     formData.diagnosticImprevus,
   ]);
+
+  // ============================================================
+  // ✅ NOUVEAU : Reset du réparateur si plus autorisé après changement de catégorie
+  // ============================================================
+  useEffect(() => {
+    if (!show) return;
+    if (!formData.reparateur || !formData.categorie) return;
+
+    const selectedCategorie = categories.find(
+      (c) => String(c._id) === String(formData.categorie)
+    );
+
+    if (
+      selectedCategorie &&
+      Array.isArray(selectedCategorie.reparateurs) &&
+      selectedCategorie.reparateurs.length > 0
+    ) {
+      const allowedIds = selectedCategorie.reparateurs.map((r) =>
+        typeof r === "object" && r !== null ? r._id : r
+      );
+
+      const isStillAllowed = allowedIds.some(
+        (id) => String(id) === String(formData.reparateur)
+      );
+
+      if (!isStillAllowed) {
+        setFormData((prev) => ({ ...prev, reparateur: "" }));
+      }
+    }
+  }, [formData.categorie, formData.reparateur, categories, show]);
 
   // ---- Auto-save brouillon ----
   useEffect(() => {
@@ -335,7 +363,6 @@ const ReparationModal = ({
     }));
   }, [pannes]);
 
-  // ✅ Création rapide du modèle : garantit l'auto-sélection
   const handleModeleCreated = useCallback(
     async (nouveauModele) => {
       await reloadModeles?.();
@@ -361,7 +388,6 @@ const ReparationModal = ({
     [reloadModeles, handleFieldChange]
   );
 
-  // ---- Impression ----
   const printTicket = useCallback(async (reparationId) => {
     try {
       const token = localStorage.getItem("accessToken");
@@ -379,7 +405,6 @@ const ReparationModal = ({
     }
   }, []);
 
-  // ---- Submit ----
   const handleSubmit = useCallback(async (shouldPrint = false) => {
     setError("");
     setSuccess("");
@@ -428,7 +453,6 @@ const ReparationModal = ({
     }
   }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose]);
 
-  // ---- Listener clavier ----
   useEffect(() => {
     if (!show) return;
     const handleKey = (e) => {
@@ -490,17 +514,62 @@ const ReparationModal = ({
     [pannes, formData.categorie]
   );
 
+  // ============================================================
+  // ✅ MODIFIÉ : usersAutorises filtré par catégorie
+  // ============================================================
   const usersAutorises = useMemo(() => {
-    return (reparateurs || [])
-      .filter((u) =>
-        ROLES_AUTORISES.includes((u.role || "").toUpperCase().trim())
-      )
-      .sort((a, b) => {
-        const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
-        const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
-        return nameA.localeCompare(nameB);
-      });
-  }, [reparateurs]);
+    // 1. Filtrer par rôle (REPARATEUR + COMMERCIAL)
+    const baseList = (reparateurs || []).filter((u) =>
+      ROLES_AUTORISES.includes((u.role || "").toUpperCase().trim())
+    );
+
+    // 2. Si une catégorie est sélectionnée, on regarde ses réparateurs autorisés
+    if (formData.categorie) {
+      const selectedCategorie = categories.find(
+        (c) => String(c._id) === String(formData.categorie)
+      );
+
+      // ✅ Si la catégorie a une liste de réparateurs non vide
+      if (
+        selectedCategorie &&
+        Array.isArray(selectedCategorie.reparateurs) &&
+        selectedCategorie.reparateurs.length > 0
+      ) {
+        // Normaliser en tableau d'IDs (peut être ObjectId ou objet peuplé)
+        const allowedIds = selectedCategorie.reparateurs.map((r) =>
+          typeof r === "object" && r !== null ? r._id : r
+        );
+
+        return baseList
+          .filter((u) => allowedIds.some((id) => String(id) === String(u._id)))
+          .sort((a, b) => {
+            const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+            const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+            return nameA.localeCompare(nameB);
+          });
+      }
+    }
+
+    // ✅ Sinon : pas de restriction → tous les réparateurs
+    return baseList.sort((a, b) => {
+      const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+      const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+      return nameA.localeCompare(nameB);
+    });
+  }, [reparateurs, categories, formData.categorie]);
+
+  // ✅ Détecter si la catégorie a des réparateurs restreints (pour le badge)
+  const hasRestrictionReparateurs = useMemo(() => {
+    if (!formData.categorie) return false;
+    const selectedCategorie = categories.find(
+      (c) => String(c._id) === String(formData.categorie)
+    );
+    return !!(
+      selectedCategorie &&
+      Array.isArray(selectedCategorie.reparateurs) &&
+      selectedCategorie.reparateurs.length > 0
+    );
+  }, [categories, formData.categorie]);
 
   if (!show) return null;
 
@@ -761,6 +830,7 @@ const ReparationModal = ({
                   </div>
 
                   <div className="col-12 col-sm-6">
+                    
                     <select
                       value={formData.reparateur}
                       onChange={(e) => handleFieldChange("reparateur", e.target.value)}
@@ -768,7 +838,11 @@ const ReparationModal = ({
                       style={{ width: "100%" }}
                       aria-label="Technicien ou commercial"
                     >
-                      <option value="">Technicien / Commercial</option>
+                      <option value="">
+                        {hasRestrictionReparateurs
+                          ? "Choisir un réparateur autorisé"
+                          : "Technicien / Commercial"}
+                      </option>
                       {usersAutorises.map((u) => (
                         <option key={u._id} value={u._id}>
                           {u.firstName} {u.lastName}
@@ -778,6 +852,23 @@ const ReparationModal = ({
                     </select>
                   </div>
                 </div>
+
+                {/* ✅ Message si aucun réparateur autorisé */}
+                {hasRestrictionReparateurs && usersAutorises.length === 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      padding: "8px 12px",
+                      background: "var(--warning-light)",
+                      color: "var(--warning)",
+                      borderRadius: "8px",
+                      fontSize: "11.5px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ⚠️ Aucun réparateur autorisé pour cette catégorie
+                  </div>
+                )}
 
                 <div
                   style={{
