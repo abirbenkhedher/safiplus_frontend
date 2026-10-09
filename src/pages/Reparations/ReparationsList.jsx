@@ -25,7 +25,7 @@ import {
   saveFilters,
   loadFilters,
   clearFilters,
-} from "../../utils/filterStorage";   // ✅ AJOUT
+} from "../../utils/filterStorage";
 
 // ============================================================
 // ✅ Constantes
@@ -37,6 +37,9 @@ const STATUTS_TERMINES = [
 ];
 
 const STATUT_EN_COURS = "EN COURS";
+
+// ✅ Rôles autorisés à être assignés comme réparateur
+const ROLES_REPARATEUR = ["REPARATEUR", "COMMERCIAL"];
 
 // ✅ Valeurs par défaut des filtres (module-level, stable)
 const DEFAULT_FILTERS = {
@@ -57,7 +60,7 @@ const ReparationsList = () => {
   const navigate = useNavigate();
   const { openNewReparation, openEditReparation, registerOnSuccess } =
     useReparationModal();
-  const { categories, familles = [] } = useReparationData();   // ✅ protection familles
+  const { categories, familles = [] } = useReparationData();
 
   const { user } = useAuth();
   const canDelete = user?.role === "ADMIN";
@@ -173,13 +176,36 @@ const ReparationsList = () => {
     (v) => v && String(v).trim() !== ""
   ).length;
 
+  // ============================================================
+  // COMMERCIAUX
+  // ============================================================
   const commerciaux = useMemo(
-    () => users.filter((u) => u.role === "COMMERCIAL"),
+    () =>
+      users
+        .filter((u) => (u.role || "").toUpperCase().trim() === "COMMERCIAL")
+        .sort((a, b) => {
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+          return nameA.localeCompare(nameB);
+        }),
     [users]
   );
 
+  // ============================================================
+  // ✅ MODIFIÉ : RÉPARATEURS = REPARATEUR + COMMERCIAL
+  //    (un commercial peut aussi être assigné comme réparateur)
+  // ============================================================
   const reparateurs = useMemo(
-    () => users.filter((u) => u.role === "REPARATEUR"),
+    () =>
+      users
+        .filter((u) =>
+          ROLES_REPARATEUR.includes((u.role || "").toUpperCase().trim())
+        )
+        .sort((a, b) => {
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+          return nameA.localeCompare(nameB);
+        }),
     [users]
   );
 
@@ -1105,6 +1131,7 @@ const ReparationsList = () => {
             </select>
           </div>
 
+          {/* ✅ MODIFIÉ : Filtre Réparateur inclut les commerciaux */}
           <div className="filter-item">
             <label className="filter-label">
               <FaTools size={10} /> Réparateur
@@ -1120,6 +1147,7 @@ const ReparationsList = () => {
               {reparateurs.map((u) => (
                 <option key={u._id} value={u._id}>
                   {u.firstName} {u.lastName}
+                  {u.role === "COMMERCIAL" ? " (Commercial)" : " (Réparateur)"}
                 </option>
               ))}
             </select>

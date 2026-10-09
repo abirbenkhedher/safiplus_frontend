@@ -8,7 +8,7 @@ export const ZONES = [
   "Sahb El Jebel",
   "Manzel Salm",
   "Haouaria",
-  "EChraf",
+  "El Chraf",
   "Aben",
   "Zewyet El Megeyez",
   "Bir el Jady",
@@ -17,6 +17,17 @@ export const ZONES = [
   "Kélibia",
   "Hamem El Ghzez",
   "Dar Allouch",
+  "El kedwa",
+  "Farjoun",
+  "El argoub",
+  "ghormen",
+  "Azmour",
+  "kerkouen",
+  "sidi madhkour",
+  "ezzahra",
+  "Hamem El Jebli",
+
+
 ];
 
 // ✅ Version avec { value, label } si besoin
