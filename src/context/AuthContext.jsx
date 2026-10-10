@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth';
+import { clearFilters } from '../utils/filterStorage';
 
 const AuthContext = createContext();
 
@@ -17,12 +18,24 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // ============================================================
+  // ✅ Nettoyage centralisé : tokens + filtres persistés
+  // ============================================================
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    clearFilters(); // ✅ efface les filtres sauvegardés
+    setUser(null);
+  }, []);
+
+  // ============================================================
   // ✅ Vérification de session au démarrage
   // ============================================================
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('accessToken');
       if (!token) {
+        // Pas de token → on nettoie tout résidu (filtres inclus)
+        clearFilters();
         setLoading(false);
         return;
       }
@@ -32,16 +45,14 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data);
       } catch (err) {
         console.error('Erreur de vérification:', err);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        setUser(null);
+        clearSession(); // ✅ nettoie tokens + filtres + user
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [clearSession]);
 
   // ============================================================
   // ✅ LOGIN
@@ -73,11 +84,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Erreur lors du logout:', err);
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
+      clearSession(); // ✅ nettoie tokens + filtres + user
     }
-  }, []);
+  }, [clearSession]);
 
   // ============================================================
   // ✅ Rôles

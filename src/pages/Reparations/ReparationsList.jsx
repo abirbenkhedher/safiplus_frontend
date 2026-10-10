@@ -73,7 +73,8 @@ const ReparationsList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
-  // ✅ Initialisation : récupérer les filtres sauvegardés
+  // ✅ Initialisation : récupérer les filtres sauvegardés (sessionStorage)
+  //    → effacés automatiquement au refresh via isPageRefresh()
   const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -161,7 +162,7 @@ const ReparationsList = () => {
     setToggleCleared((prev) => !prev);
   };
 
-  // ✅ Reset : réinitialise les filtres ET le localStorage
+  // ✅ Reset : réinitialise les filtres ET le sessionStorage
   const resetFilters = () => {
     setFilters(DEFAULT_FILTERS);
     clearFilters();
@@ -192,7 +193,7 @@ const ReparationsList = () => {
   );
 
   // ============================================================
-  // ✅ MODIFIÉ : RÉPARATEURS = REPARATEUR + COMMERCIAL
+  // ✅ RÉPARATEURS = REPARATEUR + COMMERCIAL
   //    (un commercial peut aussi être assigné comme réparateur)
   // ============================================================
   const reparateurs = useMemo(
@@ -1131,7 +1132,7 @@ const ReparationsList = () => {
             </select>
           </div>
 
-          {/* ✅ MODIFIÉ : Filtre Réparateur inclut les commerciaux */}
+          {/* ✅ Filtre Réparateur inclut les commerciaux */}
           <div className="filter-item">
             <label className="filter-label">
               <FaTools size={10} /> Réparateur
