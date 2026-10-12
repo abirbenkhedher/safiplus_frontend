@@ -8,7 +8,6 @@ import { ZONES } from '../../constants/zones';
 
 // ============================================================
 // ✅ Numéro "sentinelle" pour les clients sans téléphone
-// Peut être utilisé par PLUSIEURS clients — pas de vérification d'unicité
 // ============================================================
 const PASSENGER_PHONE = '00000000';
 
@@ -78,7 +77,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
 
   const containerRef = useRef(null);
 
-  // ---- Chargement (une seule fois globalement) ----
+  // ---- Chargement ----
   useEffect(() => {
     let mounted = true;
     if (clientsCache) {
@@ -91,7 +90,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return () => { mounted = false; };
   }, []);
 
-  // ---- Debounce recherche (150ms) ----
+  // ---- Debounce ----
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 150);
     return () => clearTimeout(t);
@@ -123,30 +122,37 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ============================================================
-  // ✅ Recherche de doublon (exclut 00000000)
-  // ============================================================
+  // ---- Recherche doublon ----
   const findClientByPhone = useCallback((phone, excludeId = null) => {
     const digits = String(phone || '').replace(/[^0-9]/g, '');
     if (digits.length !== 8) return null;
-
     if (digits === PASSENGER_PHONE) return null;
 
     return clients.find((c) => {
       if (excludeId && c._id === excludeId) return false;
-
       const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
       const cPhone2 = (c.phone2 || '').replace(/[^0-9]/g, '');
-
       if (cPhone === PASSENGER_PHONE) return false;
-
       return cPhone === digits || cPhone2 === digits;
     }) || null;
   }, [clients]);
 
-  // ============================================================
-  // ✅ SUGGESTIONS — Recherche dès 1 chiffre ou 2 lettres
-  // ============================================================
+  // ---- Détection numéro passager ----
+  const isPassengerPhone = useMemo(() => {
+    const digits = searchTerm.replace(/[^0-9]/g, '');
+    return digits === PASSENGER_PHONE;
+  }, [searchTerm]);
+
+  // ---- Liste clients passagers ----
+  const passengerClients = useMemo(() => {
+    if (!isPassengerPhone) return [];
+    return clients.filter((c) => {
+      const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
+      return cPhone === PASSENGER_PHONE;
+    });
+  }, [isPassengerPhone, clients]);
+
+  // ---- Suggestions ----
   const suggestions = useMemo(() => {
     const cleanDigits = debouncedSearch.replace(/[^0-9]/g, '');
     const cleanText = debouncedSearch.trim().toUpperCase();
@@ -155,6 +161,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     const hasText = cleanText.length >= 2;
 
     if (!hasDigits && !hasText) return [];
+    if (cleanDigits === PASSENGER_PHONE) return [];
 
     return clients.filter((c) => {
       const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
@@ -163,9 +170,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       const cFid = (c.codeFidelite || '').toUpperCase();
       const cNom = (c.nom || '').toUpperCase();
 
-      if (cleanText && (cFid.includes(cleanText) || cNom.includes(cleanText))) {
-        return true;
-      }
+      if (cleanText && (cFid.includes(cleanText) || cNom.includes(cleanText))) return true;
 
       if (cleanDigits.length > 0) {
         if (cPhone.startsWith(cleanDigits)) return true;
@@ -177,13 +182,10 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     });
   }, [debouncedSearch, clients]);
 
-  // ============================================================
-  // ✅ DÉTECTION "CLIENT EXISTE" après 8 chiffres (sauf 00000000)
-  // ============================================================
+  // ---- Match exact ----
   const exactMatchClient = useMemo(() => {
     const digits = searchTerm.replace(/[^0-9]/g, '');
     if (digits.length !== 8) return null;
-
     if (digits === PASSENGER_PHONE) return null;
 
     return clients.find((c) => {
@@ -211,12 +213,14 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setShowSuggestions(false);
   }, [onChange, onClientChange]);
 
-  // ✅ Pré-remplit TOUJOURS le champ téléphone avec les chiffres saisis
+  // ✅ Création — cache la bannière passager
   const handleOpenCreate = useCallback(() => {
     const digits = searchTerm.replace(/[^0-9]/g, '');
+    const phoneToUse = digits === PASSENGER_PHONE ? PASSENGER_PHONE : digits;
+
     setFormData({
       nom: '',
-      phone: digits, // ← pré-remplit même si incomplet
+      phone: phoneToUse,
       phone2: '', adresse: '', zone: '', codeFidelite: '',
     });
     setIsEditMode(false);
@@ -224,13 +228,21 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setShowSuggestions(false);
     setError('');
 
-    // ✅ Focus sur le champ téléphone si incomplet
-    if (digits.length > 0 && digits.length < 8) {
-      setTimeout(() => {
+    // ✅ Vide la recherche pour cacher la bannière passager
+    if (phoneToUse === PASSENGER_PHONE) {
+      setSearchTerm('');
+    }
+
+    // Focus
+    setTimeout(() => {
+      if (phoneToUse === PASSENGER_PHONE || phoneToUse.length === 0) {
+        const nomInput = containerRef.current?.querySelector('input[aria-label="Nom complet"]');
+        nomInput?.focus();
+      } else if (phoneToUse.length < 8) {
         const phoneInput = containerRef.current?.querySelector('input[type="tel"]');
         phoneInput?.focus();
-      }, 50);
-    }
+      }
+    }, 50);
   }, [searchTerm]);
 
   const handleOpenEdit = useCallback(() => {
@@ -254,7 +266,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
 
     const phoneDigits = formData.phone.replace(/[^0-9]/g, '');
 
-    // ✅ 1. Longueur exacte avec message détaillé
     if (phoneDigits.length !== 8) {
       const manquants = 8 - phoneDigits.length;
       return setError(
@@ -262,7 +273,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       );
     }
 
-    // ✅ 2. Unicité — SAUF pour le numéro sentinelle
     if (phoneDigits !== PASSENGER_PHONE) {
       const existing = findClientByPhone(
         phoneDigits,
@@ -275,7 +285,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       }
     }
 
-    // ✅ 3. Téléphone 2 — unicité aussi (sauf sentinelle)
     if (formData.phone2 && formData.phone2.length > 0) {
       const phone2Digits = formData.phone2.replace(/[^0-9]/g, '');
       if (phone2Digits.length !== 8) {
@@ -331,11 +340,18 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     }
   }, [formData, isEditMode, foundClient, onChange, onClientChange, findClientByPhone]);
 
+  // ✅ Annulation — restaure la bannière si on annulait un passager
   const handleCancel = useCallback(() => {
+    const wasPassengerCreation = !isEditMode && formData.phone === PASSENGER_PHONE;
     setShowForm(false);
     setIsEditMode(false);
     setError('');
-  }, []);
+
+    // ✅ Restaure la bannière passager si on annulait sa création
+    if (wasPassengerCreation) {
+      setSearchTerm(PASSENGER_PHONE);
+    }
+  }, [formData.phone, isEditMode]);
 
   const handleClear = useCallback(() => {
     setSearchTerm('');
@@ -347,11 +363,9 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     onClientChange?.(null);
   }, [onChange, onClientChange]);
 
-  // ============================================================
-  // ✅ États dérivés pour le champ téléphone du formulaire
-  // ============================================================
+  // ---- États dérivés ----
   const phoneLen = formData.phone.length;
-  const isPhoneIncomplete = phoneLen > 0 && phoneLen < 8;
+  const isPhoneIncomplete = phoneLen > 0 && phoneLen < 8 && formData.phone !== PASSENGER_PHONE;
   const isPhoneComplete = phoneLen === 8;
 
   // ============================================================
@@ -403,7 +417,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       </div>
 
       {/* BANNIÈRE "CLIENT EXISTE" */}
-      {!foundClient && exactMatchClient && (
+      {!foundClient && exactMatchClient && !showForm && (
         <div
           style={{
             marginTop: '8px',
@@ -421,53 +435,23 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             style={{ color: 'var(--warning)', flexShrink: 0 }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: '12.5px',
-                fontWeight: 700,
-                color: 'var(--warning)',
-              }}
-            >
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warning)' }}>
               ⚠️ Ce numéro existe déjà
             </div>
             <div
               style={{
-                fontSize: '11.5px',
-                color: 'var(--gray-700)',
-                marginTop: '2px',
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
+                fontSize: '11.5px', color: 'var(--gray-700)', marginTop: '2px',
+                display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center',
               }}
             >
               <strong>{exactMatchClient.nom}</strong>
               {exactMatchClient.code && (
-                <span
-                  style={{
-                    background: 'white',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    fontFamily: 'monospace',
-                  }}
-                >
+                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace' }}>
                   {exactMatchClient.code}
                 </span>
               )}
               {exactMatchClient.codeFidelite && (
-                <span
-                  style={{
-                    background: 'white',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    fontFamily: 'monospace',
-                    color: 'var(--warning)',
-                  }}
-                >
+                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--warning)' }}>
                   🎁 {exactMatchClient.codeFidelite}
                 </span>
               )}
@@ -477,13 +461,90 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             type="button"
             onClick={() => handleSelectClient(exactMatchClient)}
             className="btn-modern btn-modern-primary"
-            style={{
-              fontSize: '11.5px',
-              padding: '6px 12px',
-              flexShrink: 0,
-            }}
+            style={{ fontSize: '11.5px', padding: '6px 12px', flexShrink: 0 }}
           >
             <FaCheckCircle size={10} /> Sélectionner
+          </button>
+        </div>
+      )}
+
+      {/* BANNIÈRE "NUMÉRO PASSAGER" — masquée si formulaire ouvert */}
+      {!foundClient && isPassengerPhone && !showForm && (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '12px 14px',
+            background: 'var(--info-light, #e7f3ff)',
+            border: '1px solid var(--info, #3b82f6)',
+            borderRadius: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+            <FaUserPlus size={16} style={{ color: 'var(--info, #3b82f6)' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--info, #3b82f6)' }}>
+                📞 Numéro passager (00000000)
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--gray-600)', marginTop: '2px' }}>
+                {passengerClients.length > 0
+                  ? `${passengerClients.length} client(s) sans numéro — sélectionnez-en un ou créez-en un nouveau`
+                  : 'Aucun client sans numéro — créez-en un nouveau'}
+              </div>
+            </div>
+          </div>
+
+          {passengerClients.length > 0 && (
+            <div
+              style={{
+                maxHeight: '180px', overflowY: 'auto', marginBottom: '10px',
+                background: 'white', borderRadius: '8px', border: '1px solid var(--gray-200)',
+              }}
+            >
+              {passengerClients.slice(0, 20).map((client) => (
+                <div
+                  key={client._id}
+                  onClick={() => handleSelectClient(client)}
+                  style={{
+                    padding: '9px 12px', cursor: 'pointer',
+                    borderBottom: '1px solid var(--gray-100)',
+                    transition: 'background 100ms ease',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary-light)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gray-800)' }}>
+                        {client.nom}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {client.code && (
+                          <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 700, fontSize: '10px' }}>
+                            {client.code}
+                          </span>
+                        )}
+                        {client.codeFidelite && (
+                          <span style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 700, fontSize: '10px' }}>
+                            🎁 {client.codeFidelite}
+                          </span>
+                        )}
+                        {client.adresse && <span>📍 {client.adresse}</span>}
+                      </div>
+                    </div>
+                    <FaCheckCircle size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="btn-modern btn-modern-primary"
+            style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '8px' }}
+          >
+            <FaUserPlus size={11} /> Créer un nouveau client sans numéro
           </button>
         </div>
       )}
@@ -491,6 +552,8 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       {/* SUGGESTIONS */}
       {!foundClient &&
         !exactMatchClient &&
+        !isPassengerPhone &&
+        !showForm &&
         showSuggestions &&
         debouncedSearch.trim().length >= 1 && (
         <div
@@ -571,7 +634,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       )}
 
       {/* CLIENT SÉLECTIONNÉ */}
-      {foundClient && (
+      {foundClient && !showForm && (
         <div
           style={{
             marginTop: '10px', padding: '10px 14px',
@@ -595,7 +658,11 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   🎁 {foundClient.codeFidelite}
                 </span>
               )}
-              <span>{foundClient.phone}{foundClient.phone2 && ` • ${foundClient.phone2}`}</span>
+              <span>
+                {foundClient.phone === PASSENGER_PHONE
+                  ? '📞 Passager (sans numéro)'
+                  : `${foundClient.phone}${foundClient.phone2 && foundClient.phone2 !== PASSENGER_PHONE ? ` • ${foundClient.phone2}` : ''}`}
+              </span>
             </div>
             {foundClient.adresse && (
               <div style={{ fontSize: '11px', color: 'var(--success)', opacity: 0.75, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -656,7 +723,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             />
 
             <div className="row g-2">
-              {/* ✅ TÉLÉPHONE PRINCIPAL avec bordure rouge/vert */}
               <div className="col-12 col-sm-6">
                 <div style={{ position: 'relative' }}>
                   <input
@@ -672,37 +738,44 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                     style={{
                       width: '100%',
                       paddingRight: '54px',
-                      // ✅ ROUGE si 1-7 chiffres / VERT si 8 chiffres
-                      borderColor: isPhoneIncomplete
-                        ? 'var(--danger, #ef4444)'
-                        : isPhoneComplete
-                          ? 'var(--success, #10b981)'
-                          : undefined,
+                      borderColor: formData.phone === PASSENGER_PHONE
+                        ? 'var(--info, #3b82f6)'
+                        : isPhoneIncomplete
+                          ? 'var(--danger, #ef4444)'
+                          : isPhoneComplete
+                            ? 'var(--success, #10b981)'
+                            : undefined,
                       borderWidth: phoneLen > 0 ? '1.5px' : undefined,
                       transition: 'border-color 150ms ease',
                     }}
                   />
 
-                  {/* ✅ Indicateur à droite du champ */}
                   {phoneLen > 0 && (
                     <div
                       style={{
-                        position: 'absolute',
-                        right: '10px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
+                        position: 'absolute', right: '10px', top: '50%',
+                        transform: 'translateY(-50%)', pointerEvents: 'none',
                       }}
                     >
-                      {isPhoneIncomplete ? (
+                      {formData.phone === PASSENGER_PHONE ? (
                         <span
                           style={{
-                            fontSize: '10.5px',
-                            fontWeight: 700,
+                            fontSize: '9.5px', fontWeight: 700,
+                            color: 'var(--info, #3b82f6)',
+                            background: 'var(--info-light, #e7f3ff)',
+                            padding: '2px 6px', borderRadius: '6px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          PASSAGER
+                        </span>
+                      ) : isPhoneIncomplete ? (
+                        <span
+                          style={{
+                            fontSize: '10.5px', fontWeight: 700,
                             color: 'var(--danger)',
                             background: 'var(--danger-light, #fee)',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
+                            padding: '2px 6px', borderRadius: '6px',
                             fontFamily: 'monospace',
                           }}
                         >
@@ -715,22 +788,19 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   )}
                 </div>
 
-                {/* ✅ Message d'aide si incomplet */}
                 {isPhoneIncomplete && (
-                  <div
-                    style={{
-                      fontSize: '10.5px',
-                      color: 'var(--danger)',
-                      marginTop: '3px',
-                      fontWeight: 600,
-                    }}
-                  >
+                  <div style={{ fontSize: '10.5px', color: 'var(--danger)', marginTop: '3px', fontWeight: 600 }}>
                     ⚠️ Il manque {8 - phoneLen} chiffre(s)
+                  </div>
+                )}
+
+                {formData.phone === PASSENGER_PHONE && (
+                  <div style={{ fontSize: '10.5px', color: 'var(--info, #3b82f6)', marginTop: '3px', fontWeight: 600 }}>
+                    ℹ️ Numéro passager — plusieurs clients peuvent l'utiliser
                   </div>
                 )}
               </div>
 
-              {/* TÉLÉPHONE 2 */}
               <div className="col-12 col-sm-6">
                 <input
                   type="tel"
@@ -747,7 +817,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               </div>
             </div>
 
-            {/* Alerte doublon dans le formulaire (hors 00000000) */}
             {isPhoneComplete && formData.phone !== PASSENGER_PHONE && (() => {
               const existing = findClientByPhone(
                 formData.phone,
@@ -780,14 +849,10 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                       setShowForm(false);
                     }}
                     style={{
-                      background: 'white',
-                      border: 'none',
-                      color: 'var(--warning)',
-                      fontWeight: 700,
-                      fontSize: '11px',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
+                      background: 'white', border: 'none',
+                      color: 'var(--warning)', fontWeight: 700,
+                      fontSize: '11px', padding: '4px 10px',
+                      borderRadius: '6px', cursor: 'pointer',
                     }}
                   >
                     Utiliser
@@ -858,10 +923,8 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   disabled={isDisabled}
                   className="btn-modern btn-modern-primary"
                   style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    fontSize: '12.5px',
-                    padding: '9px',
+                    flex: 1, justifyContent: 'center',
+                    fontSize: '12.5px', padding: '9px',
                     opacity: isDisabled ? 0.5 : 1,
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
                   }}
