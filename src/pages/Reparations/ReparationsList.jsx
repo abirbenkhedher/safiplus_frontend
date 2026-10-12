@@ -10,6 +10,7 @@ import {
   getReparations,
   deleteReparation,
   deleteManyReparations,
+  updateReparation,
 } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
 import { getUsers } from "../../api/users";
@@ -38,6 +39,9 @@ const STATUTS_TERMINES = [
 
 const STATUT_EN_COURS = "EN COURS";
 
+// ✅ Statuts modifiables directement depuis le tableau
+const STATUTS_EDITABLES = ["EN COURS", "REPARE", "NON REPARE"];
+
 // ✅ Rôles autorisés à être assignés comme réparateur
 const ROLES_REPARATEUR = ["REPARATEUR", "COMMERCIAL"];
 
@@ -52,6 +56,10 @@ const DEFAULT_FILTERS = {
   dateDebut: "",
   dateFin: "",
 };
+
+// ✅ Normalisation du label de statut
+const normalizeLabel = (label) =>
+  String(label || "").trim().toUpperCase().replace(/\s+/g, " ");
 
 // ============================================================
 // ReparationsList
@@ -74,7 +82,6 @@ const ReparationsList = () => {
   const [toggleCleared, setToggleCleared] = useState(false);
 
   // ✅ Initialisation : récupérer les filtres sauvegardés (sessionStorage)
-  //    → effacés automatiquement au refresh via isPageRefresh()
   const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -85,6 +92,10 @@ const ReparationsList = () => {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // ✅ États pour l'édition inline du statut
+  const [editingStatusId, setEditingStatusId] = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
   const handleNew = () => openNewReparation();
   const handleEdit = (rep) => openEditReparation(rep);
@@ -194,7 +205,6 @@ const ReparationsList = () => {
 
   // ============================================================
   // ✅ RÉPARATEURS = REPARATEUR + COMMERCIAL
-  //    (un commercial peut aussi être assigné comme réparateur)
   // ============================================================
   const reparateurs = useMemo(
     () =>
@@ -237,6 +247,48 @@ const ReparationsList = () => {
     }
 
     return { user, date: last.modifiedAt };
+  };
+
+  // ============================================================
+  // ✅ STATUTS ÉDITABLES (filtrés)
+  // ============================================================
+  const editableStatuses = useMemo(() => {
+    return statuses.filter((s) =>
+      STATUTS_EDITABLES.includes(normalizeLabel(s.label))
+    );
+  }, [statuses]);
+
+  // ============================================================
+  // ✅ CHANGEMENT RAPIDE DE STATUT (inline)
+  // ============================================================
+  const handleQuickStatusChange = async (row, newStatusId) => {
+    if (!newStatusId || newStatusId === row.status?._id) {
+      setEditingStatusId(null);
+      return;
+    }
+
+    try {
+      setUpdatingStatusId(row._id);
+
+      const res = await updateReparation(row._id, { status: newStatusId });
+      const updated = res.data;
+
+      // ✅ Mise à jour locale optimiste
+      setReparations((prev) =>
+        prev.map((r) => (r._id === row._id ? { ...r, ...updated } : r))
+      );
+
+      setSuccess(`Statut mis à jour : ${updated.status?.label || ""}`);
+      setTimeout(() => setSuccess(""), 2500);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Erreur lors du changement de statut"
+      );
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setUpdatingStatusId(null);
+      setEditingStatusId(null);
+    }
   };
 
   // ============================================================
@@ -321,11 +373,11 @@ const ReparationsList = () => {
       return prixTotal - acompte > 0;
     }).length;
     const enCours = reparations.filter((r) => {
-      const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
+      const label = normalizeLabel(r.status?.label);
       return label === STATUT_EN_COURS;
     }).length;
     const terminees = reparations.filter((r) => {
-      const label = r.status?.label?.trim().toUpperCase().replace(/\s+/g, " ");
+      const label = normalizeLabel(r.status?.label);
       return STATUTS_TERMINES.includes(label);
     }).length;
     return { total, impayees, enCours, terminees };
@@ -592,9 +644,57 @@ const ReparationsList = () => {
       selector: (row) => row.status?.label,
       sortable: true,
       center: true,
-      width: "140px",
+      width: "160px",
       cell: (row) => {
         const imprevusEnAttente = row.imprevusEnAttente || 0;
+        const currentLabel = normalizeLabel(row.status?.label);
+        const isEditable = STATUTS_EDITABLES.includes(currentLabel);
+        const isEditing = editingStatusId === row._id;
+        const isUpdating = updatingStatusId === row._id;
+
+        // ✅ Mode édition : afficher le <select>
+        if (isEditing && isEditable) {
+          return (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: "flex", alignItems: "center", gap: "4px" }}
+            >
+              <select
+                autoFocus
+                value={row.status?._id || ""}
+                onChange={(e) => handleQuickStatusChange(row, e.target.value)}
+                onBlur={() => {
+                  setTimeout(() => setEditingStatusId(null), 150);
+                }}
+                disabled={isUpdating}
+                style={{
+                  fontSize: "11px",
+                  padding: "3px 6px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--primary)",
+                  background: "white",
+                  cursor: isUpdating ? "wait" : "pointer",
+                  minWidth: "110px",
+                }}
+              >
+                {editableStatuses.map((s) => (
+                  <option key={s._id} value={s._id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              {isUpdating && (
+                <FaSpinner
+                  size={11}
+                  className="spin"
+                  style={{ color: "var(--primary)" }}
+                />
+              )}
+            </div>
+          );
+        }
+
+        // ✅ Mode lecture : badge cliquable si éditable
         return (
           <div
             style={{
@@ -606,16 +706,34 @@ const ReparationsList = () => {
           >
             <span
               className="badge-modern"
+              onClick={(e) => {
+                if (!isEditable || isUpdating) return;
+                e.stopPropagation();
+                setEditingStatusId(row._id);
+              }}
+              title={isEditable ? "Cliquer pour changer le statut" : ""}
               style={{
                 background: row.status?.color || "var(--gray-500)",
                 color: "white",
                 whiteSpace: "nowrap",
                 fontSize: "10px",
                 padding: "3px 8px",
+                cursor: isEditable ? "pointer" : "default",
+                opacity: isUpdating ? 0.6 : 1,
+                transition: "transform 100ms ease, opacity 100ms ease",
+                border: isEditable ? "1px dashed rgba(255,255,255,0.5)" : "none",
+              }}
+              onMouseEnter={(e) => {
+                if (isEditable) e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
               }}
             >
               {row.status?.label || "N/A"}
+              {isUpdating && " ⏳"}
             </span>
+
             {imprevusEnAttente > 0 && (
               <span
                 style={{
@@ -1333,6 +1451,12 @@ const ReparationsList = () => {
 
         .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
         .rdt_Table { width: 100% !important; }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .spin { animation: spin 1s linear infinite; }
       `}</style>
     </div>
   );

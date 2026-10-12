@@ -3,7 +3,12 @@ import {
   FaSearch, FaTimes, FaCheckCircle, FaExclamationTriangle,
   FaUserPlus, FaCheck, FaEdit, FaMapMarkerAlt,
 } from 'react-icons/fa';
-import { getClients, createClient, updateClient } from '../../api/clients';
+import {
+  getClients,
+  createClient,
+  updateClient,
+  getPassengerClients,
+} from '../../api/clients';
 import { ZONES } from '../../constants/zones';
 
 // ============================================================
@@ -21,7 +26,7 @@ const loadClientsOnce = async () => {
   if (clientsCache) return clientsCache;
   if (clientsPromise) return clientsPromise;
 
-  clientsPromise = getClients()
+  clientsPromise = getClients({ limit: 10000, page: 1 })
     .then((res) => {
       clientsCache = res.data || [];
       return clientsCache;
@@ -71,16 +76,21 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [passengerClients, setPassengerClients] = useState([]);
+  const [loadingPassengers, setLoadingPassengers] = useState(false);
+
   const [formData, setFormData] = useState({
     nom: '', phone: '', phone2: '', adresse: '', zone: '', codeFidelite: '',
   });
 
   const containerRef = useRef(null);
+  // ✅ Marqueur de la dernière sélection locale (évite l'écrasement par le sync)
+  const localSelectionRef = useRef(null);
 
-  // ---- Chargement ----
+  // ---- Chargement des clients ----
   useEffect(() => {
     let mounted = true;
-    if (clientsCache) {
+    if (clientsCache && clientsCache.length > 0) {
       setClients(clientsCache);
       return;
     }
@@ -98,6 +108,12 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
 
   // ---- Sync valeur externe ----
   useEffect(() => {
+    // ✅ Si la valeur courante vient d'une sélection locale,
+    //    on ignore ce cycle (elle est déjà appliquée)
+    if (value && localSelectionRef.current === value) {
+      return;
+    }
+
     if (value && clients.length > 0) {
       const client = clients.find((c) => c._id === value);
       if (client && client._id !== foundClient?._id) {
@@ -105,6 +121,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         setSearchTerm(client.code || client.phone || '');
       }
     } else if (!value && foundClient) {
+      localSelectionRef.current = null;
       setFoundClient(null);
       setSearchTerm('');
     }
@@ -143,14 +160,33 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return digits === PASSENGER_PHONE;
   }, [searchTerm]);
 
-  // ---- Liste clients passagers ----
-  const passengerClients = useMemo(() => {
-    if (!isPassengerPhone) return [];
-    return clients.filter((c) => {
-      const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
-      return cPhone === PASSENGER_PHONE;
-    });
-  }, [isPassengerPhone, clients]);
+  // ---- Chargement à la demande des clients passagers ----
+  useEffect(() => {
+    if (!isPassengerPhone) return;
+
+    let mounted = true;
+    setLoadingPassengers(true);
+
+    getPassengerClients()
+      .then((res) => {
+        if (mounted) setPassengerClients(res.data || []);
+      })
+      .catch((err) => {
+        console.error('Erreur chargement passagers:', err);
+        if (mounted) {
+          const fallback = (clientsCache || []).filter((c) => {
+            const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
+            return cPhone === PASSENGER_PHONE;
+          });
+          setPassengerClients(fallback);
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoadingPassengers(false);
+      });
+
+    return () => { mounted = false; };
+  }, [isPassengerPhone]);
 
   // ---- Suggestions ----
   const suggestions = useMemo(() => {
@@ -206,6 +242,8 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   }, []);
 
   const handleSelectClient = useCallback((client) => {
+    // ✅ Marque la sélection locale AVANT de remonter au parent
+    localSelectionRef.current = client._id;
     setFoundClient(client);
     onChange(client._id);
     onClientChange?.(client);
@@ -228,12 +266,10 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setShowSuggestions(false);
     setError('');
 
-    // ✅ Vide la recherche pour cacher la bannière passager
     if (phoneToUse === PASSENGER_PHONE) {
       setSearchTerm('');
     }
 
-    // Focus
     setTimeout(() => {
       if (phoneToUse === PASSENGER_PHONE || phoneToUse.length === 0) {
         const nomInput = containerRef.current?.querySelector('input[aria-label="Nom complet"]');
@@ -320,13 +356,22 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         if (clientsCache) {
           clientsCache = clientsCache.map((c) => (c._id === savedClient._id ? savedClient : c));
         }
+        setPassengerClients((prev) =>
+          prev.map((c) => (c._id === savedClient._id ? savedClient : c))
+        );
       } else {
         const res = await createClient(dataToSend);
         savedClient = res.data;
         setClients((prev) => [...prev, savedClient]);
         if (clientsCache) clientsCache = [...clientsCache, savedClient];
+
+        if (savedClient.phone === PASSENGER_PHONE) {
+          setPassengerClients((prev) => [savedClient, ...prev]);
+        }
       }
 
+      // ✅ Marque la sélection locale
+      localSelectionRef.current = savedClient._id;
       setFoundClient(savedClient);
       onChange(savedClient._id);
       onClientChange?.(savedClient);
@@ -340,20 +385,21 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     }
   }, [formData, isEditMode, foundClient, onChange, onClientChange, findClientByPhone]);
 
-  // ✅ Annulation — restaure la bannière si on annulait un passager
+  // ✅ Annulation
   const handleCancel = useCallback(() => {
     const wasPassengerCreation = !isEditMode && formData.phone === PASSENGER_PHONE;
     setShowForm(false);
     setIsEditMode(false);
     setError('');
 
-    // ✅ Restaure la bannière passager si on annulait sa création
     if (wasPassengerCreation) {
       setSearchTerm(PASSENGER_PHONE);
     }
   }, [formData.phone, isEditMode]);
 
   const handleClear = useCallback(() => {
+    // ✅ Reset le marqueur local
+    localSelectionRef.current = null;
     setSearchTerm('');
     setFoundClient(null);
     setShowSuggestions(false);
@@ -430,10 +476,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             gap: '10px',
           }}
         >
-          <FaExclamationTriangle
-            size={16}
-            style={{ color: 'var(--warning)', flexShrink: 0 }}
-          />
+          <FaExclamationTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warning)' }}>
               ⚠️ Ce numéro existe déjà
@@ -468,7 +511,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* BANNIÈRE "NUMÉRO PASSAGER" — masquée si formulaire ouvert */}
+      {/* BANNIÈRE "NUMÉRO PASSAGER" */}
       {!foundClient && isPassengerPhone && !showForm && (
         <div
           style={{
@@ -486,9 +529,11 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                 📞 Numéro passager (00000000)
               </div>
               <div style={{ fontSize: '11px', color: 'var(--gray-600)', marginTop: '2px' }}>
-                {passengerClients.length > 0
-                  ? `${passengerClients.length} client(s) sans numéro — sélectionnez-en un ou créez-en un nouveau`
-                  : 'Aucun client sans numéro — créez-en un nouveau'}
+                {loadingPassengers
+                  ? 'Chargement...'
+                  : passengerClients.length > 0
+                    ? `${passengerClients.length} client(s) sans numéro — sélectionnez-en un ou créez-en un nouveau`
+                    : 'Aucun client sans numéro — créez-en un nouveau'}
               </div>
             </div>
           </div>
@@ -500,7 +545,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                 background: 'white', borderRadius: '8px', border: '1px solid var(--gray-200)',
               }}
             >
-              {passengerClients.slice(0, 20).map((client) => (
+              {passengerClients.map((client) => (
                 <div
                   key={client._id}
                   onClick={() => handleSelectClient(client)}

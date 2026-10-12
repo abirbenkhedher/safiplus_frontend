@@ -47,7 +47,6 @@ const sortByOrdre = (arr = []) =>
       (a.nom || "").localeCompare(b.nom || "")
   );
 
-// ✅ Helper de calcul du paymentType (identique à PaymentSection)
 const computePaymentType = (prixTotal, acompte) => {
   const p = Number(prixTotal) || 0;
   const a = Number(acompte) || 0;
@@ -161,11 +160,15 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  // ✅ Pilotage de la mini-modale modèle
   const [showQuickModele, setShowQuickModele] = useState(false);
 
   const formDataRef = useRef(formData);
   useEffect(() => { formDataRef.current = formData; }, [formData]);
+
+  // ✅ NOUVEAU : tracker la réparation déjà chargée pour éviter de recharger
+  //    le formulaire à chaque re-render du parent
+  const loadedReparationIdRef = useRef(null);
+  const loadedInitialClientRef = useRef(null);
 
   const {
     categories, objets, statuses, reparateurs, marques, modeles, pannes,
@@ -179,11 +182,30 @@ const ReparationModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
-  // ---- Chargement des données du formulaire ----
+  // ============================================================
+  // ✅ Chargement des données du formulaire
+  //    - Édition : une seule fois par reparation._id
+  //    - Création : une seule fois par ouverture (initialClientId)
+  // ============================================================
   useEffect(() => {
-    if (!show) return;
+    if (!show) {
+      // Reset les refs à la fermeture
+      loadedReparationIdRef.current = null;
+      loadedInitialClientRef.current = null;
+      return;
+    }
 
+    // ==================== MODE ÉDITION ====================
     if (isEdit && reparation) {
+      const repId = reparation._id;
+
+      // ✅ Déjà chargée → on ne recharge pas (évite d'écraser les modifs)
+      if (loadedReparationIdRef.current === repId) {
+        return;
+      }
+
+      loadedReparationIdRef.current = repId;
+
       setFormData({
         client: reparation.client?._id || "",
         categorie: reparation.categorie?._id || "",
@@ -224,7 +246,24 @@ const ReparationModal = ({
           (diag.decisionClient?.statut && diag.decisionClient.statut !== "en_attente")
         ))
       );
-    } else if (!isEdit) {
+
+      setError("");
+      setSuccess("");
+      setEnvoyerSMS(false);
+      setShowQuickModele(false);
+      return;
+    }
+
+    // ==================== MODE CRÉATION ====================
+    if (!isEdit) {
+      // ✅ Déjà initialisé pour cette ouverture → on ne recharge pas
+      const clientKey = initialClientId || "__new__";
+      if (loadedInitialClientRef.current === clientKey) {
+        return;
+      }
+
+      loadedInitialClientRef.current = clientKey;
+
       const draft = localStorage.getItem(DRAFT_KEY);
       if (draft && !initialClientId) {
         try {
@@ -252,12 +291,11 @@ const ReparationModal = ({
         });
       }
       setShowDiagnostic(false);
+      setError("");
+      setSuccess("");
+      setEnvoyerSMS(false);
+      setShowQuickModele(false);
     }
-
-    setError("");
-    setSuccess("");
-    setEnvoyerSMS(false);
-    setShowQuickModele(false);
   }, [show, reparation, isEdit, initialClientId]);
 
   // ---- Statut par défaut ----
@@ -272,9 +310,7 @@ const ReparationModal = ({
     }
   }, [statuses, isEdit, formData.status]);
 
-  // ============================================================
-  // ✅ AUTO-SYNC : paymentType cohérent avec prix + acompte + imprévus
-  // ============================================================
+  // ---- AUTO-SYNC paymentType ----
   useEffect(() => {
     if (!show) return;
 
@@ -298,9 +334,7 @@ const ReparationModal = ({
     formData.diagnosticImprevus,
   ]);
 
-  // ============================================================
-  // ✅ NOUVEAU : Reset du réparateur si plus autorisé après changement de catégorie
-  // ============================================================
+  // ---- Reset réparateur si plus autorisé après changement de catégorie ----
   useEffect(() => {
     if (!show) return;
     if (!formData.reparateur || !formData.categorie) return;
@@ -514,28 +548,21 @@ const ReparationModal = ({
     [pannes, formData.categorie]
   );
 
-  // ============================================================
-  // ✅ MODIFIÉ : usersAutorises filtré par catégorie
-  // ============================================================
   const usersAutorises = useMemo(() => {
-    // 1. Filtrer par rôle (REPARATEUR + COMMERCIAL)
     const baseList = (reparateurs || []).filter((u) =>
       ROLES_AUTORISES.includes((u.role || "").toUpperCase().trim())
     );
 
-    // 2. Si une catégorie est sélectionnée, on regarde ses réparateurs autorisés
     if (formData.categorie) {
       const selectedCategorie = categories.find(
         (c) => String(c._id) === String(formData.categorie)
       );
 
-      // ✅ Si la catégorie a une liste de réparateurs non vide
       if (
         selectedCategorie &&
         Array.isArray(selectedCategorie.reparateurs) &&
         selectedCategorie.reparateurs.length > 0
       ) {
-        // Normaliser en tableau d'IDs (peut être ObjectId ou objet peuplé)
         const allowedIds = selectedCategorie.reparateurs.map((r) =>
           typeof r === "object" && r !== null ? r._id : r
         );
@@ -550,7 +577,6 @@ const ReparationModal = ({
       }
     }
 
-    // ✅ Sinon : pas de restriction → tous les réparateurs
     return baseList.sort((a, b) => {
       const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim();
       const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim();
@@ -558,7 +584,6 @@ const ReparationModal = ({
     });
   }, [reparateurs, categories, formData.categorie]);
 
-  // ✅ Détecter si la catégorie a des réparateurs restreints (pour le badge)
   const hasRestrictionReparateurs = useMemo(() => {
     if (!formData.categorie) return false;
     const selectedCategorie = categories.find(
@@ -577,9 +602,6 @@ const ReparationModal = ({
     formData.diagnosticImprevus?.imprevus || []
   ).filter((i) => i.accepte === null || i.accepte === undefined).length;
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   return createPortal(
     <>
       <div
@@ -830,7 +852,6 @@ const ReparationModal = ({
                   </div>
 
                   <div className="col-12 col-sm-6">
-                    
                     <select
                       value={formData.reparateur}
                       onChange={(e) => handleFieldChange("reparateur", e.target.value)}
@@ -853,7 +874,6 @@ const ReparationModal = ({
                   </div>
                 </div>
 
-                {/* ✅ Message si aucun réparateur autorisé */}
                 {hasRestrictionReparateurs && usersAutorises.length === 0 && (
                   <div
                     style={{
@@ -948,7 +968,6 @@ const ReparationModal = ({
         `}</style>
       </div>
 
-      {/* ✅ Mini-modale création rapide de modèle */}
       <QuickCreateModeleModal
         show={showQuickModele}
         onClose={() => setShowQuickModele(false)}
