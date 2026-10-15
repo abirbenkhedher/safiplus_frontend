@@ -645,3 +645,64 @@ body {
   background: #2f3444;
   color: #cbd5e1;
 }
+
+
+/* Correction de la modale de réparation sur mobile et iPhone */
+
+@media (max-width: 767.98px) {
+  .reparation-modal-overlay {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 8px
+      max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    overflow: hidden !important;
+    align-items: stretch !important;
+  }
+
+  .reparation-modal-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    border-radius: 14px !important;
+  }
+
+  .reparation-modal-header {
+    flex: 0 0 auto !important;
+    padding: 10px 14px !important;
+  }
+
+  .reparation-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 14px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .reparation-modal-footer {
+    flex: 0 0 auto !important;
+    position: relative;
+    z-index: 2;
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding: 10px 14px !important;
+    padding-bottom: calc(
+      10px + env(safe-area-inset-bottom, 0px)
+    ) !important;
+    background: var(--gray-50, #f8f9fa) !important;
+  }
+
+  .reparation-modal-footer > button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+}
