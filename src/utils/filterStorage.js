@@ -1,16 +1,48 @@
+// src/utils/filterStorage.js
+
 const FILTERS_KEY = "reparations_filters";
 const REFRESH_FLAG = "reparations_filters_refresh_flag";
 
-// ✅ Détecte si la page est chargée suite à un refresh (F5)
+// ============================================================
+// ✅ Détection d'un VRAI refresh (F5) ou fermeture d'onglet
+// ============================================================
+// Principe :
+// - `beforeunload` est déclenché UNIQUEMENT lors d'un refresh,
+//   d'une fermeture d'onglet, ou d'une navigation "externe"
+//   (pas lors d'une navigation SPA via React Router).
+// - On pose un flag dans sessionStorage au moment du beforeunload.
+// - Au chargement suivant, si le flag est présent → c'était un refresh.
+// - Sinon → c'était une navigation SPA (retour depuis le détail, etc.)
+// ============================================================
 const isPageRefresh = () => {
-  const navEntries = performance.getEntriesByType?.("navigation");
-  if (navEntries && navEntries.length > 0) {
-    return navEntries[0].type === "reload";
+  try {
+    const refreshFlag = sessionStorage.getItem(REFRESH_FLAG);
+    if (refreshFlag === "1") {
+      sessionStorage.removeItem(REFRESH_FLAG);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
   }
-  // Fallback pour anciens navigateurs
-  return performance.navigation?.type === 1; // 1 = TYPE_RELOAD
 };
 
+// ============================================================
+// ✅ À appeler UNE SEULE FOIS au démarrage de l'app (App.js)
+// ============================================================
+export const setupRefreshDetection = () => {
+  window.addEventListener("beforeunload", () => {
+    try {
+      sessionStorage.setItem(REFRESH_FLAG, "1");
+    } catch (e) {
+      // silently fail
+    }
+  });
+};
+
+// ============================================================
+// ✅ Sauvegarde des filtres
+// ============================================================
 export const saveFilters = (filters) => {
   try {
     sessionStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
@@ -19,9 +51,12 @@ export const saveFilters = (filters) => {
   }
 };
 
+// ============================================================
+// ✅ Chargement des filtres
+// ============================================================
 export const loadFilters = (defaultFilters) => {
   try {
-    // ✅ Si c'est un refresh → on efface et on repart de zéro
+    // Si c'est un VRAI refresh (F5) → on efface et on repart de zéro
     if (isPageRefresh()) {
       sessionStorage.removeItem(FILTERS_KEY);
       return defaultFilters;
@@ -37,6 +72,9 @@ export const loadFilters = (defaultFilters) => {
   }
 };
 
+// ============================================================
+// ✅ Effacement des filtres (reset manuel ou déconnexion)
+// ============================================================
 export const clearFilters = () => {
   try {
     sessionStorage.removeItem(FILTERS_KEY);

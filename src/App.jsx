@@ -28,6 +28,13 @@ import MarquesCRUD from "./pages/marques/MarquesCRUD";
 import ModelesCRUD from "./pages/modeles/ModelesCRUD";
 import PannesCRUD from "./pages/pannes/PannesCRUD";
 
+// ✅ AJOUT : détection refresh (F5) vs navigation SPA
+import { setupRefreshDetection } from "./utils/filterStorage";
+
+// ✅ À appeler UNE SEULE FOIS au démarrage, hors composant React
+// (évite les doubles enregistrements en React StrictMode)
+setupRefreshDetection();
+
 function App() {
   return (
     <AuthProvider>
