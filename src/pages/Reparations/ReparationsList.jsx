@@ -4,7 +4,7 @@ import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
   FaTools, FaCheckCircle, FaSpinner, FaPrint,
   FaMoneyBillWave, FaMapMarkedAlt, FaFilter, FaBoxes,
-  FaBriefcase,
+  FaBriefcase, FaCalendarAlt,
 } from "react-icons/fa";
 import {
   getReparations,
@@ -17,6 +17,7 @@ import { getUsers } from "../../api/users";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import DataTable from "../../components/common/DataTable";
 import ExportButton from "../../components/common/ExportButton";
+import MultiSelect from "../../components/common/MultiSelect";
 import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
@@ -39,20 +40,19 @@ const STATUTS_TERMINES = [
 
 const STATUT_EN_COURS = "EN COURS";
 
-// ✅ Statuts modifiables directement depuis le tableau
 const STATUTS_EDITABLES = ["EN COURS", "REPARE", "NON REPARE"];
 
-// ✅ Rôles autorisés à être assignés comme réparateur
 const ROLES_REPARATEUR = ["REPARATEUR", "COMMERCIAL"];
 
-// ✅ Valeurs par défaut des filtres (module-level, stable)
+// ✅ Filtres : chaque champ multi est un TABLEAU
 const DEFAULT_FILTERS = {
   search: "",
-  famille: "",
-  categorie: "",
-  reparateur: "",
-  commercial: "",
-  zone: "",
+  famille: [],
+  categorie: [],
+  status: [],
+  reparateur: [],
+  commercial: [],
+  zone: [],
   dateDebut: "",
   dateFin: "",
 };
@@ -81,7 +81,6 @@ const ReparationsList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
-  // ✅ Initialisation : récupérer les filtres sauvegardés (sessionStorage)
   const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -93,7 +92,6 @@ const ReparationsList = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // ✅ États pour l'édition inline du statut
   const [editingStatusId, setEditingStatusId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
@@ -101,7 +99,7 @@ const ReparationsList = () => {
   const handleEdit = (rep) => openEditReparation(rep);
 
   // ============================================================
-  // ✅ PERSISTANCE : sauvegarde automatique des filtres
+  // ✅ PERSISTANCE
   // ============================================================
   useEffect(() => {
     saveFilters(filters);
@@ -114,11 +112,16 @@ const ReparationsList = () => {
     try {
       setLoading(true);
       const params = {};
+
       Object.keys(filters).forEach((k) => {
-        if (filters[k] && String(filters[k]).trim() !== "") {
-          params[k] = filters[k];
+        const v = filters[k];
+        if (Array.isArray(v)) {
+          if (v.length > 0) params[k] = v.join(",");
+        } else if (v && String(v).trim() !== "") {
+          params[k] = v;
         }
       });
+
       params.limit = 10000;
       params.page = 1;
 
@@ -151,19 +154,21 @@ const ReparationsList = () => {
   }, []);
 
   // ============================================================
-  // ✅ HANDLERS : reset en cascade
+  // ✅ HANDLERS
   // ============================================================
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-
     setFilters((prev) => {
       const next = { ...prev, [name]: value };
+      if (name === "famille") next.categorie = [];
+      return next;
+    });
+  };
 
-      // ✅ Famille → reset catégorie
-      if (name === "famille") {
-        next.categorie = "";
-      }
-
+  const handleMultiChange = (name, values) => {
+    setFilters((prev) => {
+      const next = { ...prev, [name]: values };
+      if (name === "famille") next.categorie = [];
       return next;
     });
   };
@@ -173,20 +178,22 @@ const ReparationsList = () => {
     setToggleCleared((prev) => !prev);
   };
 
-  // ✅ Reset : réinitialise les filtres ET le sessionStorage
   const resetFilters = () => {
     setFilters(DEFAULT_FILTERS);
     clearFilters();
     clearSelection();
   };
 
-  const hasActiveFilters = Object.values(filters).some(
-    (v) => v && String(v).trim() !== ""
-  );
+  const activeCount = useMemo(() => {
+    let count = 0;
+    Object.values(filters).forEach((v) => {
+      if (Array.isArray(v)) count += v.length;
+      else if (v && String(v).trim() !== "") count += 1;
+    });
+    return count;
+  }, [filters]);
 
-  const activeCount = Object.values(filters).filter(
-    (v) => v && String(v).trim() !== ""
-  ).length;
+  const hasActiveFilters = activeCount > 0;
 
   // ============================================================
   // COMMERCIAUX
@@ -203,9 +210,6 @@ const ReparationsList = () => {
     [users]
   );
 
-  // ============================================================
-  // ✅ RÉPARATEURS = REPARATEUR + COMMERCIAL
-  // ============================================================
   const reparateurs = useMemo(
     () =>
       users
@@ -249,9 +253,6 @@ const ReparationsList = () => {
     return { user, date: last.modifiedAt };
   };
 
-  // ============================================================
-  // ✅ STATUTS ÉDITABLES (filtrés)
-  // ============================================================
   const editableStatuses = useMemo(() => {
     return statuses.filter((s) =>
       STATUTS_EDITABLES.includes(normalizeLabel(s.label))
@@ -259,7 +260,64 @@ const ReparationsList = () => {
   }, [statuses]);
 
   // ============================================================
-  // ✅ CHANGEMENT RAPIDE DE STATUT (inline)
+  // ✅ OPTIONS pour les MultiSelect
+  // ============================================================
+  const familleOptions = useMemo(
+    () => familles.map((f) => ({ value: f._id, label: f.nom })),
+    [familles]
+  );
+
+  const categorieOptions = useMemo(() => {
+    const familleIds = filters.famille;
+    return [...categories]
+      .filter((c) => {
+        if (!familleIds || familleIds.length === 0) return true;
+        const catFamilleId =
+          typeof c.famille === "object" && c.famille !== null
+            ? c.famille._id
+            : c.famille;
+        return familleIds.includes(String(catFamilleId));
+      })
+      .sort(
+        (a, b) =>
+          (a.ordre ?? 0) - (b.ordre ?? 0) ||
+          (a.nom || "").localeCompare(b.nom || "")
+      )
+      .map((c) => ({ value: c._id, label: c.nom }));
+  }, [categories, filters.famille]);
+
+  const statusOptions = useMemo(
+    () => statuses.map((s) => ({ value: s._id, label: s.label })),
+    [statuses]
+  );
+
+  const reparateurOptions = useMemo(
+    () =>
+      reparateurs.map((u) => ({
+        value: u._id,
+        label: `${u.firstName} ${u.lastName}${
+          u.role === "COMMERCIAL" ? " (Commercial)" : " (Réparateur)"
+        }`,
+      })),
+    [reparateurs]
+  );
+
+  const commercialOptions = useMemo(
+    () =>
+      commerciaux.map((u) => ({
+        value: u._id,
+        label: `${u.firstName} ${u.lastName}`,
+      })),
+    [commerciaux]
+  );
+
+  const zoneOptions = useMemo(
+    () => ZONES.map((z) => ({ value: z, label: z })),
+    []
+  );
+
+  // ============================================================
+  // ✅ CHANGEMENT RAPIDE DE STATUT
   // ============================================================
   const handleQuickStatusChange = async (row, newStatusId) => {
     if (!newStatusId || newStatusId === row.status?._id) {
@@ -269,11 +327,9 @@ const ReparationsList = () => {
 
     try {
       setUpdatingStatusId(row._id);
-
       const res = await updateReparation(row._id, { status: newStatusId });
       const updated = res.data;
 
-      // ✅ Mise à jour locale optimiste
       setReparations((prev) =>
         prev.map((r) => (r._id === row._id ? { ...r, ...updated } : r))
       );
@@ -292,7 +348,7 @@ const ReparationsList = () => {
   };
 
   // ============================================================
-  // SUPPRESSION SIMPLE
+  // SUPPRESSION
   // ============================================================
   const handleDelete = async () => {
     if (!canDelete) {
@@ -384,26 +440,43 @@ const ReparationsList = () => {
   }, [reparations]);
 
   // ============================================================
-  // ✅ CATÉGORIES FILTRÉES PAR FAMILLE
+  // ✅ TRI PAR PERTINENCE
   // ============================================================
-  const categoriesTriees = useMemo(() => {
-    return [...categories]
-      .filter((c) => {
-        if (!filters.famille) return true;
+  const sortedReparations = useMemo(() => {
+    const query = (filters.search || "").trim().toLowerCase();
+    if (!query) return reparations;
 
-        const catFamilleId =
-          typeof c.famille === "object" && c.famille !== null
-            ? c.famille._id
-            : c.famille;
+    const getScore = (r) => {
+      const numero = String(r.numero || "").toLowerCase();
+      const clientNom = String(r.client?.nom || "").toLowerCase();
+      const clientPhone = String(r.client?.phone || "").toLowerCase();
+      const marque = String(r.marque?.nom || "").toLowerCase();
+      const modele = String(r.modele?.nom || "").toLowerCase();
+      const objet = String(r.objet?.nom || "").toLowerCase();
 
-        return String(catFamilleId) === String(filters.famille);
+      if (numero === query) return 1000;
+      if (numero.startsWith(query)) return 900;
+      if (numero.includes(query)) return 800;
+      if (clientNom.startsWith(query)) return 700;
+      if (clientPhone.includes(query)) return 600;
+      if (clientNom.includes(query)) return 500;
+      if (
+        marque.includes(query) ||
+        modele.includes(query) ||
+        objet.includes(query)
+      )
+        return 400;
+      return 100;
+    };
+
+    return [...reparations]
+      .map((r) => ({ r, score: getScore(r) }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return new Date(b.r.createdAt) - new Date(a.r.createdAt);
       })
-      .sort(
-        (a, b) =>
-          (a.ordre ?? 0) - (b.ordre ?? 0) ||
-          (a.nom || "").localeCompare(b.nom || "")
-      );
-  }, [categories, filters.famille]);
+      .map(({ r }) => r);
+  }, [reparations, filters.search]);
 
   // ============================================================
   // COLONNES
@@ -479,14 +552,55 @@ const ReparationsList = () => {
       selector: (row) => row.numero,
       sortable: true,
       width: "100px",
-      cell: (row) => (
-        <span
-          className="badge-modern badge-modern-primary"
-          style={{ fontSize: "10px", fontFamily: "monospace", padding: "3px 7px" }}
-        >
-          {row.numero}
-        </span>
-      ),
+      cell: (row) => {
+        const query = (filters.search || "").trim();
+        const numero = String(row.numero || "");
+
+        if (query && numero.toLowerCase().includes(query.toLowerCase())) {
+          const idx = numero.toLowerCase().indexOf(query.toLowerCase());
+          const before = numero.slice(0, idx);
+          const match = numero.slice(idx, idx + query.length);
+          const after = numero.slice(idx + query.length);
+
+          return (
+            <span
+              className="badge-modern badge-modern-primary"
+              style={{
+                fontSize: "10px",
+                fontFamily: "monospace",
+                padding: "3px 7px",
+              }}
+            >
+              {before}
+              <mark
+                style={{
+                  background: "#fbbf24",
+                  color: "#78350f",
+                  padding: "0 2px",
+                  borderRadius: "3px",
+                  fontWeight: "800",
+                }}
+              >
+                {match}
+              </mark>
+              {after}
+            </span>
+          );
+        }
+
+        return (
+          <span
+            className="badge-modern badge-modern-primary"
+            style={{
+              fontSize: "10px",
+              fontFamily: "monospace",
+              padding: "3px 7px",
+            }}
+          >
+            {numero}
+          </span>
+        );
+      },
     },
     {
       name: "Client",
@@ -652,7 +766,6 @@ const ReparationsList = () => {
         const isEditing = editingStatusId === row._id;
         const isUpdating = updatingStatusId === row._id;
 
-        // ✅ Mode édition : afficher le <select>
         if (isEditing && isEditable) {
           return (
             <div
@@ -694,7 +807,6 @@ const ReparationsList = () => {
           );
         }
 
-        // ✅ Mode lecture : badge cliquable si éditable
         return (
           <div
             style={{
@@ -1141,198 +1253,136 @@ const ReparationsList = () => {
         ))}
       </div>
 
+      {/* ============================================================ */}
+      {/* ✅ ZONE DE FILTRES : Flexbox responsive                      */}
+      {/* ============================================================ */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            alignItems: "center",
-            marginBottom: "14px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ position: "relative", flex: "1 1 320px", minWidth: 0 }}>
-            <FaSearch
-              style={{
-                position: "absolute",
-                left: "14px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--gray-400)",
-                fontSize: "13px",
-                pointerEvents: "none",
-              }}
-            />
-            <input
-              type="text"
-              name="search"
-              className="form-control-modern"
-              style={{ paddingLeft: "40px", width: "100%", height: "44px" }}
-              placeholder="Rechercher : N°, client, téléphone, marque, panne..."
-              value={filters.search}
-              onChange={handleFilterChange}
-            />
+        {/* Ligne 1 : Recherche + Du + Au + Effacer */}
+        <div className="filters-line filters-line-1">
+          {/* Recherche */}
+          <div className="filter-item filter-item-search">
+            <div className="filter-search-wrapper">
+              <FaSearch className="filter-search-icon" />
+              <input
+                type="text"
+                name="search"
+                className="form-control-modern"
+                placeholder="Rechercher : N°, client, téléphone, marque, panne..."
+                value={filters.search}
+                onChange={handleFilterChange}
+              />
+            </div>
           </div>
 
-          {hasActiveFilters && (
-            <button
-              className="btn-modern btn-modern-outline"
-              style={{ height: "44px", padding: "0 18px", whiteSpace: "nowrap" }}
-              onClick={resetFilters}
-            >
-              <FaTimes size={12} /> Effacer {activeCount > 0 && `(${activeCount})`}
-            </button>
-          )}
-        </div>
-
-        <div className="filters-grid">
-          {/* ✅ Filtre Famille */}
-          <div className="filter-item">
+          {/* Du */}
+          <div className="filter-item filter-item-date">
             <label className="filter-label">
-              <FaBoxes size={10} /> Famille
+              <FaCalendarAlt size={10} /> Du
             </label>
-            <select
-              name="famille"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.famille}
-              onChange={handleFilterChange}
-            >
-              <option value="">Toutes</option>
-              {familles.map((f) => (
-                <option key={f._id} value={f._id}>
-                  {f.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ✅ Filtre Catégorie (dépend de la famille) */}
-          <div className="filter-item">
-            <label className="filter-label">
-              <FaBoxes size={10} /> Catégorie
-            </label>
-            <select
-              name="categorie"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.categorie}
-              onChange={handleFilterChange}
-            >
-              <option value="">
-                {filters.famille ? "Toutes (famille)" : "Toutes"}
-              </option>
-              {categoriesTriees.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label className="filter-label">
-              <FaFilter size={10} /> Statut
-            </label>
-            <select
-              name="status"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.status}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous</option>
-              {statuses.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ✅ Filtre Réparateur inclut les commerciaux */}
-          <div className="filter-item">
-            <label className="filter-label">
-              <FaTools size={10} /> Réparateur
-            </label>
-            <select
-              name="reparateur"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.reparateur}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous</option>
-              {reparateurs.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.firstName} {u.lastName}
-                  {u.role === "COMMERCIAL" ? " (Commercial)" : " (Réparateur)"}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label className="filter-label">
-              <FaBriefcase size={10} /> Commercial
-            </label>
-            <select
-              name="commercial"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.commercial}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous</option>
-              {commerciaux.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.firstName} {u.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label className="filter-label">
-              <FaMapMarkedAlt size={10} /> Zone
-            </label>
-            <select
-              name="zone"
-              className="form-control-modern"
-              style={{ height: "42px" }}
-              value={filters.zone}
-              onChange={handleFilterChange}
-            >
-              <option value="">Toutes les zones</option>
-              {ZONES.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label className="filter-label">Du</label>
             <input
               type="date"
               name="dateDebut"
               className="form-control-modern"
-              style={{ height: "42px" }}
               value={filters.dateDebut}
               onChange={handleFilterChange}
             />
           </div>
 
-          <div className="filter-item">
-            <label className="filter-label">Au</label>
+          {/* Au */}
+          <div className="filter-item filter-item-date">
+            <label className="filter-label">
+              <FaCalendarAlt size={10} /> Au
+            </label>
             <input
               type="date"
               name="dateFin"
               className="form-control-modern"
-              style={{ height: "42px" }}
               value={filters.dateFin}
               onChange={handleFilterChange}
+            />
+          </div>
+
+          {/* Bouton Effacer */}
+          {hasActiveFilters && (
+            <div className="filter-item filter-item-clear">
+              <button
+                className="btn-modern btn-modern-outline filter-clear-btn"
+                onClick={resetFilters}
+              >
+                <FaTimes size={12} /> Effacer{" "}
+                {activeCount > 0 && `(${activeCount})`}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Ligne 2 : Les 6 MultiSelects */}
+        <div className="filters-line filters-line-2">
+          <div className="filter-item">
+            <MultiSelect
+              label="Famille"
+              icon={<FaBoxes size={10} />}
+              options={familleOptions}
+              value={filters.famille}
+              onChange={(v) => handleMultiChange("famille", v)}
+              placeholder="Toutes"
+            />
+          </div>
+
+          <div className="filter-item">
+            <MultiSelect
+              label="Catégorie"
+              icon={<FaBoxes size={10} />}
+              options={categorieOptions}
+              value={filters.categorie}
+              onChange={(v) => handleMultiChange("categorie", v)}
+              placeholder={
+                filters.famille.length > 0 ? "Toutes (famille)" : "Toutes"
+              }
+            />
+          </div>
+
+          <div className="filter-item">
+            <MultiSelect
+              label="Statut"
+              icon={<FaFilter size={10} />}
+              options={statusOptions}
+              value={filters.status}
+              onChange={(v) => handleMultiChange("status", v)}
+              placeholder="Tous"
+            />
+          </div>
+
+          <div className="filter-item">
+            <MultiSelect
+              label="Réparateur"
+              icon={<FaTools size={10} />}
+              options={reparateurOptions}
+              value={filters.reparateur}
+              onChange={(v) => handleMultiChange("reparateur", v)}
+              placeholder="Tous"
+            />
+          </div>
+
+          <div className="filter-item">
+            <MultiSelect
+              label="Commercial"
+              icon={<FaBriefcase size={10} />}
+              options={commercialOptions}
+              value={filters.commercial}
+              onChange={(v) => handleMultiChange("commercial", v)}
+              placeholder="Tous"
+            />
+          </div>
+
+          <div className="filter-item">
+            <MultiSelect
+              label="Zone"
+              icon={<FaMapMarkedAlt size={10} />}
+              options={zoneOptions}
+              value={filters.zone}
+              onChange={(v) => handleMultiChange("zone", v)}
+              placeholder="Toutes les zones"
             />
           </div>
         </div>
@@ -1349,7 +1399,9 @@ const ReparationsList = () => {
             }}
           >
             <span>🔎</span>
-            <span>{reparations.length} résultat(s) avec filtres actifs</span>
+            <span>
+              {sortedReparations.length} résultat(s) avec filtres actifs
+            </span>
           </div>
         )}
       </div>
@@ -1357,7 +1409,7 @@ const ReparationsList = () => {
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
-          data={reparations}
+          data={sortedReparations}
           loading={loading}
           actions={false}
           searchable={false}
@@ -1405,13 +1457,24 @@ const ReparationsList = () => {
       )}
 
       <style>{`
-        .filters-grid {
-          display: grid;
-          grid-template-columns: repeat(8, 1fr);
-          gap: 10px;
-          align-items: end;
+        /* ============================================================ */
+        /* ✅ LIGNES DE FILTRES : Flexbox responsive                    */
+        /* ============================================================ */
+        .filters-line {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          align-items: flex-end;
+          width: 100%;
         }
 
+        .filters-line-1 {
+          margin-bottom: 16px;
+          padding-bottom: 16px;
+          border-bottom: 1px dashed var(--gray-200);
+        }
+
+        /* ✅ Chaque item de filtre : flexible et responsive */
         .filter-item {
           display: flex;
           flex-direction: column;
@@ -1419,6 +1482,67 @@ const ReparationsList = () => {
           min-width: 0;
         }
 
+        /* ✅ Ligne 1 : largeurs adaptatives */
+        .filter-item-search {
+          flex: 1 1 320px;
+          min-width: 220px;
+        }
+
+        .filter-item-date {
+          flex: 0 1 170px;
+          min-width: 140px;
+        }
+
+        .filter-item-clear {
+          flex: 0 0 auto;
+        }
+
+        /* ✅ Ligne 2 : chaque MultiSelect a la même largeur flexible */
+        .filters-line-2 > .filter-item {
+          flex: 1 1 180px;
+          min-width: 150px;
+        }
+
+        /* ✅ Wrapper de recherche avec icône */
+        .filter-search-wrapper {
+          position: relative;
+          width: 100%;
+        }
+
+        .filter-search-icon {
+          position: absolute;
+          left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--gray-400);
+          font-size: 13px;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .filter-search-wrapper .form-control-modern {
+          padding-left: 40px !important;
+          width: 100%;
+          height: 44px;
+        }
+
+        /* ✅ Inputs date : hauteur alignée */
+        .filter-item-date .form-control-modern {
+          height: 44px;
+          width: 100%;
+        }
+
+        /* ✅ Bouton effacer : hauteur alignée */
+        .filter-clear-btn {
+          height: 44px;
+          padding: 0 18px;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        /* ✅ Label commun */
         .filter-label {
           font-size: 10.5px;
           font-weight: 700;
@@ -1431,19 +1555,57 @@ const ReparationsList = () => {
           padding-left: 2px;
         }
 
-        @media (max-width: 1500px) {
-          .filters-grid { grid-template-columns: repeat(4, 1fr); }
+        /* ============================================================ */
+        /* ✅ TABLETTE INTERMÉDIAIRE (993 - 1200px)                     */
+        /* ============================================================ */
+        @media (max-width: 1200px) and (min-width: 993px) {
+          .filters-line-2 > .filter-item {
+            flex: 1 1 calc(33.333% - 8px);
+            min-width: 140px;
+          }
         }
 
+        /* ============================================================ */
+        /* ✅ TABLETTE (≤ 992px)                                        */
+        /* ============================================================ */
         @media (max-width: 992px) {
-          .filters-grid { grid-template-columns: repeat(2, 1fr); }
+          .filter-item-search {
+            flex: 1 1 100%;
+          }
+          .filter-item-date {
+            flex: 1 1 calc(50% - 6px);
+          }
+          .filter-item-clear {
+            flex: 1 1 100%;
+          }
+          .filter-clear-btn {
+            width: 100%;
+            justify-content: center;
+          }
+          .filters-line-2 > .filter-item {
+            flex: 1 1 calc(50% - 6px);
+          }
         }
 
+        /* ============================================================ */
+        /* ✅ MOBILE (≤ 576px)                                          */
+        /* ============================================================ */
         @media (max-width: 576px) {
-          .filters-grid { grid-template-columns: 1fr; }
-          .filters-grid > * { width: 100% !important; }
+          .filters-line {
+            gap: 10px;
+          }
+          .filter-item-search,
+          .filter-item-date,
+          .filter-item-clear,
+          .filters-line-2 > .filter-item {
+            flex: 1 1 100%;
+            min-width: 0;
+          }
         }
 
+        /* ============================================================ */
+        /* ✅ Table                                                     */
+        /* ============================================================ */
         .rdt_TableHeadRow { min-height: 42px !important; }
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
