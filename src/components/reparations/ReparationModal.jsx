@@ -325,7 +325,6 @@ const ReparationModal = ({
   const [showQuickModele, setShowQuickModele] = useState(false);
 
 
-
   const formDataRef = useRef(formData);
 
   useEffect(() => { formDataRef.current = formData; }, [formData]);
@@ -880,98 +879,82 @@ const ReparationModal = ({
 
 
 
-  const handleSubmit = useCallback(async (shouldPrint = false) => {
-
+    const handleSubmit = useCallback(async (shouldPrint = false) => {
     setError("");
-
     setSuccess("");
 
-
-
     const fd = formDataRef.current;
-
     if (!fd.client) return setError("Le client est obligatoire");
-
     if (!fd.categorie) return setError("La catégorie est obligatoire");
-
     if (!fd.objet) return setError("L'objet est obligatoire");
-
     if (!fd.marque) return setError("La marque est obligatoire");
-
     if (!Array.isArray(fd.panneType) || fd.panneType.length === 0) {
-
       return setError("Au moins une panne est obligatoire");
-
     }
-
     if (!fd.note.trim()) return setError("La note est obligatoire");
-
     if (!fd.status) return setError("Le statut est obligatoire");
 
-
-
     setSaving(true);
-
     try {
-
       const cleanData = {
-
         ...fd,
-
         panneType: fd.panneType,
-
         observations: fd.observations.filter((o) => o.text.trim() !== ""),
-
         envoyerSMS,
-
       };
 
-
-
       const response = isEdit
-
         ? await updateReparation(reparation._id, cleanData)
-
         : await createReparation(cleanData);
-
-
 
       const saved = response.data ?? response;
 
-      setSuccess(isEdit ? "Réparation modifiée" : "Réparation créée");
-
-
+      // ✅ Afficher le résultat du SMS
+      const sms = saved?.sms || response?.sms;
+      if (envoyerSMS) {
+        if (!sms) {
+          setError("⚠️ SMS : réponse serveur manquante (vérifie les logs)");
+          return;
+        }
+        if (sms.skip) {
+          setError(`⚠️ SMS non envoyé : ${sms.erreur || "raison inconnue"}`);
+          // On continue quand même : l'enregistrement a réussi
+        } else if (sms.statutEnvoi === "succes") {
+          setSuccess(
+            (isEdit ? "Réparation modifiée" : "Réparation créée") +
+              " • 📱 SMS envoyé"
+          );
+        } else {
+          setError(`⚠️ Enregistré, mais SMS échoué : ${sms.erreur || "inconnu"}`);
+        }
+      } else {
+        setSuccess(isEdit ? "Réparation modifiée" : "Réparation créée");
+      }
 
       if (!isEdit) localStorage.removeItem(DRAFT_KEY);
 
-
-
       if (shouldPrint && saved._id) {
-
         setTimeout(() => printTicket(saved._id), 500);
-
       }
 
+      // ⚠️ On ne ferme pas immédiatement si le SMS a échoué (pour laisser lire)
+      const hasSmsProblem =
+        envoyerSMS && sms && (sms.skip || sms.statutEnvoi !== "succes");
 
-
-      setTimeout(() => {
-
-        onSuccess?.(saved);
-
-        onClose();
-
-      }, 800);
-
+      setTimeout(
+        () => {
+          onSuccess?.(saved);
+          onClose();
+        },
+        hasSmsProblem ? 2500 : 800
+      );
     } catch (err) {
-
-      setError(err.response?.data?.message || "Erreur lors de l'enregistrement");
-
+      setError(
+        err.response?.data?.message || "Erreur lors de l'enregistrement"
+      );
     } finally {
-
       setSaving(false);
-
     }
-
   }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose]);
 
 
