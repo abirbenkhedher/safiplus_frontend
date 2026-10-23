@@ -7,7 +7,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { useReparationsEnRetard } from "../../hooks/useReparationsEnRetard";
-
+import { saveRetardMode } from "../../utils/filterStorage";
 const AlertesRetard = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -373,6 +373,7 @@ const AlertesRetard = () => {
             ))}
           </div>
 
+
           {/* FOOTER — toujours visible */}
           <div
             style={{
@@ -383,28 +384,27 @@ const AlertesRetard = () => {
               flexShrink: 0,
             }}
           >
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                navigate("/reparations");
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--primary)",
-                fontSize: "12px",
-                fontWeight: "700",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 12px",
-                borderRadius: "8px",
-              }}
-            >
-              Voir toutes les réparations →
-            </button>
+
+<button
+  onClick={() => {
+    setIsOpen(false);
+    // ✅ Sauvegarde le mode retard AVANT de naviguer
+    import("../../utils/filterStorage").then(({ saveRetardMode }) => {
+      saveRetardMode(true);
+      navigate("/reparations?retard=1");
+    });
+  }}
+  style={{
+    background: "none", border: "none", color: "var(--primary)",
+    fontSize: "12px", fontWeight: "700", cursor: "pointer",
+    display: "inline-flex", alignItems: "center", gap: "6px",
+    padding: "6px 12px", borderRadius: "8px",
+  }}
+>
+  Voir toutes les réparations en retard →
+</button>
           </div>
+
         </div>
       )}
     </div>

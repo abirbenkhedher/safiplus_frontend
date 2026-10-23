@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FaSave,
   FaTimes,
@@ -16,7 +16,9 @@ import {
   updateClient,
   findClientByPhone,
 } from "../../api/clients";
-import { ZONES } from "../../constants/zones";
+import SearchSelect from "../../components/reparations/SearchSelect";
+import QuickCreateZoneModal from "../../components/reparations/QuickCreateZoneModal";
+import { useReparationData } from "../../hooks/useReparationData";
 
 // ============================================================
 // ✅ Helper : limite à 8 chiffres (chiffres uniquement)
@@ -46,7 +48,6 @@ const handlePhoneKeyDown = (e) => {
   if (allowedKeys.includes(e.key)) return;
   if (e.ctrlKey || e.metaKey) return;
 
-  // Bloquer tout ce qui n'est pas un chiffre
   if (!/^[0-9]$/.test(e.key)) {
     e.preventDefault();
   }
@@ -70,7 +71,22 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   const [error, setError] = useState("");
   const [existingClient, setExistingClient] = useState(null);
 
-  // Reset quand le modal s'ouvre
+  // ✅ Zones dynamiques (comme les pannes)
+  const { zones = [], reloadZones } = useReparationData();
+  const [showQuickZone, setShowQuickZone] = useState(false);
+
+  const zonesOptions = useMemo(
+    () =>
+      [...zones]
+        .sort(
+          (a, b) =>
+            (a.ordre ?? 0) - (b.ordre ?? 0) ||
+            (a.nom || "").localeCompare(b.nom || "")
+        )
+        .map((z) => ({ value: z.nom, label: z.nom })),
+    [zones]
+  );
+
   useEffect(() => {
     if (show) {
       setFormData(
@@ -104,7 +120,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // ✅ Limiter phone et phone2 à 8 chiffres max
     if (name === "phone" || name === "phone2") {
       setFormData({
         ...formData,
@@ -124,7 +139,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
     });
   };
 
-  // ✅ Vérifier le téléphone quand l'utilisateur finit de taper
   const handlePhoneBlur = async () => {
     if (isEdit) return;
     if (!formData.phone || formData.phone.trim().length < 6) return;
@@ -163,18 +177,24 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
     }
   };
 
+  // ✅ Callback : après création rapide d'une zone
+  const handleZoneCreated = async (nouvelleZone) => {
+    await reloadZones?.();
+    if (nouvelleZone?.nom) {
+      setFormData((prev) => ({ ...prev, zone: nouvelleZone.nom }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setExistingClient(null);
 
-    // Validation
     if (!formData.nom.trim()) return setError("Le nom est obligatoire");
     if (!formData.phone.trim()) return setError("Le téléphone est obligatoire");
 
     setLoading(true);
     try {
-      // DOUBLE VÉRIFICATION : Avant de créer, vérifier que le téléphone n'existe pas
       if (!isEdit) {
         const checkResult = await findClientByPhone(formData.phone);
 
@@ -188,7 +208,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
         }
       }
 
-      // ✅ Nettoyer le code fidélité (laisser vide si non fourni)
       const dataToSend = { ...formData };
       if (!dataToSend.codeFidelite || !dataToSend.codeFidelite.trim()) {
         delete dataToSend.codeFidelite;
@@ -320,7 +339,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Body */}
             <div
               style={{
                 padding: "24px 28px",
@@ -348,7 +366,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               )}
 
-              {/* Alerte : client existant détecté */}
               {existingClient && (
                 <div
                   style={{
@@ -437,7 +454,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               )}
 
-              {/* Nom complet */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   <FaUser
@@ -459,7 +475,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* Téléphone + Téléphone 2 */}
               <div className="row g-3" style={{ marginBottom: "18px" }}>
                 <div className="col-12 col-md-6">
                   <label className="form-label-modern">
@@ -503,7 +518,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                       </div>
                     )}
                   </div>
-                  {/* ✅ Compteur de chiffres */}
                   <div
                     style={{
                       fontSize: "10.5px",
@@ -557,7 +571,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               </div>
 
-              {/* Email */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   <FaEnvelope
@@ -577,7 +590,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* Adresse */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   <FaMapMarkerAlt
@@ -597,7 +609,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 />
               </div>
 
-              {/* ✅ Zone */}
+              {/* ✅ ZONE — SearchSelect + bouton "+" (comme les pannes, sélection unique) */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   <FaMapMarkerAlt
@@ -615,23 +627,19 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                     (optionnel)
                   </span>
                 </label>
-                <select
-                  name="zone"
+                <SearchSelect
+                  options={zonesOptions}
                   value={formData.zone}
-                  onChange={handleChange}
-                  className="form-control-modern"
-                  style={{ width: "100%" }}
-                >
-                  <option value="">— Sélectionnez une zone —</option>
-                  {ZONES.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) =>
+                    setFormData((prev) => ({ ...prev, zone: val }))
+                  }
+                  placeholder="— Sélectionnez une zone —"
+                  onCreate={() => setShowQuickZone(true)}
+                  createLabel="Créer une nouvelle zone"
+                />
               </div>
 
-              {/* ✅ Code fidélité (facultatif) */}
+              {/* ✅ Code fidélité — TOUJOURS MODIFIABLE */}
               <div style={{ marginBottom: "18px" }}>
                 <label className="form-label-modern">
                   🎁 Code fidélité{" "}
@@ -653,22 +661,18 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                   className="form-control-modern"
                   placeholder="FID-XXXXXXX (laisser vide si aucun)"
                   style={{ width: "100%", textTransform: "uppercase" }}
-                  disabled={isEdit && !!client?.codeFidelite}
                 />
-                {!isEdit && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "var(--gray-500)",
-                      marginTop: "4px",
-                    }}
-                  >
-                    💡 Laissez vide si le client n'a pas de carte de fidélité
-                  </div>
-                )}
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--gray-500)",
+                    marginTop: "4px",
+                  }}
+                >
+                  💡 Laissez vide si le client n'a pas de carte de fidélité
+                </div>
               </div>
 
-              {/* Statut (uniquement en édition) */}
               {isEdit && (
                 <div
                   style={{
@@ -733,7 +737,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 </div>
               )}
 
-              {/* Info nouveau client */}
               {!isEdit && !existingClient && (
                 <div
                   style={{
@@ -754,7 +757,6 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               )}
             </div>
 
-            {/* Footer */}
             <div
               style={{
                 padding: "16px 28px",
@@ -796,6 +798,13 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
           </form>
         </div>
       </div>
+
+      {/* ✅ Modale création rapide de zone (au-dessus) */}
+      <QuickCreateZoneModal
+        show={showQuickZone}
+        onClose={() => setShowQuickZone(false)}
+        onCreated={handleZoneCreated}
+      />
 
       <style>{`
         .switch-modern {

@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
   FaTools, FaCheckCircle, FaSpinner, FaPrint,
   FaMoneyBillWave, FaMapMarkedAlt, FaFilter, FaBoxes,
-  FaBriefcase, FaCalendarAlt,
+  FaBriefcase, FaCalendarAlt, FaGift, FaExclamationTriangle,
 } from "react-icons/fa";
 import {
-  getReparations,
-  deleteReparation,
-  deleteManyReparations,
-  updateReparation,
+  getReparations, deleteReparation, deleteManyReparations, updateReparation,
 } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
 import { getUsers } from "../../api/users";
@@ -27,11 +24,33 @@ import {
   saveFilters,
   loadFilters,
   clearFilters,
+  saveRetardMode,
+  loadRetardMode,
 } from "../../utils/filterStorage";
 
+
+// ============================================================
+// ✅ Détection de refresh (F5)
+// ============================================================
+const isPageRefresh = () => {
+  try {
+    const navEntries = performance.getEntriesByType("navigation");
+    if (navEntries.length > 0) {
+      return navEntries[0].type === "reload";
+    }
+    if (performance.navigation) {
+      return performance.navigation.type === 1;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
 // ============================================================
 // ✅ Constantes
 // ============================================================
+const DELAI_ALERTE_HEURES = 48;
+
 const STATUTS_TERMINES = [
   "REPARE", "NON REPARE", "SORTIE NON REPARE", "SAV",
   "SORTIE REPARE", "SAV REPARE", "SAV NON REPARE",
@@ -39,12 +58,9 @@ const STATUTS_TERMINES = [
 ];
 
 const STATUT_EN_COURS = "EN COURS";
-
 const STATUTS_EDITABLES = ["EN COURS", "REPARE", "NON REPARE"];
-
 const ROLES_REPARATEUR = ["REPARATEUR", "COMMERCIAL"];
 
-// ✅ Filtres : chaque champ multi est un TABLEAU
 const DEFAULT_FILTERS = {
   search: "",
   famille: [],
@@ -57,7 +73,6 @@ const DEFAULT_FILTERS = {
   dateFin: "",
 };
 
-// ✅ Normalisation du label de statut
 const normalizeLabel = (label) =>
   String(label || "").trim().toUpperCase().replace(/\s+/g, " ");
 
@@ -66,12 +81,55 @@ const normalizeLabel = (label) =>
 // ============================================================
 const ReparationsList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { openNewReparation, openEditReparation, registerOnSuccess } =
     useReparationModal();
   const { categories, familles = [] } = useReparationData();
 
   const { user } = useAuth();
   const canDelete = user?.role === "ADMIN";
+
+  // ============================================================
+  // ✅ Mode "retard" : lu depuis sessionStorage au montage
+  // ============================================================
+  const [isRetardMode, setIsRetardMode] = useState(() => loadRetardMode());
+
+// ✅ Synchronisation URL → state (UNIQUEMENT si l'URL contient ?retard=1)
+//    MAIS on ne réactive PAS le mode si le flag de refresh est présent
+useEffect(() => {
+  const urlHasRetard = searchParams.get("retard") === "1";
+  const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
+
+  // Si c'est un refresh → on ne fait RIEN (le mode a déjà été effacé)
+  if (isRefresh) return;
+
+  if (urlHasRetard && !isRetardMode) {
+    setIsRetardMode(true);
+    saveRetardMode(true);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [searchParams]);
+
+
+// ✅ Si refresh → nettoyer l'URL du paramètre retard
+useEffect(() => {
+  const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
+  if (isRefresh && searchParams.get("retard") === "1") {
+    searchParams.delete("retard");
+    setSearchParams(searchParams, { replace: true });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+  // ============================================================
+  // ✅ Désactiver le mode retard
+  // ============================================================
+  const exitRetardMode = () => {
+    setIsRetardMode(false);
+    saveRetardMode(false);
+    searchParams.delete("retard");
+    setSearchParams(searchParams);
+  };
 
   const [reparations, setReparations] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -440,43 +498,78 @@ const ReparationsList = () => {
   }, [reparations]);
 
   // ============================================================
+  // ✅ FILTRAGE PAR RETARD (mode "retard")
+  // ============================================================
+  const reparationsFilteredByRetard = useMemo(() => {
+    if (!isRetardMode) return reparations;
+
+    const maintenant = new Date();
+    return reparations.filter((rep) => {
+      const statusLabel = (rep.status?.label || "").toLowerCase();
+      const isEnCours =
+        statusLabel.includes("en cours") || statusLabel.includes("cours");
+      if (!isEnCours) return false;
+
+      const dateReception = rep.dateReception || rep.createdAt;
+      if (!dateReception) return false;
+
+      const diffHeures =
+        (maintenant - new Date(dateReception)) / (1000 * 60 * 60);
+      return diffHeures >= DELAI_ALERTE_HEURES;
+    });
+  }, [reparations, isRetardMode]);
+
+  // ============================================================
   // ✅ TRI PAR PERTINENCE
   // ============================================================
   const sortedReparations = useMemo(() => {
+    const base = reparationsFilteredByRetard;
     const query = (filters.search || "").trim().toLowerCase();
-    if (!query) return reparations;
+    if (!query) return base;
 
     const getScore = (r) => {
       const numero = String(r.numero || "").toLowerCase();
       const clientNom = String(r.client?.nom || "").toLowerCase();
       const clientPhone = String(r.client?.phone || "").toLowerCase();
+      const clientPhone2 = String(r.client?.phone2 || "").toLowerCase();
+      const clientCode = String(r.client?.code || "").toLowerCase();
+      const clientCodeFidelite = String(r.client?.codeFidelite || "").toLowerCase();
       const marque = String(r.marque?.nom || "").toLowerCase();
       const modele = String(r.modele?.nom || "").toLowerCase();
       const objet = String(r.objet?.nom || "").toLowerCase();
 
-      if (numero === query) return 1000;
-      if (numero.startsWith(query)) return 900;
-      if (numero.includes(query)) return 800;
-      if (clientNom.startsWith(query)) return 700;
-      if (clientPhone.includes(query)) return 600;
-      if (clientNom.includes(query)) return 500;
-      if (
-        marque.includes(query) ||
-        modele.includes(query) ||
-        objet.includes(query)
-      )
-        return 400;
+      if (numero === query) return 10000;
+      if (numero.startsWith(query)) return 9500;
+      if (numero.includes(query)) return 9000;
+
+      if (clientCodeFidelite === query) return 8500;
+      if (clientCodeFidelite.startsWith(query)) return 8000;
+      if (clientCodeFidelite.includes(query)) return 7500;
+
+      if (clientPhone === query || clientPhone2 === query) return 7000;
+      if (clientPhone.startsWith(query) || clientPhone2.startsWith(query)) return 6500;
+      if (clientPhone.includes(query) || clientPhone2.includes(query)) return 6000;
+
+      if (clientNom === query) return 5500;
+      if (clientNom.startsWith(query)) return 5000;
+      if (clientNom.includes(query)) return 4500;
+
+      if (clientCode.includes(query)) return 4000;
+
+      if (marque === query || modele === query || objet === query) return 3500;
+      if (marque.includes(query) || modele.includes(query) || objet.includes(query)) return 3000;
+
       return 100;
     };
 
-    return [...reparations]
+    return [...base]
       .map((r) => ({ r, score: getScore(r) }))
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return new Date(b.r.createdAt) - new Date(a.r.createdAt);
       })
       .map(({ r }) => r);
-  }, [reparations, filters.search]);
+  }, [reparationsFilteredByRetard, filters.search]);
 
   // ============================================================
   // COLONNES
@@ -492,7 +585,9 @@ const ReparationsList = () => {
             className="btn-icon"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/reparations/${row._id}`);
+              // ✅ Préserver le mode retard dans l'URL
+              const url = isRetardMode ? `/reparations/${row._id}?retard=1` : `/reparations/${row._id}`;
+              navigate(url);
             }}
             title="Voir"
           >
@@ -565,20 +660,13 @@ const ReparationsList = () => {
           return (
             <span
               className="badge-modern badge-modern-primary"
-              style={{
-                fontSize: "10px",
-                fontFamily: "monospace",
-                padding: "3px 7px",
-              }}
+              style={{ fontSize: "10px", fontFamily: "monospace", padding: "3px 7px" }}
             >
               {before}
               <mark
                 style={{
-                  background: "#fbbf24",
-                  color: "#78350f",
-                  padding: "0 2px",
-                  borderRadius: "3px",
-                  fontWeight: "800",
+                  background: "var(--success)", color: "white",
+                  padding: "0 3px", borderRadius: "3px", fontWeight: "800",
                 }}
               >
                 {match}
@@ -591,11 +679,7 @@ const ReparationsList = () => {
         return (
           <span
             className="badge-modern badge-modern-primary"
-            style={{
-              fontSize: "10px",
-              fontFamily: "monospace",
-              padding: "3px 7px",
-            }}
+            style={{ fontSize: "10px", fontFamily: "monospace", padding: "3px 7px" }}
           >
             {numero}
           </span>
@@ -607,53 +691,52 @@ const ReparationsList = () => {
       selector: (row) => row.client?.nom,
       sortable: true,
       grow: 2,
-      minWidth: "170px",
-      cell: (row) => (
-        <div style={{ padding: "2px 0" }}>
-          <div
-            style={{
-              fontWeight: "600",
-              fontSize: "12.5px",
-              color: "var(--gray-800)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {row.client?.nom || "N/A"}
+      minWidth: "190px",
+      cell: (row) => {
+        const codeFidelite = row.client?.codeFidelite;
+        return (
+          <div style={{ padding: "2px 0" }}>
+            <div
+              style={{
+                fontWeight: "600", fontSize: "12.5px", color: "var(--gray-800)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}
+            >
+              {row.client?.nom || "N/A"}
+            </div>
+            {row.client?.phone && (
+              <div style={{ fontSize: "10.5px", color: "var(--gray-500)", marginTop: "1px" }}>
+                📞 {row.client.phone}
+              </div>
+            )}
+            {codeFidelite && (
+              <div
+                style={{
+                  fontSize: "10px", color: "var(--warning)", marginTop: "2px",
+                  fontFamily: "monospace", fontWeight: "700",
+                  display: "flex", alignItems: "center", gap: "4px",
+                }}
+              >
+                <FaGift size={9} /> {codeFidelite}
+              </div>
+            )}
+            {row.client?.zone && (
+              <div
+                style={{
+                  fontSize: "10px", color: "var(--gray-400)", marginTop: "1px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}
+              >
+                <FaMapMarkedAlt size={8} /> {row.client.zone}
+              </div>
+            )}
           </div>
-          {row.client?.phone && (
-            <div
-              style={{
-                fontSize: "10.5px",
-                color: "var(--gray-500)",
-                marginTop: "1px",
-              }}
-            >
-              📞 {row.client.phone}
-            </div>
-          )}
-          {row.client?.zone && (
-            <div
-              style={{
-                fontSize: "10px",
-                color: "var(--gray-400)",
-                marginTop: "1px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <FaMapMarkedAlt size={8} /> {row.client.zone}
-            </div>
-          )}
-        </div>
-      ),
+        );
+      },
     },
     {
       name: "Appareil",
-      selector: (row) =>
-        `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
+      selector: (row) => `${row.marque?.nom || ""} ${row.modele?.nom || ""}`.trim(),
       sortable: true,
       grow: 1.5,
       minWidth: "140px",
@@ -661,23 +744,16 @@ const ReparationsList = () => {
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontWeight: "600",
-              fontSize: "12.5px",
-              color: "var(--gray-800)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              fontWeight: "600", fontSize: "12.5px", color: "var(--gray-800)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}
           >
             {row.marque?.nom || "-"} {row.modele?.nom || ""}
           </div>
           <div
             style={{
-              fontSize: "10.5px",
-              color: "var(--gray-500)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              fontSize: "10.5px", color: "var(--gray-500)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}
           >
             {row.objet?.nom}
@@ -695,23 +771,9 @@ const ReparationsList = () => {
       grow: 1.5,
       minWidth: "150px",
       cell: (row) => {
-        const pannes = Array.isArray(row.panneType)
-          ? row.panneType
-          : row.panneType
-          ? [row.panneType]
-          : [];
+        const pannes = Array.isArray(row.panneType) ? row.panneType : row.panneType ? [row.panneType] : [];
         if (pannes.length === 0) {
-          return (
-            <span
-              style={{
-                fontSize: "11px",
-                color: "var(--gray-400)",
-                fontStyle: "italic",
-              }}
-            >
-              -
-            </span>
-          );
+          return <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>-</span>;
         }
         return (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
@@ -719,16 +781,10 @@ const ReparationsList = () => {
               <span
                 key={i}
                 style={{
-                  padding: "2px 6px",
-                  background: "var(--warning-light)",
-                  color: "var(--warning)",
-                  borderRadius: "6px",
-                  fontSize: "10px",
-                  fontWeight: "600",
-                  whiteSpace: "nowrap",
-                  maxWidth: "100px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+                  padding: "2px 6px", background: "var(--warning-light)", color: "var(--warning)",
+                  borderRadius: "6px", fontSize: "10px", fontWeight: "600",
+                  whiteSpace: "nowrap", maxWidth: "100px",
+                  overflow: "hidden", textOverflow: "ellipsis",
                 }}
               >
                 {p}
@@ -737,12 +793,8 @@ const ReparationsList = () => {
             {pannes.length > 2 && (
               <span
                 style={{
-                  padding: "2px 6px",
-                  background: "var(--gray-200)",
-                  color: "var(--gray-700)",
-                  borderRadius: "6px",
-                  fontSize: "10px",
-                  fontWeight: "700",
+                  padding: "2px 6px", background: "var(--gray-200)", color: "var(--gray-700)",
+                  borderRadius: "6px", fontSize: "10px", fontWeight: "700",
                 }}
                 title={pannes.slice(2).join(", ")}
               >
@@ -768,54 +820,30 @@ const ReparationsList = () => {
 
         if (isEditing && isEditable) {
           return (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ display: "flex", alignItems: "center", gap: "4px" }}
-            >
+            <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
               <select
                 autoFocus
                 value={row.status?._id || ""}
                 onChange={(e) => handleQuickStatusChange(row, e.target.value)}
-                onBlur={() => {
-                  setTimeout(() => setEditingStatusId(null), 150);
-                }}
+                onBlur={() => { setTimeout(() => setEditingStatusId(null), 150); }}
                 disabled={isUpdating}
                 style={{
-                  fontSize: "11px",
-                  padding: "3px 6px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--primary)",
-                  background: "white",
-                  cursor: isUpdating ? "wait" : "pointer",
-                  minWidth: "110px",
+                  fontSize: "11px", padding: "3px 6px", borderRadius: "6px",
+                  border: "1px solid var(--primary)", background: "white",
+                  cursor: isUpdating ? "wait" : "pointer", minWidth: "110px",
                 }}
               >
                 {editableStatuses.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.label}
-                  </option>
+                  <option key={s._id} value={s._id}>{s.label}</option>
                 ))}
               </select>
-              {isUpdating && (
-                <FaSpinner
-                  size={11}
-                  className="spin"
-                  style={{ color: "var(--primary)" }}
-                />
-              )}
+              {isUpdating && <FaSpinner size={11} className="spin" style={{ color: "var(--primary)" }} />}
             </div>
           );
         }
 
         return (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "3px",
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
             <span
               className="badge-modern"
               onClick={(e) => {
@@ -825,36 +853,24 @@ const ReparationsList = () => {
               }}
               title={isEditable ? "Cliquer pour changer le statut" : ""}
               style={{
-                background: row.status?.color || "var(--gray-500)",
-                color: "white",
-                whiteSpace: "nowrap",
-                fontSize: "10px",
-                padding: "3px 8px",
+                background: row.status?.color || "var(--gray-500)", color: "white",
+                whiteSpace: "nowrap", fontSize: "10px", padding: "3px 8px",
                 cursor: isEditable ? "pointer" : "default",
                 opacity: isUpdating ? 0.6 : 1,
                 transition: "transform 100ms ease, opacity 100ms ease",
                 border: isEditable ? "1px dashed rgba(255,255,255,0.5)" : "none",
               }}
-              onMouseEnter={(e) => {
-                if (isEditable) e.currentTarget.style.transform = "scale(1.05)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-              }}
+              onMouseEnter={(e) => { if (isEditable) e.currentTarget.style.transform = "scale(1.05)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
             >
               {row.status?.label || "N/A"}
               {isUpdating && " ⏳"}
             </span>
-
             {imprevusEnAttente > 0 && (
               <span
                 style={{
-                  fontSize: "9px",
-                  fontWeight: "700",
-                  color: "var(--warning)",
-                  background: "var(--warning-light)",
-                  padding: "1px 5px",
-                  borderRadius: "6px",
+                  fontSize: "9px", fontWeight: "700", color: "var(--warning)",
+                  background: "var(--warning-light)", padding: "1px 5px", borderRadius: "6px",
                 }}
               >
                 ⚠️ {imprevusEnAttente}
@@ -872,13 +888,7 @@ const ReparationsList = () => {
       right: true,
       cell: (row) => (
         <div style={{ textAlign: "right" }}>
-          <div
-            style={{
-              fontWeight: "700",
-              fontSize: "12.5px",
-              color: "var(--gray-800)",
-            }}
-          >
+          <div style={{ fontWeight: "700", fontSize: "12.5px", color: "var(--gray-800)" }}>
             {(row.prixTotal || row.prix || 0).toFixed(2)}
           </div>
           <div style={{ fontSize: "9.5px", color: "var(--gray-500)" }}>DT</div>
@@ -897,8 +907,7 @@ const ReparationsList = () => {
           <div style={{ textAlign: "right" }}>
             <div
               style={{
-                fontWeight: "700",
-                fontSize: "12.5px",
+                fontWeight: "700", fontSize: "12.5px",
                 color: reste > 0 ? "var(--danger)" : "var(--success)",
               }}
             >
@@ -919,36 +928,17 @@ const ReparationsList = () => {
       width: "140px",
       cell: (row) => {
         const { user: u, date } = getLastModificationInfo(row);
-
         if (!u) {
-          return (
-            <span
-              style={{
-                fontSize: "11px",
-                color: "var(--gray-400)",
-                fontStyle: "italic",
-              }}
-            >
-              —
-            </span>
-          );
+          return <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>;
         }
-
         return (
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <div
               style={{
-                width: "24px",
-                height: "24px",
-                borderRadius: "6px",
-                background: "linear-gradient(135deg, #8b5cf6, #6d28d9)",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "9px",
-                fontWeight: "700",
-                flexShrink: 0,
+                width: "24px", height: "24px", borderRadius: "6px",
+                background: "linear-gradient(135deg, #8b5cf6, #6d28d9)", color: "white",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "9px", fontWeight: "700", flexShrink: 0,
               }}
             >
               {u.firstName?.charAt(0) || u.username?.charAt(0) || "?"}
@@ -957,11 +947,8 @@ const ReparationsList = () => {
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: "11.5px",
-                  color: "var(--gray-700)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  fontSize: "11.5px", color: "var(--gray-700)",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}
               >
                 {u.firstName || u.username || "—"}
@@ -986,18 +973,10 @@ const ReparationsList = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <div
               style={{
-                width: "24px",
-                height: "24px",
-                borderRadius: "6px",
-                background:
-                  "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "9px",
-                fontWeight: "700",
-                flexShrink: 0,
+                width: "24px", height: "24px", borderRadius: "6px",
+                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                color: "white", display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: "9px", fontWeight: "700", flexShrink: 0,
               }}
             >
               {row.reparateur.firstName?.charAt(0)}
@@ -1005,26 +984,15 @@ const ReparationsList = () => {
             </div>
             <span
               style={{
-                fontSize: "11.5px",
-                color: "var(--gray-700)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                fontSize: "11.5px", color: "var(--gray-700)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}
             >
               {row.reparateur.firstName}
             </span>
           </div>
         ) : (
-          <span
-            style={{
-              fontSize: "11px",
-              color: "var(--gray-400)",
-              fontStyle: "italic",
-            }}
-          >
-            —
-          </span>
+          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
         ),
     },
     {
@@ -1037,17 +1005,10 @@ const ReparationsList = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <div
               style={{
-                width: "24px",
-                height: "24px",
-                borderRadius: "6px",
-                background: "linear-gradient(135deg, var(--warning), #d97706)",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "9px",
-                fontWeight: "700",
-                flexShrink: 0,
+                width: "24px", height: "24px", borderRadius: "6px",
+                background: "linear-gradient(135deg, var(--warning), #d97706)", color: "white",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "9px", fontWeight: "700", flexShrink: 0,
               }}
             >
               {row.createdBy.firstName?.charAt(0)}
@@ -1055,26 +1016,15 @@ const ReparationsList = () => {
             </div>
             <span
               style={{
-                fontSize: "11.5px",
-                color: "var(--gray-700)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                fontSize: "11.5px", color: "var(--gray-700)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}
             >
               {row.createdBy.firstName}
             </span>
           </div>
         ) : (
-          <span
-            style={{
-              fontSize: "11px",
-              color: "var(--gray-400)",
-              fontStyle: "italic",
-            }}
-          >
-            —
-          </span>
+          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
         ),
     },
     {
@@ -1097,26 +1047,13 @@ const ReparationsList = () => {
     <div className="fade-in-up">
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
-          <h1
-            style={{
-              fontSize: "24px",
-              fontWeight: "700",
-              color: "var(--gray-900)",
-              marginBottom: "4px",
-            }}
-          >
+          <h1 style={{ fontSize: "24px", fontWeight: "700", color: "var(--gray-900)", marginBottom: "4px" }}>
             Réparations
           </h1>
           <p style={{ fontSize: "13px", color: "var(--gray-500)", margin: 0 }}>
-            {reparations.length} réparation(s) • {stats.enCours} en cours
+            {sortedReparations.length} réparation(s) • {stats.enCours} en cours
             {selectedRows.length > 0 && (
-              <span
-                style={{
-                  color: "var(--primary)",
-                  fontWeight: "600",
-                  marginLeft: "8px",
-                }}
-              >
+              <span style={{ color: "var(--primary)", fontWeight: "600", marginLeft: "8px" }}>
                 • {selectedRows.length} sélectionnée(s)
               </span>
             )}
@@ -1124,11 +1061,7 @@ const ReparationsList = () => {
         </div>
         <div className="d-flex gap-2 flex-wrap">
           {selectedRows.length > 0 && (
-            <button
-              className="btn-modern btn-modern-outline"
-              onClick={clearSelection}
-              title="Désélectionner tout"
-            >
+            <button className="btn-modern btn-modern-outline" onClick={clearSelection} title="Désélectionner tout">
               <FaTimes /> Désélectionner
             </button>
           )}
@@ -1145,11 +1078,7 @@ const ReparationsList = () => {
 
           <ExportButton
             onExport={handleExportExcel}
-            label={
-              selectedRows.length > 0
-                ? `Exporter (${selectedRows.length})`
-                : "Excel"
-            }
+            label={selectedRows.length > 0 ? `Exporter (${selectedRows.length})` : "Excel"}
           />
 
           <button className="btn-modern btn-modern-primary" onClick={handleNew}>
@@ -1161,13 +1090,8 @@ const ReparationsList = () => {
       {success && (
         <div
           style={{
-            padding: "12px 16px",
-            background: "var(--success-light)",
-            color: "var(--success)",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            fontSize: "13px",
-            fontWeight: "500",
+            padding: "12px 16px", background: "var(--success-light)", color: "var(--success)",
+            borderRadius: "10px", marginBottom: "20px", fontSize: "13px", fontWeight: "500",
           }}
         >
           ✅ {success}
@@ -1176,16 +1100,53 @@ const ReparationsList = () => {
       {error && (
         <div
           style={{
-            padding: "12px 16px",
-            background: "var(--danger-light)",
-            color: "var(--danger)",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            fontSize: "13px",
-            fontWeight: "500",
+            padding: "12px 16px", background: "var(--danger-light)", color: "var(--danger)",
+            borderRadius: "10px", marginBottom: "20px", fontSize: "13px", fontWeight: "500",
           }}
         >
           ⚠️ {error}
+        </div>
+      )}
+
+      {isRetardMode && (
+        <div
+          style={{
+            padding: "14px 18px",
+            background: "linear-gradient(135deg, #fef2f2, #fee2e2)",
+            border: "1px solid #fecaca",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              width: "40px", height: "40px", borderRadius: "10px",
+              background: "linear-gradient(135deg, #ef4444, #dc2626)",
+              color: "white", display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: "16px", flexShrink: 0,
+            }}
+          >
+            <FaExclamationTriangle />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "14px", fontWeight: "800", color: "#991b1b" }}>
+              🚨 Mode "Réparations en retard"
+            </div>
+            <div style={{ fontSize: "12px", color: "#dc2626", fontWeight: "600", marginTop: "2px" }}>
+              Vous voyez uniquement les réparations en cours depuis plus de 48h.
+            </div>
+          </div>
+          <button
+            onClick={exitRetardMode}
+            className="btn-modern btn-modern-outline"
+            style={{ fontSize: "12px", padding: "8px 14px", borderColor: "#dc2626", color: "#dc2626" }}
+          >
+            <FaTimes size={10} /> Afficher tout
+          </button>
         </div>
       )}
 
@@ -1199,27 +1160,16 @@ const ReparationsList = () => {
           <div key={i} className="col-6 col-lg-3">
             <div
               style={{
-                background: "var(--gray-50)",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "16px",
-                padding: "18px",
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
+                background: "var(--gray-50)", border: "1px solid var(--gray-200)",
+                borderRadius: "16px", padding: "18px",
+                display: "flex", alignItems: "center", gap: "14px",
               }}
             >
               <div
                 style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "12px",
-                  background: stat.bg,
-                  color: stat.color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "18px",
-                  flexShrink: 0,
+                  width: "46px", height: "46px", borderRadius: "12px",
+                  background: stat.bg, color: stat.color, display: "flex",
+                  alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0,
                 }}
               >
                 {stat.icon}
@@ -1227,24 +1177,13 @@ const ReparationsList = () => {
               <div>
                 <div
                   style={{
-                    fontSize: "11px",
-                    fontWeight: "600",
-                    color: "var(--gray-500)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginBottom: "2px",
+                    fontSize: "11px", fontWeight: "600", color: "var(--gray-500)",
+                    textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px",
                   }}
                 >
                   {stat.label}
                 </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "800",
-                    color: "var(--gray-900)",
-                    lineHeight: 1,
-                  }}
-                >
+                <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--gray-900)", lineHeight: 1 }}>
                   {stat.value}
                 </div>
               </div>
@@ -1253,13 +1192,8 @@ const ReparationsList = () => {
         ))}
       </div>
 
-      {/* ============================================================ */}
-      {/* ✅ ZONE DE FILTRES : Flexbox responsive                      */}
-      {/* ============================================================ */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
-        {/* Ligne 1 : Recherche + Du + Au + Effacer */}
         <div className="filters-line filters-line-1">
-          {/* Recherche */}
           <div className="filter-item filter-item-search">
             <div className="filter-search-wrapper">
               <FaSearch className="filter-search-icon" />
@@ -1267,18 +1201,15 @@ const ReparationsList = () => {
                 type="text"
                 name="search"
                 className="form-control-modern"
-                placeholder="Rechercher : N°, client, téléphone, marque, panne..."
+                placeholder="Rechercher : reçu, code fidélité, téléphone, client, marque..."
                 value={filters.search}
                 onChange={handleFilterChange}
               />
             </div>
           </div>
 
-          {/* Du */}
           <div className="filter-item filter-item-date">
-            <label className="filter-label">
-              <FaCalendarAlt size={10} /> Du
-            </label>
+            <label className="filter-label"><FaCalendarAlt size={10} /> Du</label>
             <input
               type="date"
               name="dateDebut"
@@ -1288,11 +1219,8 @@ const ReparationsList = () => {
             />
           </div>
 
-          {/* Au */}
           <div className="filter-item filter-item-date">
-            <label className="filter-label">
-              <FaCalendarAlt size={10} /> Au
-            </label>
+            <label className="filter-label"><FaCalendarAlt size={10} /> Au</label>
             <input
               type="date"
               name="dateFin"
@@ -1302,21 +1230,15 @@ const ReparationsList = () => {
             />
           </div>
 
-          {/* Bouton Effacer */}
           {hasActiveFilters && (
             <div className="filter-item filter-item-clear">
-              <button
-                className="btn-modern btn-modern-outline filter-clear-btn"
-                onClick={resetFilters}
-              >
-                <FaTimes size={12} /> Effacer{" "}
-                {activeCount > 0 && `(${activeCount})`}
+              <button className="btn-modern btn-modern-outline filter-clear-btn" onClick={resetFilters}>
+                <FaTimes size={12} /> Effacer {activeCount > 0 && `(${activeCount})`}
               </button>
             </div>
           )}
         </div>
 
-        {/* Ligne 2 : Les 6 MultiSelects */}
         <div className="filters-line filters-line-2">
           <div className="filter-item">
             <MultiSelect
@@ -1336,9 +1258,7 @@ const ReparationsList = () => {
               options={categorieOptions}
               value={filters.categorie}
               onChange={(v) => handleMultiChange("categorie", v)}
-              placeholder={
-                filters.famille.length > 0 ? "Toutes (famille)" : "Toutes"
-              }
+              placeholder={filters.famille.length > 0 ? "Toutes (famille)" : "Toutes"}
             />
           </div>
 
@@ -1390,18 +1310,12 @@ const ReparationsList = () => {
         {hasActiveFilters && (
           <div
             style={{
-              marginTop: "12px",
-              fontSize: "11.5px",
-              color: "var(--gray-500)",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
+              marginTop: "12px", fontSize: "11.5px", color: "var(--gray-500)",
+              display: "flex", alignItems: "center", gap: "6px",
             }}
           >
             <span>🔎</span>
-            <span>
-              {sortedReparations.length} résultat(s) avec filtres actifs
-            </span>
+            <span>{sortedReparations.length} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
@@ -1413,12 +1327,11 @@ const ReparationsList = () => {
           loading={loading}
           actions={false}
           searchable={false}
-          onRowClicked={
-            selectedRows.length > 0
-              ? undefined
-              : (row) => navigate(`/reparations/${row._id}`)
-          }
-          emptyMessage="Aucune réparation trouvée"
+          onRowClicked={selectedRows.length > 0 ? undefined : (row) => {
+            const url = isRetardMode ? `/reparations/${row._id}?retard=1` : `/reparations/${row._id}`;
+            navigate(url);
+          }}
+          emptyMessage={isRetardMode ? "Aucune réparation en retard 🎉" : "Aucune réparation trouvée"}
           paginationPerPage={10}
           dense={true}
           selectableRows={true}
@@ -1444,180 +1357,59 @@ const ReparationsList = () => {
           onClose={() => setShowDeleteManyDialog(false)}
           onConfirm={handleDeleteMany}
           title={`Supprimer ${selectedRows.length} réparation(s)`}
-          message={`Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} réparations sélectionnées ? Cette action est irréversible.\n\nN° : ${selectedRows
-            .slice(0, 5)
-            .map((r) => r.numero)
-            .join(", ")}${
-            selectedRows.length > 5
-              ? ` et ${selectedRows.length - 5} autre(s)...`
-              : ""
-          }`}
+          message={`Êtes-vous sûr de vouloir supprimer les ${selectedRows.length} réparations sélectionnées ? Cette action est irréversible.\n\nN° : ${selectedRows.slice(0, 5).map((r) => r.numero).join(", ")}${selectedRows.length > 5 ? ` et ${selectedRows.length - 5} autre(s)...` : ""}`}
           confirmText={deletingMany ? "Suppression..." : "Supprimer tout"}
         />
       )}
 
       <style>{`
-        /* ============================================================ */
-        /* ✅ LIGNES DE FILTRES : Flexbox responsive                    */
-        /* ============================================================ */
-        .filters-line {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          align-items: flex-end;
-          width: 100%;
-        }
-
-        .filters-line-1 {
-          margin-bottom: 16px;
-          padding-bottom: 16px;
-          border-bottom: 1px dashed var(--gray-200);
-        }
-
-        /* ✅ Chaque item de filtre : flexible et responsive */
-        .filter-item {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        /* ✅ Ligne 1 : largeurs adaptatives */
-        .filter-item-search {
-          flex: 1 1 320px;
-          min-width: 220px;
-        }
-
-        .filter-item-date {
-          flex: 0 1 170px;
-          min-width: 140px;
-        }
-
-        .filter-item-clear {
-          flex: 0 0 auto;
-        }
-
-        /* ✅ Ligne 2 : chaque MultiSelect a la même largeur flexible */
-        .filters-line-2 > .filter-item {
-          flex: 1 1 180px;
-          min-width: 150px;
-        }
-
-        /* ✅ Wrapper de recherche avec icône */
-        .filter-search-wrapper {
-          position: relative;
-          width: 100%;
-        }
-
+        /* ... mêmes styles que précédemment ... */
+        .filters-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; width: 100%; }
+        .filters-line-1 { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--gray-200); }
+        .filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .filter-item-search { flex: 1 1 320px; min-width: 220px; }
+        .filter-item-date { flex: 0 1 170px; min-width: 140px; }
+        .filter-item-clear { flex: 0 0 auto; }
+        .filters-line-2 > .filter-item { flex: 1 1 180px; min-width: 150px; }
+        .filter-search-wrapper { position: relative; width: 100%; }
         .filter-search-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--gray-400);
-          font-size: 13px;
-          pointer-events: none;
-          z-index: 1;
+          position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+          color: var(--gray-400); font-size: 13px; pointer-events: none; z-index: 1;
         }
-
-        .filter-search-wrapper .form-control-modern {
-          padding-left: 40px !important;
-          width: 100%;
-          height: 44px;
-        }
-
-        /* ✅ Inputs date : hauteur alignée */
-        .filter-item-date .form-control-modern {
-          height: 44px;
-          width: 100%;
-        }
-
-        /* ✅ Bouton effacer : hauteur alignée */
+        .filter-search-wrapper .form-control-modern { padding-left: 40px !important; width: 100%; height: 44px; }
+        .filter-item-date .form-control-modern { height: 44px; width: 100%; }
         .filter-clear-btn {
-          height: 44px;
-          padding: 0 18px;
-          white-space: nowrap;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
+          height: 44px; padding: 0 18px; white-space: nowrap;
+          display: inline-flex; align-items: center; gap: 6px;
         }
-
-        /* ✅ Label commun */
         .filter-label {
-          font-size: 10.5px;
-          font-weight: 700;
-          color: var(--gray-500);
-          text-transform: uppercase;
-          letter-spacing: 0.4px;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          padding-left: 2px;
+          font-size: 10.5px; font-weight: 700; color: var(--gray-500);
+          text-transform: uppercase; letter-spacing: 0.4px;
+          display: flex; align-items: center; gap: 5px; padding-left: 2px;
         }
-
-        /* ============================================================ */
-        /* ✅ TABLETTE INTERMÉDIAIRE (993 - 1200px)                     */
-        /* ============================================================ */
         @media (max-width: 1200px) and (min-width: 993px) {
-          .filters-line-2 > .filter-item {
-            flex: 1 1 calc(33.333% - 8px);
-            min-width: 140px;
-          }
+          .filters-line-2 > .filter-item { flex: 1 1 calc(33.333% - 8px); min-width: 140px; }
         }
-
-        /* ============================================================ */
-        /* ✅ TABLETTE (≤ 992px)                                        */
-        /* ============================================================ */
         @media (max-width: 992px) {
-          .filter-item-search {
-            flex: 1 1 100%;
-          }
-          .filter-item-date {
-            flex: 1 1 calc(50% - 6px);
-          }
-          .filter-item-clear {
-            flex: 1 1 100%;
-          }
-          .filter-clear-btn {
-            width: 100%;
-            justify-content: center;
-          }
-          .filters-line-2 > .filter-item {
-            flex: 1 1 calc(50% - 6px);
-          }
+          .filter-item-search { flex: 1 1 100%; }
+          .filter-item-date { flex: 1 1 calc(50% - 6px); }
+          .filter-item-clear { flex: 1 1 100%; }
+          .filter-clear-btn { width: 100%; justify-content: center; }
+          .filters-line-2 > .filter-item { flex: 1 1 calc(50% - 6px); }
         }
-
-        /* ============================================================ */
-        /* ✅ MOBILE (≤ 576px)                                          */
-        /* ============================================================ */
         @media (max-width: 576px) {
-          .filters-line {
-            gap: 10px;
-          }
-          .filter-item-search,
-          .filter-item-date,
-          .filter-item-clear,
-          .filters-line-2 > .filter-item {
-            flex: 1 1 100%;
-            min-width: 0;
+          .filters-line { gap: 10px; }
+          .filter-item-search, .filter-item-date, .filter-item-clear, .filters-line-2 > .filter-item {
+            flex: 1 1 100%; min-width: 0;
           }
         }
-
-        /* ============================================================ */
-        /* ✅ Table                                                     */
-        /* ============================================================ */
         .rdt_TableHeadRow { min-height: 42px !important; }
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
         .rdt_TableCol { padding: 8px 10px !important; }
-
         .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
         .rdt_Table { width: 100% !important; }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
       `}</style>
     </div>

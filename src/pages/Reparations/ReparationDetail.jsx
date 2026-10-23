@@ -669,13 +669,13 @@ const ReparationDetail = () => {
         className="fade-in-up"
         style={{ maxWidth: "1400px", margin: "0 auto" }}
       >
-        <button
-          className="btn-modern btn-modern-outline mb-3"
-          onClick={() => navigate("/reparations")}
-          style={{ padding: "8px 14px" }}
-        >
-          <FaArrowLeft size={12} /> Retour aux réparations
-        </button>
+     <button
+  className="btn-modern btn-modern-outline mb-3"
+  onClick={() => navigate(-1)}
+  style={{ padding: "8px 14px" }}
+>
+  <FaArrowLeft size={12} /> Retour aux réparations
+</button>
 
         {/* EN-TÊTE */}
         <div className="card-modern mb-3" style={{ padding: "24px" }}>

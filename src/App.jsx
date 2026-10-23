@@ -27,12 +27,10 @@ import SuiviPublic from "./pages/Reparations/SuiviPublic";
 import MarquesCRUD from "./pages/marques/MarquesCRUD";
 import ModelesCRUD from "./pages/modeles/ModelesCRUD";
 import PannesCRUD from "./pages/pannes/PannesCRUD";
-
-// ✅ AJOUT : détection refresh (F5) vs navigation SPA
+import Statistiques from "./pages/Statistiques/Statistiques";
 import { setupRefreshDetection } from "./utils/filterStorage";
+import ZonesCRUD from "./pages/Zone/ZonesCRUD";
 
-// ✅ À appeler UNE SEULE FOIS au démarrage, hors composant React
-// (évite les doubles enregistrements en React StrictMode)
 setupRefreshDetection();
 
 function App() {
@@ -56,8 +54,17 @@ function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
 
-              {/* Dashboard - accessible à tous */}
               <Route path="dashboard" element={<Dashboard />} />
+
+              {/* ✅ STATISTIQUES : réservé à l'ADMIN */}
+              <Route
+                path="statistiques"
+                element={
+                  <ProtectedRoute roles={["ADMIN"]}>
+                    <Statistiques />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Clients */}
               <Route
@@ -128,7 +135,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="marques"
                 element={
@@ -137,7 +143,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="modeles"
                 element={
@@ -146,13 +151,23 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
-              {/* ✅ PANNES : accessible à tous (pannes OU pannes:read) */}
               <Route
                 path="pannes"
                 element={
                   <ProtectedRoute anyPermission={["pannes", "pannes:read"]}>
                     <PannesCRUD />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ✅ ZONES — même logique que Pannes */}
+              <Route
+                path="zones"
+                element={
+                  <ProtectedRoute
+                    anyPermission={["zones", "zones:read", "clients"]}
+                  >
+                    <ZonesCRUD />
                   </ProtectedRoute>
                 }
               />
@@ -166,7 +181,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="history"
                 element={

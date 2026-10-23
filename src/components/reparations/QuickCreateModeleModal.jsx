@@ -3,39 +3,43 @@ import { createPortal } from "react-dom";
 import {
   FaTimes, FaSave, FaMobileAlt, FaTrademark, FaSortNumericDown,
 } from "react-icons/fa";
-import { createModele } from "../../api/modeles";
+import { createModele, updateModele } from "../../api/modeles";
 import SearchSelect from "./SearchSelect";
 
-/**
- * ✅ Mini-modale de création rapide d'un modèle
- * S'affiche AU-DESSUS de ReparationModal (zIndex 10000 > 9999)
- */
 const QuickCreateModeleModal = ({
   show,
   onClose,
   onCreated,
   marques = [],
   defaultMarqueId = "",
+  modele = null,
 }) => {
+  const isEdit = Boolean(modele);
+
   const [nom, setNom] = useState("");
-  const [marqueId, setMarqueId] = useState(defaultMarqueId || "");
+  const [marqueId, setMarqueId] = useState("");
   const [ordre, setOrdre] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (show) {
-      setNom("");
-      setMarqueId(defaultMarqueId || "");
-      setOrdre(0);
+      setNom(modele?.nom || "");
+      setMarqueId(
+        modele
+          ? (typeof modele.marque === "object" && modele.marque !== null
+              ? modele.marque._id
+              : modele.marque || "")
+          : (defaultMarqueId || "")
+      );
+      setOrdre(modele?.ordre ?? 0);
       setError("");
       setSaving(false);
     }
-  }, [show, defaultMarqueId]);
+  }, [show, defaultMarqueId, modele]);
 
   if (!show) return null;
 
-  // ✅ Options formatées pour SearchSelect
   const marqueOptions = marques.map((m) => ({
     value: m._id,
     label: m.objet?.nom ? `${m.nom} (${m.objet.nom})` : m.nom,
@@ -48,27 +52,29 @@ const QuickCreateModeleModal = ({
     setSaving(true);
     setError("");
     try {
-      const res = await createModele({
+      const payload = {
         nom: nom.trim(),
         marque: marqueId,
         ordre: Number(ordre) || 0,
-      });
+      };
 
-      // res = { success, data: { _id, nom, marque, ... } }
-      const entity = res?.data ?? res;
-      onCreated?.(entity);
+      const res = isEdit
+        ? await updateModele(modele._id, payload)
+        : await createModele(payload);
+
+      const entity = res?.data?.data ?? res?.data ?? res;
+      await onCreated?.(entity, isEdit);
       onClose();
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Erreur lors de la création du modèle"
+          `Erreur lors de la ${isEdit ? "modification" : "création"}`
       );
     } finally {
       setSaving(false);
     }
   };
 
-  // ⚠️ On capte Enter/Escape uniquement sur les inputs (pas sur SearchSelect)
   const handleInputKeyDown = (e) => {
     if (e.key === "Escape" && !saving) {
       e.stopPropagation();
@@ -144,7 +150,7 @@ const QuickCreateModeleModal = ({
                 margin: 0,
               }}
             >
-              Nouveau modèle
+              {isEdit ? "Modifier le modèle" : "Nouveau modèle"}
             </h5>
             <p
               style={{
@@ -153,7 +159,9 @@ const QuickCreateModeleModal = ({
                 margin: "1px 0 0",
               }}
             >
-              Création rapide sans quitter la réparation
+              {isEdit
+                ? "Modifiez les informations du modèle"
+                : "Création rapide sans quitter la réparation"}
             </p>
           </div>
           <button
@@ -221,7 +229,7 @@ const QuickCreateModeleModal = ({
             />
           </div>
 
-          {/* Marque — SearchSelect avec recherche */}
+          {/* Marque */}
           <div style={{ marginBottom: 12 }}>
             <label
               style={{
@@ -316,11 +324,11 @@ const QuickCreateModeleModal = ({
                   className="spinner-border spinner-border-sm"
                   role="status"
                 ></span>
-                Création...
+                {isEdit ? "Enregistrement..." : "Création..."}
               </>
             ) : (
               <>
-                <FaSave /> Créer le modèle
+                <FaSave /> {isEdit ? "Enregistrer" : "Créer le modèle"}
               </>
             )}
           </button>
@@ -331,4 +339,4 @@ const QuickCreateModeleModal = ({
   );
 };
 
-export default QuickCreateModeleModal;  
+export default QuickCreateModeleModal;

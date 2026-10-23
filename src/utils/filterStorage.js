@@ -1,34 +1,12 @@
 // src/utils/filterStorage.js
 
 const FILTERS_KEY = "reparations_filters";
-const REFRESH_FLAG = "reparations_filters_refresh_flag";
+const RETARD_MODE_KEY = "reparations_retard_mode";
+const REFRESH_FLAG = "reparations_refresh_flag";
 
 // ============================================================
-// ✅ Détection d'un VRAI refresh (F5) ou fermeture d'onglet
-// ============================================================
-// Principe :
-// - `beforeunload` est déclenché UNIQUEMENT lors d'un refresh,
-//   d'une fermeture d'onglet, ou d'une navigation "externe"
-//   (pas lors d'une navigation SPA via React Router).
-// - On pose un flag dans sessionStorage au moment du beforeunload.
-// - Au chargement suivant, si le flag est présent → c'était un refresh.
-// - Sinon → c'était une navigation SPA (retour depuis le détail, etc.)
-// ============================================================
-const isPageRefresh = () => {
-  try {
-    const refreshFlag = sessionStorage.getItem(REFRESH_FLAG);
-    if (refreshFlag === "1") {
-      sessionStorage.removeItem(REFRESH_FLAG);
-      return true;
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
-};
-
-// ============================================================
-// ✅ À appeler UNE SEULE FOIS au démarrage de l'app (App.js)
+// ✅ Appelé UNE SEULE FOIS dans App.js
+//    Pose un flag AVANT le refresh / fermeture d'onglet
 // ============================================================
 export const setupRefreshDetection = () => {
   window.addEventListener("beforeunload", () => {
@@ -41,24 +19,32 @@ export const setupRefreshDetection = () => {
 };
 
 // ============================================================
-// ✅ Sauvegarde des filtres
+// ✅ Vérifie si on vient de faire un refresh
+//    - Si oui → efface le flag et retourne true
+//    - Sinon → retourne false
 // ============================================================
-export const saveFilters = (filters) => {
+const consumeRefreshFlag = () => {
   try {
-    sessionStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+    if (sessionStorage.getItem(REFRESH_FLAG) === "1") {
+      sessionStorage.removeItem(REFRESH_FLAG);
+      return true;
+    }
+    return false;
   } catch (e) {
-    // silently fail
+    return false;
   }
 };
 
 // ============================================================
 // ✅ Chargement des filtres
+//    - Si refresh → efface filtres + mode retard
+//    - Sinon → restaure ce qui était sauvegardé
 // ============================================================
 export const loadFilters = (defaultFilters) => {
   try {
-    // Si c'est un VRAI refresh (F5) → on efface et on repart de zéro
-    if (isPageRefresh()) {
+    if (consumeRefreshFlag()) {
       sessionStorage.removeItem(FILTERS_KEY);
+      sessionStorage.removeItem(RETARD_MODE_KEY);
       return defaultFilters;
     }
 
@@ -73,12 +59,48 @@ export const loadFilters = (defaultFilters) => {
 };
 
 // ============================================================
+// ✅ Sauvegarde des filtres
+// ============================================================
+export const saveFilters = (filters) => {
+  try {
+    sessionStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+  } catch (e) {
+    // silently fail
+  }
+};
+
+// ============================================================
 // ✅ Effacement des filtres (reset manuel ou déconnexion)
 // ============================================================
 export const clearFilters = () => {
   try {
     sessionStorage.removeItem(FILTERS_KEY);
+    sessionStorage.removeItem(RETARD_MODE_KEY);
+    sessionStorage.removeItem(REFRESH_FLAG);
   } catch (e) {
     // silently fail
+  }
+};
+
+// ============================================================
+// ✅ Mode "Réparations en retard"
+// ============================================================
+export const saveRetardMode = (isRetard) => {
+  try {
+    if (isRetard) {
+      sessionStorage.setItem(RETARD_MODE_KEY, "1");
+    } else {
+      sessionStorage.removeItem(RETARD_MODE_KEY);
+    }
+  } catch (e) {
+    // silently fail
+  }
+};
+
+export const loadRetardMode = () => {
+  try {
+    return sessionStorage.getItem(RETARD_MODE_KEY) === "1";
+  } catch (e) {
+    return false;
   }
 };

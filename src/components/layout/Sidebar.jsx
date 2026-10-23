@@ -4,15 +4,16 @@ import {
   FaHome, FaUsers, FaTools, FaMoneyBillWave,
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
   FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
-  FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus
+  FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
+  FaChartLine, FaMapMarkerAlt
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
 import logo from '../../assets/logo.png';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
-  const { user, hasPermission } = useAuth();
-  const { openNewReparation } = useReparationModal(); // ✅ AJOUT
+  const { user, hasPermission, hasAnyRole } = useAuth();
+  const { openNewReparation } = useReparationModal();
   const location = useLocation();
 
   const menuSections = [
@@ -20,6 +21,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       title: 'Principal',
       items: [
         { path: '/dashboard', icon: <FaHome />, label: 'Dashboard', module: 'dashboard' },
+        // ✅ Statistiques : réservé à l'ADMIN
+        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', roles: ['ADMIN'] },
       ]
     },
     {
@@ -31,7 +34,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           icon: <FaTools />,
           label: 'Réparations',
           module: 'reparations',
-          // ✅ Action rapide : bouton "+" qui ouvre le modal depuis N'IMPORTE QUELLE PAGE
           quickAction: {
             icon: <FaPlus size={11} />,
             title: 'Nouvelle réparation',
@@ -52,6 +54,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
         { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },
+        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', module: 'zones' },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
       ]
     },
@@ -62,6 +65,17 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       ]
     }
   ];
+
+  // ✅ Filtre de visibilité : rôle OU permission
+  const isVisible = (item) => {
+    if (item.roles && item.roles.length > 0) {
+      return hasAnyRole(item.roles);
+    }
+    if (item.module) {
+      return hasPermission(item.module);
+    }
+    return true;
+  };
 
   const getRoleLabel = (role) => {
     const labels = { ADMIN: 'Admin', COMMERCIAL: 'Commercial', REPARATEUR: 'Réparateur' };
@@ -77,15 +91,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      <div
-        className={`sidebar-overlay ${isOpen ? 'active' : ''}`}
-        onClick={onClose}
-      />
+      <div className={`sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} />
 
-      <aside
-        className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
-      >
-        {/* Header avec logo image */}
+      <aside className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <img src={logo} alt="Safi Info +" className="sidebar-logo-img" />
@@ -94,45 +102,30 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             <h5>Safi Info +</h5>
             <small>Gestion</small>
           </div>
-
-          <button
-            className="sidebar-close-btn"
-            onClick={onClose}
-            aria-label="Fermer le menu"
-          >
-            ×
-          </button>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Fermer le menu">×</button>
         </div>
 
-        {/* Navigation */}
         <nav className="sidebar-nav">
           {menuSections.map((section, idx) => {
-            const visibleItems = section.items.filter(item => hasPermission(item.module));
+            const visibleItems = section.items.filter(isVisible);
             if (visibleItems.length === 0) return null;
 
             return (
               <div className="nav-section" key={idx}>
                 <div className="nav-section-title">{section.title}</div>
-
                 {visibleItems.map((item) => (
                   <div key={item.path} className="nav-link-wrapper">
                     <NavLink
                       to={item.path}
                       className={`nav-link ${isActive(item.path) ? 'active' : ''} ${item.quickAction ? 'has-quick-action' : ''}`}
                       title={isCollapsed ? item.label : ''}
-                      onClick={() => {
-                        if (window.innerWidth <= 992) onClose();
-                      }}
+                      onClick={() => { if (window.innerWidth <= 992) onClose(); }}
                     >
                       <span className="nav-link-icon">{item.icon}</span>
                       <span className="nav-link-text">{item.label}</span>
-
-                      {isCollapsed && (
-                        <span className="nav-link-tooltip">{item.label}</span>
-                      )}
+                      {isCollapsed && <span className="nav-link-tooltip">{item.label}</span>}
                     </NavLink>
 
-                    {/* ✅ Bouton "+" rapide à droite du lien */}
                     {item.quickAction && (
                       <button
                         type="button"
@@ -154,11 +147,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           })}
         </nav>
 
-        <button
-          className="sidebar-collapse-btn"
-          onClick={onToggleCollapse}
-          title={isCollapsed ? 'Déplier le menu' : 'Replier le menu'}
-        >
+        <button className="sidebar-collapse-btn" onClick={onToggleCollapse} title={isCollapsed ? 'Déplier le menu' : 'Replier le menu'}>
           {isCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
         </button>
 
@@ -168,13 +157,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
               {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
             </div>
             <div className="sidebar-user-info">
-              <div className="sidebar-user-name">
-                {user?.firstName} {user?.lastName}
-              </div>
-              <div
-                className="sidebar-user-role"
-                style={{ color: getRoleColor(user?.role) }}
-              >
+              <div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div>
+              <div className="sidebar-user-role" style={{ color: getRoleColor(user?.role) }}>
                 {getRoleLabel(user?.role)}
               </div>
             </div>

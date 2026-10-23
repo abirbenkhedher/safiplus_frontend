@@ -9,16 +9,12 @@ import {
   updateClient,
   getPassengerClients,
 } from '../../api/clients';
-import { ZONES } from '../../constants/zones';
+import SearchSelect from './SearchSelect';
+import QuickCreateZoneModal from './QuickCreateZoneModal';
+import { useReparationData } from '../../hooks/useReparationData';
 
-// ============================================================
-// ✅ Numéro "sentinelle" pour les clients sans téléphone
-// ============================================================
 const PASSENGER_PHONE = '00000000';
 
-// ============================================================
-// ✅ Cache global des clients (module-level)
-// ============================================================
 let clientsCache = null;
 let clientsPromise = null;
 
@@ -45,9 +41,6 @@ export const invalidateClientsCache = () => {
   clientsPromise = null;
 };
 
-// ============================================================
-// Helpers
-// ============================================================
 const formatPhoneInput = (value) =>
   String(value || '').replace(/[^0-9]/g, '').slice(0, 8);
 
@@ -62,9 +55,6 @@ const handlePhoneKeyDown = (e) => {
   if (!/^[0-9]$/.test(e.key)) e.preventDefault();
 };
 
-// ============================================================
-// ClientSelector
-// ============================================================
 const ClientSelector = ({ value, onChange, onClientChange }) => {
   const [clients, setClients] = useState(clientsCache || []);
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,11 +73,25 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     nom: '', phone: '', phone2: '', adresse: '', zone: '', codeFidelite: '',
   });
 
+  // ✅ Zones dynamiques (comme les pannes)
+  const { zones = [], reloadZones } = useReparationData();
+  const [showQuickZone, setShowQuickZone] = useState(false);
+
+  const zonesOptions = useMemo(
+    () =>
+      [...zones]
+        .sort(
+          (a, b) =>
+            (a.ordre ?? 0) - (b.ordre ?? 0) ||
+            (a.nom || '').localeCompare(b.nom || '')
+        )
+        .map((z) => ({ value: z.nom, label: z.nom })),
+    [zones]
+  );
+
   const containerRef = useRef(null);
-  // ✅ Marqueur de la dernière sélection locale (évite l'écrasement par le sync)
   const localSelectionRef = useRef(null);
 
-  // ---- Chargement des clients ----
   useEffect(() => {
     let mounted = true;
     if (clientsCache && clientsCache.length > 0) {
@@ -100,16 +104,12 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return () => { mounted = false; };
   }, []);
 
-  // ---- Debounce ----
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 150);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  // ---- Sync valeur externe ----
   useEffect(() => {
-    // ✅ Si la valeur courante vient d'une sélection locale,
-    //    on ignore ce cycle (elle est déjà appliquée)
     if (value && localSelectionRef.current === value) {
       return;
     }
@@ -125,10 +125,8 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
       setFoundClient(null);
       setSearchTerm('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, clients]);
 
-  // ---- Clic extérieur ----
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -139,7 +137,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ---- Recherche doublon ----
   const findClientByPhone = useCallback((phone, excludeId = null) => {
     const digits = String(phone || '').replace(/[^0-9]/g, '');
     if (digits.length !== 8) return null;
@@ -154,13 +151,11 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     }) || null;
   }, [clients]);
 
-  // ---- Détection numéro passager ----
   const isPassengerPhone = useMemo(() => {
     const digits = searchTerm.replace(/[^0-9]/g, '');
     return digits === PASSENGER_PHONE;
   }, [searchTerm]);
 
-  // ---- Chargement à la demande des clients passagers ----
   useEffect(() => {
     if (!isPassengerPhone) return;
 
@@ -188,7 +183,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     return () => { mounted = false; };
   }, [isPassengerPhone]);
 
-  // ---- Suggestions ----
   const suggestions = useMemo(() => {
     const cleanDigits = debouncedSearch.replace(/[^0-9]/g, '');
     const cleanText = debouncedSearch.trim().toUpperCase();
@@ -218,7 +212,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     });
   }, [debouncedSearch, clients]);
 
-  // ---- Match exact ----
   const exactMatchClient = useMemo(() => {
     const digits = searchTerm.replace(/[^0-9]/g, '');
     if (digits.length !== 8) return null;
@@ -232,9 +225,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     }) || null;
   }, [searchTerm, clients]);
 
-  const cleanDigits = searchTerm.replace(/[^0-9]/g, '');
-
-  // ---- Handlers ----
   const handleSearchChange = useCallback((val) => {
     setSearchTerm(String(val || '').slice(0, 20));
     setError('');
@@ -242,7 +232,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   }, []);
 
   const handleSelectClient = useCallback((client) => {
-    // ✅ Marque la sélection locale AVANT de remonter au parent
     localSelectionRef.current = client._id;
     setFoundClient(client);
     onChange(client._id);
@@ -251,7 +240,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setShowSuggestions(false);
   }, [onChange, onClientChange]);
 
-  // ✅ Création — cache la bannière passager
   const handleOpenCreate = useCallback(() => {
     const digits = searchTerm.replace(/[^0-9]/g, '');
     const phoneToUse = digits === PASSENGER_PHONE ? PASSENGER_PHONE : digits;
@@ -295,6 +283,14 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     setShowForm(true);
     setError('');
   }, [foundClient]);
+
+  // ✅ Callback : après création rapide d'une zone
+  const handleZoneCreated = useCallback(async (nouvelleZone) => {
+    await reloadZones?.();
+    if (nouvelleZone?.nom) {
+      setFormData((prev) => ({ ...prev, zone: nouvelleZone.nom }));
+    }
+  }, [reloadZones]);
 
   const handleSave = useCallback(async () => {
     if (!formData.nom.trim()) return setError('Nom obligatoire');
@@ -370,7 +366,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         }
       }
 
-      // ✅ Marque la sélection locale
       localSelectionRef.current = savedClient._id;
       setFoundClient(savedClient);
       onChange(savedClient._id);
@@ -385,7 +380,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     }
   }, [formData, isEditMode, foundClient, onChange, onClientChange, findClientByPhone]);
 
-  // ✅ Annulation
   const handleCancel = useCallback(() => {
     const wasPassengerCreation = !isEditMode && formData.phone === PASSENGER_PHONE;
     setShowForm(false);
@@ -398,7 +392,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   }, [formData.phone, isEditMode]);
 
   const handleClear = useCallback(() => {
-    // ✅ Reset le marqueur local
     localSelectionRef.current = null;
     setSearchTerm('');
     setFoundClient(null);
@@ -409,17 +402,12 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     onClientChange?.(null);
   }, [onChange, onClientChange]);
 
-  // ---- États dérivés ----
   const phoneLen = formData.phone.length;
   const isPhoneIncomplete = phoneLen > 0 && phoneLen < 8 && formData.phone !== PASSENGER_PHONE;
   const isPhoneComplete = phoneLen === 8;
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   return (
     <div ref={containerRef}>
-      {/* CHAMP DE RECHERCHE */}
       <div style={{ position: 'relative' }}>
         <FaSearch
           style={{
@@ -462,7 +450,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         )}
       </div>
 
-      {/* BANNIÈRE "CLIENT EXISTE" */}
       {!foundClient && exactMatchClient && !showForm && (
         <div
           style={{
@@ -511,7 +498,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* BANNIÈRE "NUMÉRO PASSAGER" */}
       {!foundClient && isPassengerPhone && !showForm && (
         <div
           style={{
@@ -594,7 +580,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* SUGGESTIONS */}
       {!foundClient &&
         !exactMatchClient &&
         !isPassengerPhone &&
@@ -678,7 +663,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* CLIENT SÉLECTIONNÉ */}
       {foundClient && !showForm && (
         <div
           style={{
@@ -731,7 +715,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         </div>
       )}
 
-      {/* FORMULAIRE */}
       {showForm && (
         <div
           style={{
@@ -916,17 +899,17 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               style={{ width: '100%' }}
             />
 
-            <select
+            {/* ✅ ZONE — SearchSelect + bouton "+" (comme les pannes, sélection unique) */}
+            <SearchSelect
+              options={zonesOptions}
               value={formData.zone}
-              onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
-              className="form-control-modern"
-              style={{ width: '100%' }}
-              aria-label="Zone"
-            >
-              <option value="">Zone (optionnel)</option>
-              {ZONES.map((z) => <option key={z} value={z}>{z}</option>)}
-            </select>
+              onChange={(val) => setFormData((prev) => ({ ...prev, zone: val }))}
+              placeholder="Zone (optionnel)"
+              onCreate={() => setShowQuickZone(true)}
+              createLabel="Créer une nouvelle zone"
+            />
 
+            {/* ✅ Code fidélité — TOUJOURS MODIFIABLE */}
             <input
               type="text"
               value={formData.codeFidelite}
@@ -935,7 +918,6 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
               aria-label="Code fidélité"
               className="form-control-modern"
               style={{ width: '100%', fontFamily: 'monospace', letterSpacing: '0.5px' }}
-              disabled={isEditMode && !!foundClient?.codeFidelite}
             />
           </div>
 
@@ -988,6 +970,13 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
           </div>
         </div>
       )}
+
+      {/* ✅ Modale création rapide de zone (au-dessus) */}
+      <QuickCreateZoneModal
+        show={showQuickZone}
+        onClose={() => setShowQuickZone(false)}
+        onCreated={handleZoneCreated}
+      />
     </div>
   );
 };
