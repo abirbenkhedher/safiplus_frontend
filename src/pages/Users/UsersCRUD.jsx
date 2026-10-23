@@ -384,6 +384,27 @@ const UsersCRUD = () => {
   };
 
   const columns = [
+
+      {
+      name: "",
+      selector: (row) => `${row.firstName} ${row.lastName}`,
+      sortable: true,
+      cell: (row) => (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div>
+            
+          </div>
+          <div>
+            <div style={{ fontWeight: "600", fontSize: "13.5px" }}>
+              
+            </div>
+            <div style={{ fontSize: "11.5px", color: "var(--gray-500)" }}>
+              
+            </div>
+          </div>
+        </div>
+      ),
+    },
     {
       name: "Utilisateur",
       selector: (row) => `${row.firstName} ${row.lastName}`,

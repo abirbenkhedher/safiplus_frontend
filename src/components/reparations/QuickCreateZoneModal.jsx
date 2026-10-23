@@ -205,7 +205,7 @@ const QuickCreateZoneModal = ({ show, onClose, onCreated, zone = null }) => {
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               onKeyDown={handleInputKeyDown}
-              placeholder="Ex : Centre-ville, Zone Nord..."
+              placeholder="Ex : Haouaria , Saheb el jebel..."
               className="form-control-modern"
               style={{ width: "100%" }}
             />

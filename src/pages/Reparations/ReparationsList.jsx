@@ -19,7 +19,7 @@ import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
 import { useAuth } from "../../context/AuthContext";
-import { ZONES } from "../../constants/zones";
+// ❌ SUPPRIMÉ : import { ZONES } from "../../constants/zones";
 import {
   saveFilters,
   loadFilters,
@@ -84,7 +84,8 @@ const ReparationsList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { openNewReparation, openEditReparation, registerOnSuccess } =
     useReparationModal();
-  const { categories, familles = [] } = useReparationData();
+  // ✅ AJOUT de zones dans la destructuration
+  const { categories, familles = [], zones = [] } = useReparationData();
 
   const { user } = useAuth();
   const canDelete = user?.role === "ADMIN";
@@ -369,9 +370,17 @@ useEffect(() => {
     [commerciaux]
   );
 
+  // ✅ zoneOptions — depuis l'API (plus de constante ZONES)
   const zoneOptions = useMemo(
-    () => ZONES.map((z) => ({ value: z, label: z })),
-    []
+    () =>
+      [...zones]
+        .sort(
+          (a, b) =>
+            (a.ordre ?? 0) - (b.ordre ?? 0) ||
+            (a.nom || "").localeCompare(b.nom || "")
+        )
+        .map((z) => ({ value: z.nom, label: z.nom })),
+    [zones]
   );
 
   // ============================================================
@@ -1363,7 +1372,6 @@ useEffect(() => {
       )}
 
       <style>{`
-        /* ... mêmes styles que précédemment ... */
         .filters-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; width: 100%; }
         .filters-line-1 { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--gray-200); }
         .filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }

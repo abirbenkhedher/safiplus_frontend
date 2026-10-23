@@ -160,13 +160,11 @@ function App() {
                 }
               />
 
-              {/* ✅ ZONES — même logique que Pannes */}
+              {/* ✅ ZONES — accessible à TOUS les utilisateurs connectés */}
               <Route
                 path="zones"
                 element={
-                  <ProtectedRoute
-                    anyPermission={["zones", "zones:read", "clients"]}
-                  >
+                  <ProtectedRoute>
                     <ZonesCRUD />
                   </ProtectedRoute>
                 }

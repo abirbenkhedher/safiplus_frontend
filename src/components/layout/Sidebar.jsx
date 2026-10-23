@@ -54,7 +54,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
         { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },
-        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', module: 'zones' },
+        // ✅ Zones : visible pour TOUS les rôles connectés (pas de module, pas de roles)
+        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones' },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
       ]
     },
@@ -66,7 +67,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     }
   ];
 
-  // ✅ Filtre de visibilité : rôle OU permission
+  // ✅ Filtre de visibilité : rôle OU permission (rien = tous)
   const isVisible = (item) => {
     if (item.roles && item.roles.length > 0) {
       return hasAnyRole(item.roles);
@@ -74,7 +75,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     if (item.module) {
       return hasPermission(item.module);
     }
-    return true;
+    return true; // ✅ pas de roles + pas de module → visible pour tous
   };
 
   const getRoleLabel = (role) => {
