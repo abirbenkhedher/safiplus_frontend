@@ -15,8 +15,11 @@ import PaymentSection from "./PaymentSection";
 import DiagnosticSection from "./DiagnosticSection";
 import PannesMultiSelect from "./PannesMultiSelect";
 import QuickCreateModeleModal from "./QuickCreateModeleModal";
-import QuickCreateMarqueModal from "./QuickCreateMarqueModal";  // ✅ AJOUT
+import QuickCreateMarqueModal from "./QuickCreateMarqueModal";
 
+// ============================================================
+// ✅ Constantes
+// ============================================================
 const INITIAL_FORM = {
   client: "",
   categorie: "",
@@ -30,6 +33,7 @@ const INITIAL_FORM = {
   acompte: 0,
   status: "",
   reparateur: "",
+  reparateurSAV: "",
   paymentType: "unpaid",
   observations: [{ text: "", date: new Date().toISOString() }],
   diagnosticImprevus: {
@@ -40,6 +44,14 @@ const INITIAL_FORM = {
 };
 
 const ROLES_AUTORISES = ["REPARATEUR", "COMMERCIAL"];
+
+// ✅ Statuts nécessitant un réparateur SAV
+const STATUTS_SAV_TERMINES = [
+  "SAV REPARE",
+  "SAV NON REPARE",
+  "SAV SORTIE REPARE",
+  "SAV SORTIE NON REPARE",
+];
 
 const sortByOrdre = (arr = []) =>
   [...arr].sort(
@@ -56,6 +68,9 @@ const computePaymentType = (prixTotal, acompte) => {
   return "partial";
 };
 
+// ============================================================
+// Composants UI internes
+// ============================================================
 const SectionBlock = memo(({ icon, title, color = "var(--primary)", children }) => (
   <div style={{ marginBottom: "14px" }}>
     <div
@@ -140,6 +155,9 @@ const CollapsibleSection = memo(({
   </div>
 ));
 
+// ============================================================
+// ReparationModal
+// ============================================================
 const ReparationModal = ({
   show, onClose, onSuccess, reparation = null, initialClientId = null,
 }) => {
@@ -152,7 +170,6 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  // ✅ NOUVEAU : état pour les modals de création rapide
   const [showQuickModele, setShowQuickModele] = useState(false);
   const [showQuickMarque, setShowQuickMarque] = useState(false);
 
@@ -166,7 +183,7 @@ const ReparationModal = ({
     categories, objets, statuses, reparateurs, marques, modeles, pannes,
     refresh,
     reloadModeles,
-    reloadMarques,  // ✅ On suppose que ce hook existe (sinon à ajouter dans useReparationData)
+    reloadMarques,
   } = useReparationData();
 
   useEffect(() => {
@@ -174,6 +191,9 @@ const ReparationModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
+  // ============================================================
+  // ✅ Chargement des données du formulaire
+  // ============================================================
   useEffect(() => {
     if (!show) {
       loadedReparationIdRef.current = null;
@@ -207,6 +227,7 @@ const ReparationModal = ({
         acompte: reparation.acompte || 0,
         status: reparation.status?._id || "",
         reparateur: reparation.reparateur?._id || "",
+        reparateurSAV: reparation.reparateurSAV?._id || "",
         paymentType: reparation.paymentType || "unpaid",
         observations:
           reparation.observations?.length > 0
@@ -275,6 +296,7 @@ const ReparationModal = ({
     }
   }, [show, reparation, isEdit, initialClientId]);
 
+  // ---- Statut par défaut ----
   useEffect(() => {
     if (statuses.length === 0 || isEdit || formData.status) return;
     const enAttente = statuses.find((s) =>
@@ -286,6 +308,7 @@ const ReparationModal = ({
     }
   }, [statuses, isEdit, formData.status]);
 
+  // ---- AUTO-SYNC paymentType ----
   useEffect(() => {
     if (!show) return;
     const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
@@ -299,6 +322,7 @@ const ReparationModal = ({
     }
   }, [show, formData.prix, formData.acompte, formData.paymentType, formData.diagnosticImprevus]);
 
+  // ---- Reset réparateur si plus autorisé après changement de catégorie ----
   useEffect(() => {
     if (!show) return;
     if (!formData.reparateur || !formData.categorie) return;
@@ -322,6 +346,7 @@ const ReparationModal = ({
     }
   }, [formData.categorie, formData.reparateur, categories, show]);
 
+  // ---- Auto-save brouillon ----
   useEffect(() => {
     if (isEdit || !show) return;
     if (!formData.client && !formData.marque) return;
@@ -331,6 +356,9 @@ const ReparationModal = ({
     return () => clearTimeout(t);
   }, [formData, isEdit, show]);
 
+  // ============================================================
+  // Handlers stables
+  // ============================================================
   const handleFieldChange = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
@@ -376,7 +404,6 @@ const ReparationModal = ({
     [reloadModeles, handleFieldChange]
   );
 
-  // ✅ NOUVEAU : Callback quand une marque est créée à la volée
   const handleMarqueCreated = useCallback(
     async (nouvelleMarque) => {
       await reloadMarques?.();
@@ -417,6 +444,9 @@ const ReparationModal = ({
     }
   }, []);
 
+  // ============================================================
+  // ✅ Soumission
+  // ============================================================
   const handleSubmit = useCallback(async (shouldPrint = false) => {
     setError("");
     setSuccess("");
@@ -432,14 +462,35 @@ const ReparationModal = ({
     if (!fd.note.trim()) return setError("La note est obligatoire");
     if (!fd.status) return setError("Le statut est obligatoire");
 
+    // ✅ Validation du réparateur SAV pour les 4 statuts SAV terminés
+    const statusLabel = (statuses.find((s) => String(s._id) === String(fd.status))?.label || "")
+      .toUpperCase()
+      .trim();
+    const needsSAV = STATUTS_SAV_TERMINES.includes(statusLabel);
+    if (needsSAV && !fd.reparateurSAV) {
+      return setError(
+        `Le réparateur SAV est obligatoire pour le statut "${statusLabel}"`
+      );
+    }
+
     setSaving(true);
     try {
-      const cleanData = {
-        ...fd,
-        panneType: fd.panneType,
-        observations: fd.observations.filter((o) => o.text.trim() !== ""),
-        envoyerSMS,
-      };
+    const cleanData = {
+  ...fd,
+  panneType: fd.panneType,
+  observations: fd.observations.filter((o) => o.text.trim() !== ""),
+  envoyerSMS,
+  
+  // ✅ CORRECTION : Transformer les chaînes vides en null pour les ObjectId
+  client: fd.client || null,
+  categorie: fd.categorie || null,
+  objet: fd.objet || null,
+  marque: fd.marque || null,
+  modele: fd.modele || null,
+  status: fd.status || null,
+  reparateur: fd.reparateur || null,
+  reparateurSAV: fd.reparateurSAV || null,
+};
 
       const response = isEdit
         ? await updateReparation(reparation._id, cleanData)
@@ -490,8 +541,9 @@ const ReparationModal = ({
     } finally {
       setSaving(false);
     }
-  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose]);
+  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose, statuses]);
 
+  // ---- Raccourcis clavier ----
   useEffect(() => {
     if (!show) return;
     const handleKey = (e) => {
@@ -506,6 +558,9 @@ const ReparationModal = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [show, saving, handleSubmit, onClose, showQuickModele, showQuickMarque]);
 
+  // ============================================================
+  // Filtres mémoïsés
+  // ============================================================
   const categoriesTriees = useMemo(() => sortByOrdre(categories), [categories]);
   const objetsTries = useMemo(() => sortByOrdre(objets), [objets]);
 
@@ -597,6 +652,19 @@ const ReparationModal = ({
       selectedCategorie.reparateurs.length > 0
     );
   }, [categories, formData.categorie]);
+
+  // ============================================================
+  // ✅ Détection : statut SAV terminé (4 statuts)
+  // ============================================================
+  const isSAVTermine = useMemo(() => {
+    if (!formData.status) return false;
+    const selectedStatus = statuses.find(
+      (s) => String(s._id) === String(formData.status)
+    );
+    if (!selectedStatus) return false;
+    const label = (selectedStatus.label || "").toUpperCase().trim();
+    return STATUTS_SAV_TERMINES.includes(label);
+  }, [formData.status, statuses]);
 
   if (!show) return null;
 
@@ -757,7 +825,6 @@ const ReparationModal = ({
                     />
                   </div>
                   <div className="col-12 col-sm-6">
-                    {/* ✅ Marque avec bouton "Créer une marque" */}
                     <SearchSelect
                       options={marquesFiltrees.map((m) => ({ value: m._id, label: m.nom }))}
                       value={formData.marque}
@@ -844,7 +911,12 @@ const ReparationModal = ({
                   <div className="col-12 col-sm-6">
                     <select
                       value={formData.status}
-                      onChange={(e) => handleFieldChange("status", e.target.value)}
+                      onChange={(e) => {
+                        const newStatusId = e.target.value;
+                        handleFieldChange("status", newStatusId);
+
+                        
+                      }}
                       className="form-control-modern"
                       style={{ width: "100%" }}
                       aria-label="Statut"
@@ -894,6 +966,52 @@ const ReparationModal = ({
                     }}
                   >
                     ⚠️ Aucun réparateur autorisé pour cette catégorie
+                  </div>
+                )}
+
+                {/* ✅ Champ Réparateur SAV conditionnel (4 statuts SAV) */}
+                {isSAVTermine && (
+                  <div style={{ marginTop: "10px" }}>
+                    <label
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: "var(--primary)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.4px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        paddingLeft: "2px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      🔧 Réparateur SAV <span style={{ color: "var(--danger)" }}>*</span>
+                    </label>
+                    <select
+                      value={formData.reparateurSAV}
+                      onChange={(e) => handleFieldChange("reparateurSAV", e.target.value)}
+                      className="form-control-modern"
+                      style={{ width: "100%" }}
+                      aria-label="Réparateur SAV"
+                    >
+                      <option value="">— Sélectionner le réparateur SAV —</option>
+                      {usersAutorises.map((u) => (
+                        <option key={u._id} value={u._id}>
+                          {u.firstName} {u.lastName}
+                          {u.role === "COMMERCIAL" ? " (Commercial)" : " (Réparateur)"}
+                        </option>
+                      ))}
+                    </select>
+                    <div
+                      style={{
+                        fontSize: "10.5px",
+                        color: "var(--gray-500)",
+                        marginTop: "4px",
+                      }}
+                    >
+                      💡 Le technicien qui a traité ce SAV
+                    </div>
                   </div>
                 )}
 
@@ -976,7 +1094,6 @@ const ReparationModal = ({
         `}</style>
       </div>
 
-      {/* ✅ Modale création rapide d'une marque (au-dessus) */}
       <QuickCreateMarqueModal
         show={showQuickMarque}
         onClose={() => setShowQuickMarque(false)}
@@ -985,7 +1102,6 @@ const ReparationModal = ({
         defaultObjetId={formData.objet}
       />
 
-      {/* ✅ Modale création rapide d'un modèle (au-dessus) */}
       <QuickCreateModeleModal
         show={showQuickModele}
         onClose={() => setShowQuickModele(false)}

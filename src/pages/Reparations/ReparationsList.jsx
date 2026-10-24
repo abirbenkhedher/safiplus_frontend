@@ -19,7 +19,6 @@ import { exportReparations } from "../../api/export";
 import { useReparationModal } from "../../context/ReparationModalContext";
 import { useReparationData } from "../../hooks/useReparationData";
 import { useAuth } from "../../context/AuthContext";
-// ❌ SUPPRIMÉ : import { ZONES } from "../../constants/zones";
 import {
   saveFilters,
   loadFilters,
@@ -27,7 +26,6 @@ import {
   saveRetardMode,
   loadRetardMode,
 } from "../../utils/filterStorage";
-
 
 // ============================================================
 // ✅ Détection de refresh (F5)
@@ -46,6 +44,7 @@ const isPageRefresh = () => {
     return false;
   }
 };
+
 // ============================================================
 // ✅ Constantes
 // ============================================================
@@ -84,7 +83,6 @@ const ReparationsList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { openNewReparation, openEditReparation, registerOnSuccess } =
     useReparationModal();
-  // ✅ AJOUT de zones dans la destructuration
   const { categories, familles = [], zones = [] } = useReparationData();
 
   const { user } = useAuth();
@@ -95,32 +93,29 @@ const ReparationsList = () => {
   // ============================================================
   const [isRetardMode, setIsRetardMode] = useState(() => loadRetardMode());
 
-// ✅ Synchronisation URL → state (UNIQUEMENT si l'URL contient ?retard=1)
-//    MAIS on ne réactive PAS le mode si le flag de refresh est présent
-useEffect(() => {
-  const urlHasRetard = searchParams.get("retard") === "1";
-  const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
+  // ✅ Synchronisation URL → state (UNIQUEMENT si pas un refresh)
+  useEffect(() => {
+    const urlHasRetard = searchParams.get("retard") === "1";
+    const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
 
-  // Si c'est un refresh → on ne fait RIEN (le mode a déjà été effacé)
-  if (isRefresh) return;
+    if (isRefresh) return;
 
-  if (urlHasRetard && !isRetardMode) {
-    setIsRetardMode(true);
-    saveRetardMode(true);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [searchParams]);
+    if (urlHasRetard && !isRetardMode) {
+      setIsRetardMode(true);
+      saveRetardMode(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
-
-// ✅ Si refresh → nettoyer l'URL du paramètre retard
-useEffect(() => {
-  const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
-  if (isRefresh && searchParams.get("retard") === "1") {
-    searchParams.delete("retard");
-    setSearchParams(searchParams, { replace: true });
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  // ✅ Si refresh → nettoyer l'URL du paramètre retard
+  useEffect(() => {
+    const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
+    if (isRefresh && searchParams.get("retard") === "1") {
+      searchParams.delete("retard");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================
   // ✅ Désactiver le mode retard
@@ -370,7 +365,6 @@ useEffect(() => {
     [commerciaux]
   );
 
-  // ✅ zoneOptions — depuis l'API (plus de constante ZONES)
   const zoneOptions = useMemo(
     () =>
       [...zones]
@@ -594,7 +588,6 @@ useEffect(() => {
             className="btn-icon"
             onClick={(e) => {
               e.stopPropagation();
-              // ✅ Préserver le mode retard dans l'URL
               const url = isRetardMode ? `/reparations/${row._id}?retard=1` : `/reparations/${row._id}`;
               navigate(url);
             }}
@@ -998,6 +991,39 @@ useEffect(() => {
               }}
             >
               {row.reparateur.firstName}
+            </span>
+          </div>
+        ) : (
+          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
+        ),
+    },
+    // ✅ NOUVELLE COLONNE : Réparateur SAV
+    {
+      name: "Réparateur SAV",
+      selector: (row) => row.reparateurSAV?.firstName,
+      sortable: true,
+      width: "130px",
+      cell: (row) =>
+        row.reparateurSAV ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div
+              style={{
+                width: "24px", height: "24px", borderRadius: "6px",
+                background: "linear-gradient(135deg, var(--warning), #d97706)",
+                color: "white", display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: "9px", fontWeight: "700", flexShrink: 0,
+              }}
+            >
+              {row.reparateurSAV.firstName?.charAt(0)}
+              {row.reparateurSAV.lastName?.charAt(0)}
+            </div>
+            <span
+              style={{
+                fontSize: "11.5px", color: "var(--gray-700)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}
+            >
+              {row.reparateurSAV.firstName}
             </span>
           </div>
         ) : (

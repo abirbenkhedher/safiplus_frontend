@@ -6,6 +6,7 @@ import ReparationsTab from "./tabs/ReparationsTab";
 import FamillesTab from "./tabs/FamillesTab";
 import CategoriesTab from "./tabs/CategoriesTab";
 import AppareilsTab from "./tabs/AppareilsTab";
+import ReparateursTab from "./tabs/ReparateursTab";
 
 const TABS = [
   { id: "overview",    label: "Vue d'ensemble", icon: "📊" },
@@ -13,6 +14,8 @@ const TABS = [
   { id: "familles",    label: "Familles",       icon: "🗂️" },
   { id: "categories",  label: "Catégories",     icon: "🏷️" },
   { id: "appareils",   label: "Appareils",      icon: "📱" }, 
+    { id: "reparateurs", label: "Réparateurs",    icon: "👨‍🔧" },  // ✅ AJOUT
+
 ];
 
 const Statistiques = () => {
@@ -66,6 +69,8 @@ const Statistiques = () => {
           {activeTab === "familles" && <FamillesTab />}
           {activeTab === "categories" && <CategoriesTab />}
           {activeTab === "appareils" && <AppareilsTab />}
+          {activeTab === "reparateurs" && <ReparateursTab />}
+
 
         </div>
       </div>

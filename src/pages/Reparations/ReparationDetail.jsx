@@ -18,22 +18,27 @@ import {
   FaTimes,
   FaCheckCircle,
   FaExclamationTriangle,
+  FaWrench,  // ✅ AJOUT : icône pour le réparateur SAV
 } from "react-icons/fa";
 import { getReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
 import { getUsers } from "../../api/users";
 import { getCategories } from "../../api/categories";
 import { getObjets } from "../../api/objets";
-import { getMarques } from "../../api/marques";   // ✅ AJOUT
-import { getModeles } from "../../api/modeles";   // ✅ AJOUT
+import { getMarques } from "../../api/marques";
+import { getModeles } from "../../api/modeles";
 import ReparationQRCode from "../../components/reparations/ReparationQRCode";
 import ReparationModal from "../../components/reparations/ReparationModal";
 
+// ============================================================
+// ✅ FIELD LABELS (ajout de reparateurSAV)
+// ============================================================
 const FIELD_LABELS = {
   prix: "Prix",
   acompte: "Acompte",
   status: "Statut",
   reparateur: "Réparateur",
+  reparateurSAV: "Réparateur SAV",  // ✅ AJOUT
   problemeDeclare: "Problème déclaré",
   panneType: "Type de panne",
   marque: "Marque",
@@ -63,8 +68,8 @@ const ReparationDetail = () => {
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [objets, setObjets] = useState([]);
-  const [marques, setMarques] = useState([]);   // ✅ AJOUT
-  const [modeles, setModeles] = useState([]);   // ✅ AJOUT
+  const [marques, setMarques] = useState([]);
+  const [modeles, setModeles] = useState([]);
 
   useEffect(() => {
     loadReferenceData();
@@ -78,15 +83,15 @@ const ReparationDetail = () => {
         getUsers(),
         getCategories(),
         getObjets(),
-        getMarques(),   // ✅ AJOUT
-        getModeles(),   // ✅ AJOUT
+        getMarques(),
+        getModeles(),
       ]);
       setStatuses(s.data);
       setUsers(u.data);
       setCategories(c.data);
       setObjets(o.data);
-      setMarques(mq.data);   // ✅ AJOUT
-      setModeles(md.data);   // ✅ AJOUT
+      setMarques(mq.data);
+      setModeles(md.data);
     } catch (err) {
       console.error("Erreur ref data:", err);
     }
@@ -106,6 +111,7 @@ const ReparationDetail = () => {
 
   const formatDate = (date) =>
     !date ? "-" : new Date(date).toLocaleDateString("fr-FR");
+
   const formatDateTime = (date) =>
     !date
       ? "-"
@@ -116,6 +122,7 @@ const ReparationDetail = () => {
           hour: "2-digit",
           minute: "2-digit",
         });
+
   const formatMoney = (amount) => `${(amount || 0).toFixed(2)} DT`;
 
   const resolveValue = (field, value) => {
@@ -126,7 +133,7 @@ const ReparationDetail = () => {
       const status = statuses.find((s) => s._id === String(value));
       return status?.label || String(value);
     }
-    if (field === "reparateur") {
+    if (field === "reparateur" || field === "reparateurSAV") {  // ✅ AJOUT reparateurSAV
       const user = users.find((u) => u._id === String(value));
       return user ? `${user.firstName} ${user.lastName}` : "Non assigné";
     }
@@ -138,51 +145,23 @@ const ReparationDetail = () => {
       const obj = objets.find((o) => o._id === String(value));
       return obj?.nom || String(value);
     }
-
-    // ✅ AJOUT : Résolution Marque
     if (field === "marque") {
       const marque = marques.find((m) => m._id === String(value));
       return marque?.nom || "—";
     }
-
-    // ✅ AJOUT : Résolution Modèle
     if (field === "modele") {
       const modele = modeles.find((m) => m._id === String(value));
       return modele?.nom || "—";
     }
-
     if (field === "panneType") {
       if (Array.isArray(value)) {
         return value.length > 0 ? value.join(", ") : "—";
       }
-      if (typeof value === "string") {
-        const labels = {
-          lcd: "Écran (LCD)",
-          touch: "Tactile / Vitre",
-          battery: "Batterie",
-          charging_port: "Connecteur de charge",
-          camera_front: "Caméra frontale",
-          camera_back: "Caméra arrière",
-          speaker: "Haut-parleur",
-          microphone: "Microphone",
-          headphone: "Jack audio",
-          button_power: "Bouton Power",
-          button_volume: "Boutons volume",
-          software: "Logiciel / Système",
-          water_damage: "Dégât d'eau",
-          network: "Réseau / Signal",
-          other: "Autre",
-        };
-        return labels[value] || value;
-      }
-      return "—";
+      return String(value);
     }
     if (field === "observations") {
       if (Array.isArray(value)) {
-        return value
-          .filter((o) => o.text?.trim())
-          .map((o) => o.text)
-          .join(" • ");
+        return value.filter((o) => o.text?.trim()).map((o) => o.text).join(" • ");
       }
       return String(value);
     }
@@ -241,8 +220,7 @@ const ReparationDetail = () => {
                 width: "28px",
                 height: "28px",
                 borderRadius: "50%",
-                background:
-                  "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                 color: "white",
                 display: "flex",
                 alignItems: "center",
@@ -255,13 +233,7 @@ const ReparationDetail = () => {
               {row.user?.firstName?.charAt(0)}
               {row.user?.lastName?.charAt(0)}
             </div>
-            <span
-              style={{
-                fontSize: "12.5px",
-                fontWeight: "600",
-                color: "var(--gray-800)",
-              }}
-            >
+            <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--gray-800)" }}>
               {row.user?.firstName} {row.user?.lastName || "Système"}
             </span>
           </div>
@@ -304,14 +276,7 @@ const ReparationDetail = () => {
                   maxWidth: "100%",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                  }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                   <span
                     style={{
                       fontSize: "10px",
@@ -325,25 +290,12 @@ const ReparationDetail = () => {
                   >
                     {isSuccess ? "📱 SMS ENVOYÉ" : "❌ SMS ÉCHOUÉ"}
                   </span>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color: "var(--gray-600)",
-                      fontWeight: "600",
-                    }}
-                  >
+                  <span style={{ fontSize: "11px", color: "var(--gray-600)", fontWeight: "600" }}>
                     {s.statut}
                   </span>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--gray-700)",
-                    lineHeight: 1.5,
-                    marginBottom: "4px",
-                  }}
-                >
+                <div style={{ fontSize: "12px", color: "var(--gray-700)", lineHeight: 1.5, marginBottom: "4px" }}>
                   <strong>À :</strong> {s.clientNom} ({s.telephone})
                 </div>
 
@@ -362,14 +314,7 @@ const ReparationDetail = () => {
                 </div>
 
                 {s.erreur && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#dc2626",
-                      marginTop: "4px",
-                      fontWeight: "600",
-                    }}
-                  >
+                  <div style={{ fontSize: "11px", color: "#dc2626", marginTop: "4px", fontWeight: "600" }}>
                     ⚠️ Erreur : {s.erreur}
                   </div>
                 )}
@@ -383,14 +328,7 @@ const ReparationDetail = () => {
             content = <span>Réparation supprimée</span>;
           } else if (row.field === "observations") {
             content = (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                 <strong
                   style={{
                     fontSize: "12px",
@@ -403,27 +341,14 @@ const ReparationDetail = () => {
                 >
                   Nouvelle observation:
                 </strong>
-                <span
-                  style={{
-                    fontSize: "12.5px",
-                    fontWeight: "600",
-                    color: "var(--gray-900)",
-                  }}
-                >
+                <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--gray-900)" }}>
                   {resolveValue(row.field, row.newValue)}
                 </span>
               </div>
             );
           } else if (row.field === "status") {
             content = (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                 <span
                   style={{
                     padding: "2px 10px",
@@ -436,9 +361,7 @@ const ReparationDetail = () => {
                 >
                   {resolveValue("status", row.oldValue)}
                 </span>
-                <span style={{ color: "var(--gray-400)", fontWeight: "700" }}>
-                  →
-                </span>
+                <span style={{ color: "var(--gray-400)", fontWeight: "700" }}>→</span>
                 <span
                   style={{
                     padding: "2px 10px",
@@ -454,19 +377,10 @@ const ReparationDetail = () => {
               </div>
             );
           } else if (row.field === "diagnosticImprevus") {
-            content = (
-              <DiagnosticDiff oldValue={row.oldValue} newValue={row.newValue} />
-            );
+            content = <DiagnosticDiff oldValue={row.oldValue} newValue={row.newValue} />;
           } else {
             content = (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                 <strong
                   style={{
                     fontSize: "12px",
@@ -479,25 +393,11 @@ const ReparationDetail = () => {
                 >
                   {FIELD_LABELS[row.field] || row.field}:
                 </strong>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--gray-500)",
-                    textDecoration: "line-through",
-                  }}
-                >
+                <span style={{ fontSize: "12px", color: "var(--gray-500)", textDecoration: "line-through" }}>
                   {resolveValue(row.field, row.oldValue)}
                 </span>
-                <span style={{ color: "var(--gray-400)", fontWeight: "700" }}>
-                  →
-                </span>
-                <span
-                  style={{
-                    fontSize: "12.5px",
-                    fontWeight: "600",
-                    color: "var(--gray-900)",
-                  }}
-                >
+                <span style={{ color: "var(--gray-400)", fontWeight: "700" }}>→</span>
+                <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--gray-900)" }}>
                   {resolveValue(row.field, row.newValue)}
                 </span>
               </div>
@@ -506,6 +406,7 @@ const ReparationDetail = () => {
 
           const isDiag = row.field === "diagnosticImprevus";
           const isDelete = row.field === "_delete";
+          const isSAV = row.field === "reparateurSAV";  // ✅ AJOUT : cas spécial pour le SAV
 
           return (
             <div
@@ -515,14 +416,18 @@ const ReparationDetail = () => {
                 background: isDelete
                   ? "var(--danger-light)"
                   : isDiag
-                    ? "#fef3c7"
-                    : "#d1fae5",
+                  ? "#fef3c7"
+                  : isSAV
+                  ? "#fed7aa"  // ✅ Couleur orange pour le SAV
+                  : "#d1fae5",
                 borderLeft: `3px solid ${
                   isDelete
                     ? "var(--danger)"
                     : isDiag
-                      ? "var(--warning)"
-                      : "#10b981"
+                    ? "var(--warning)"
+                    : isSAV
+                    ? "#f59e0b"  // ✅ Orange pour le SAV
+                    : "#10b981"
                 }`,
                 borderRadius: "6px",
                 color: "var(--gray-800)",
@@ -535,7 +440,7 @@ const ReparationDetail = () => {
         },
       },
     ],
-    [statuses, users, categories, objets, marques, modeles]  // ✅ AJOUT marques, modeles
+    [statuses, users, categories, objets, marques, modeles]
   );
 
   const customStyles = {
@@ -645,12 +550,9 @@ const ReparationDetail = () => {
   const hasDiag =
     diag.constat ||
     diag.imprevus?.length > 0 ||
-    (diag.decisionClient?.statut &&
-      diag.decisionClient.statut !== "en_attente");
+    (diag.decisionClient?.statut && diag.decisionClient.statut !== "en_attente");
 
-  const imprevusAcceptesList = (diag.imprevus || []).filter(
-    (i) => i.accepte === true
-  );
+  const imprevusAcceptesList = (diag.imprevus || []).filter((i) => i.accepte === true);
   const imprevusEnAttenteList = (diag.imprevus || []).filter(
     (i) => i.accepte === null || i.accepte === undefined
   );
@@ -665,32 +567,26 @@ const ReparationDetail = () => {
 
   return (
     <>
-      <div
-        className="fade-in-up"
-        style={{ maxWidth: "1400px", margin: "0 auto" }}
-      >
-     <button
-  className="btn-modern btn-modern-outline mb-3"
-  onClick={() => navigate(-1)}
-  style={{ padding: "8px 14px" }}
->
-  <FaArrowLeft size={12} /> Retour aux réparations
-</button>
+      <div className="fade-in-up" style={{ maxWidth: "1400px", margin: "0 auto" }}>
+        <button
+          className="btn-modern btn-modern-outline mb-3"
+          onClick={() => navigate(-1)}
+          style={{ padding: "8px 14px" }}
+        >
+          <FaArrowLeft size={12} /> Retour aux réparations
+        </button>
 
         {/* EN-TÊTE */}
         <div className="card-modern mb-3" style={{ padding: "24px" }}>
           <div className="row g-3 align-items-center">
             <div className="col-12 col-md-7">
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "16px" }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                 <div
                   style={{
                     width: "60px",
                     height: "60px",
                     borderRadius: "16px",
-                    background:
-                      "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                    background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                     color: "white",
                     display: "flex",
                     alignItems: "center",
@@ -703,14 +599,7 @@ const ReparationDetail = () => {
                   <FaTools />
                 </div>
                 <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <h1
                       style={{
                         fontSize: "22px",
@@ -725,54 +614,33 @@ const ReparationDetail = () => {
                     <span
                       className="badge-modern"
                       style={{
-                        background:
-                          reparation.status?.color || "var(--gray-500)",
+                        background: reparation.status?.color || "var(--gray-500)",
                         color: "white",
                       }}
                     >
                       {reparation.status?.label}
                     </span>
                   </div>
-                  <p
-                    style={{
-                      fontSize: "12.5px",
-                      color: "var(--gray-500)",
-                      margin: "4px 0 0",
-                    }}
-                  >
+                  <p style={{ fontSize: "12.5px", color: "var(--gray-500)", margin: "4px 0 0" }}>
                     Créé le {formatDateTime(reparation.createdAt)} par{" "}
-                    {reparation.createdBy?.firstName}{" "}
-                    {reparation.createdBy?.lastName}
+                    {reparation.createdBy?.firstName} {reparation.createdBy?.lastName}
                   </p>
                 </div>
               </div>
             </div>
             <div className="col-12 col-md-5">
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  justifyContent: "flex-end",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <button
                   className="btn-modern btn-modern-outline"
                   onClick={() => {
                     const token = localStorage.getItem("accessToken");
-                    const apiUrl =
-                      import.meta.env.VITE_API_URL ||
-                      "http://localhost:5000/api";
+                    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
                     fetch(`${apiUrl}/reparations/${reparation._id}/ticket`, {
                       headers: { Authorization: `Bearer ${token}` },
                     })
                       .then((res) => res.text())
                       .then((html) => {
-                        const win = window.open(
-                          "",
-                          "_blank",
-                          "width=400,height=600"
-                        );
+                        const win = window.open("", "_blank", "width=400,height=600");
                         win.document.write(html);
                         win.document.close();
                         win.onload = () => setTimeout(() => win.print(), 500);
@@ -856,15 +724,8 @@ const ReparationDetail = () => {
                   +48H
                 </span>
               </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#7f1d1d",
-                  lineHeight: 1.5,
-                }}
-              >
-                Cette réparation est{" "}
-                <strong>en cours depuis {alertInfo.label}</strong>.
+              <div style={{ fontSize: "13px", color: "#7f1d1d", lineHeight: 1.5 }}>
+                Cette réparation est <strong>en cours depuis {alertInfo.label}</strong>.
                 <br />
                 <span style={{ fontSize: "12px", opacity: 0.85 }}>
                   Reçue le{" "}
@@ -961,16 +822,13 @@ const ReparationDetail = () => {
                   Client
                 </h6>
               </div>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "14px" }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <div
                   style={{
                     width: "48px",
                     height: "48px",
                     borderRadius: "12px",
-                    background:
-                      "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                    background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                     color: "white",
                     display: "flex",
                     alignItems: "center",
@@ -994,18 +852,8 @@ const ReparationDetail = () => {
                   >
                     {reparation.client?.nom}
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span
-                      className="badge-modern badge-modern-primary"
-                      style={{ fontSize: "10px" }}
-                    >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span className="badge-modern badge-modern-primary" style={{ fontSize: "10px" }}>
                       {reparation.client?.code}
                     </span>
                     <a
@@ -1065,37 +913,10 @@ const ReparationDetail = () => {
                   Appareil
                 </h6>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "8px 0",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "12.5px",
-                      color: "var(--gray-500)",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Type
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "var(--gray-800)",
-                      fontWeight: "600",
-                    }}
-                  >
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+                  <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>Type</span>
+                  <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
                     {reparation.objet?.nom}
                   </span>
                 </div>
@@ -1108,22 +929,8 @@ const ReparationDetail = () => {
                     borderTop: "1px solid var(--gray-100)",
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: "12.5px",
-                      color: "var(--gray-500)",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Catégorie
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "var(--gray-800)",
-                      fontWeight: "600",
-                    }}
-                  >
+                  <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>Catégorie</span>
+                  <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
                     {reparation.categorie?.nom}
                   </span>
                 </div>
@@ -1136,25 +943,135 @@ const ReparationDetail = () => {
                     borderTop: "1px solid var(--gray-100)",
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: "12.5px",
-                      color: "var(--gray-500)",
-                      fontWeight: "500",
-                    }}
-                  >
+                  <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>
                     Marque / Modèle
                   </span>
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "var(--gray-800)",
-                      fontWeight: "600",
-                    }}
-                  >
+                  <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
                     {reparation.marque?.nom || "-"} {reparation.modele?.nom || ""}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* ✅ NOUVELLE CARTE : GESTION (avec réparateur + réparateur SAV) */}
+            <div className="card-modern mb-3">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginBottom: "16px",
+                  paddingBottom: "12px",
+                  borderBottom: "1px solid var(--gray-100)",
+                }}
+              >
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "8px",
+                    background: "var(--primary-light)",
+                    color: "var(--primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FaWrench size={13} />
+                </div>
+                <h6
+                  style={{
+                    fontSize: "12.5px",
+                    fontWeight: "700",
+                    color: "var(--gray-800)",
+                    margin: 0,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Gestion
+                </h6>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {/* Réparateur */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+                  <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>
+                    Réparateur
+                  </span>
+                  <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
+                    {reparation.reparateur
+                      ? `${reparation.reparateur.firstName} ${reparation.reparateur.lastName}`
+                      : "Non assigné"}
+                  </span>
+                </div>
+
+                {/* ✅ Réparateur SAV */}
+                {reparation.reparateurSAV && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderTop: "1px solid var(--gray-100)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "12.5px",
+                        color: "#d97706",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      🔧 Réparateur SAV
+                    </span>
+                    <span style={{ fontSize: "13px", color: "#d97706", fontWeight: "700" }}>
+                      {reparation.reparateurSAV.firstName} {reparation.reparateurSAV.lastName}
+                    </span>
+                  </div>
+                )}
+
+                {/* Date réception */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderTop: "1px solid var(--gray-100)",
+                  }}
+                >
+                  <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>
+                    Date de réception
+                  </span>
+                  <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
+                    {formatDate(reparation.dateReception || reparation.createdAt)}
+                  </span>
+                </div>
+
+                {/* Date prévisionnelle */}
+                {reparation.datePrevisionnelle && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderTop: "1px solid var(--gray-100)",
+                    }}
+                  >
+                    <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>
+                      Date prévisionnelle
+                    </span>
+                    <span style={{ fontSize: "13px", color: "var(--gray-800)", fontWeight: "600" }}>
+                      {formatDate(reparation.datePrevisionnelle)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1222,8 +1139,7 @@ const ReparationDetail = () => {
                     lineHeight: 1.6,
                   }}
                 >
-                  {Array.isArray(reparation.panneType) &&
-                  reparation.panneType.length > 0
+                  {Array.isArray(reparation.panneType) && reparation.panneType.length > 0
                     ? reparation.panneType.join(", ")
                     : "Non défini"}
                 </div>
@@ -1371,20 +1287,10 @@ const ReparationDetail = () => {
                     >
                       ⚠️ Imprévus découverts ({diag.imprevus.length})
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       {diag.imprevus.map((imp, i) => {
                         const decision =
-                          imp.accepte === true
-                            ? "accepte"
-                            : imp.accepte === false
-                              ? "refuse"
-                              : "en_attente";
+                          imp.accepte === true ? "accepte" : imp.accepte === false ? "refuse" : "en_attente";
                         const config = {
                           accepte: {
                             color: "var(--success)",
@@ -1423,13 +1329,7 @@ const ReparationDetail = () => {
                             }}
                           >
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontSize: "13px",
-                                  fontWeight: "600",
-                                  color: "var(--gray-800)",
-                                }}
-                              >
+                              <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--gray-800)" }}>
                                 {imp.description}
                               </div>
                               {imp.noteDecision && (
@@ -1445,21 +1345,11 @@ const ReparationDetail = () => {
                                 </div>
                               )}
                             </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "10px",
-                                flexShrink: 0,
-                              }}
-                            >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
                               <strong
                                 style={{
                                   fontSize: "14px",
-                                  color:
-                                    imp.accepte === true
-                                      ? "var(--success)"
-                                      : "var(--gray-800)",
+                                  color: imp.accepte === true ? "var(--success)" : "var(--gray-800)",
                                 }}
                               >
                                 + {imp.prixSupplementaire?.toFixed(2)} DT
@@ -1495,12 +1385,7 @@ const ReparationDetail = () => {
             <div className="card-modern">
               <ReparationQRCode reparation={reparation} />
 
-              <div
-                style={{
-                  margin: "20px 0",
-                  borderTop: "1px dashed var(--gray-300)",
-                }}
-              />
+              <div style={{ margin: "20px 0", borderTop: "1px dashed var(--gray-300)" }} />
 
               <div>
                 <div
@@ -1541,13 +1426,7 @@ const ReparationDetail = () => {
                   </h6>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   <div
                     style={{
                       display: "flex",
@@ -1558,22 +1437,10 @@ const ReparationDetail = () => {
                       borderRadius: "10px",
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: "12.5px",
-                        color: "var(--gray-600)",
-                        fontWeight: "500",
-                      }}
-                    >
+                    <span style={{ fontSize: "12.5px", color: "var(--gray-600)", fontWeight: "500" }}>
                       Prix de base
                     </span>
-                    <strong
-                      style={{
-                        fontSize: "14px",
-                        color: "var(--gray-800)",
-                        fontWeight: "700",
-                      }}
-                    >
+                    <strong style={{ fontSize: "14px", color: "var(--gray-800)", fontWeight: "700" }}>
                       {formatMoney(reparation.prix)}
                     </strong>
                   </div>
@@ -1582,8 +1449,7 @@ const ReparationDetail = () => {
                     <div
                       style={{
                         padding: "12px 14px",
-                        background:
-                          "linear-gradient(135deg, var(--success-light), white)",
+                        background: "linear-gradient(135deg, var(--success-light), white)",
                         borderRadius: "10px",
                         border: "1px solid var(--success)30",
                         display: "flex",
@@ -1607,39 +1473,16 @@ const ReparationDetail = () => {
                         Imprévus acceptés
                       </div>
 
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "4px",
-                        }}
-                      >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                         {imprevusAcceptesList.map((imp, i) => (
                           <div
                             key={i}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              fontSize: "12px",
-                            }}
+                            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px" }}
                           >
-                            <span
-                              style={{
-                                color: "var(--gray-600)",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
+                            <span style={{ color: "var(--gray-600)", display: "flex", alignItems: "center", gap: "4px" }}>
                               • {imp.description}
                             </span>
-                            <strong
-                              style={{
-                                color: "var(--success)",
-                                fontWeight: "600",
-                              }}
-                            >
+                            <strong style={{ color: "var(--success)", fontWeight: "600" }}>
                               + {formatMoney(imp.prixSupplementaire)}
                             </strong>
                           </div>
@@ -1656,14 +1499,8 @@ const ReparationDetail = () => {
                           fontSize: "12.5px",
                         }}
                       >
-                        <span
-                          style={{ color: "var(--success)", fontWeight: "600" }}
-                        >
-                          Sous-total imprévus
-                        </span>
-                        <strong
-                          style={{ color: "var(--success)", fontWeight: "700" }}
-                        >
+                        <span style={{ color: "var(--success)", fontWeight: "600" }}>Sous-total imprévus</span>
+                        <strong style={{ color: "var(--success)", fontWeight: "700" }}>
                           + {formatMoney(totalImprevusAcceptes)}
                         </strong>
                       </div>
@@ -1686,8 +1523,7 @@ const ReparationDetail = () => {
                     >
                       <FaClock size={11} />
                       <span style={{ fontWeight: "600" }}>
-                        {imprevusEnAttenteList.length} imprévu(s) en attente —
-                        non comptabilisé
+                        {imprevusEnAttenteList.length} imprévu(s) en attente — non comptabilisé
                       </span>
                     </div>
                   )}
@@ -1698,8 +1534,7 @@ const ReparationDetail = () => {
                       justifyContent: "space-between",
                       alignItems: "center",
                       padding: "14px 16px",
-                      background:
-                        "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                      background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                       borderRadius: "12px",
                       boxShadow: "0 4px 12px rgba(67, 97, 238, 0.25)",
                     }}
@@ -1738,22 +1573,10 @@ const ReparationDetail = () => {
                       borderRadius: "10px",
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: "12.5px",
-                        color: "var(--gray-600)",
-                        fontWeight: "500",
-                      }}
-                    >
+                    <span style={{ fontSize: "12.5px", color: "var(--gray-600)", fontWeight: "500" }}>
                       Acompte versé
                     </span>
-                    <strong
-                      style={{
-                        fontSize: "14px",
-                        color: "var(--success)",
-                        fontWeight: "700",
-                      }}
-                    >
+                    <strong style={{ fontSize: "14px", color: "var(--success)", fontWeight: "700" }}>
                       − {formatMoney(reparation.acompte)}
                     </strong>
                   </div>
@@ -1769,18 +1592,14 @@ const ReparationDetail = () => {
                           ? "linear-gradient(135deg, var(--danger-light), white)"
                           : "linear-gradient(135deg, var(--success-light), white)",
                       borderRadius: "12px",
-                      border:
-                        resteTotal > 0
-                          ? "1px solid var(--danger)40"
-                          : "1px solid var(--success)40",
+                      border: resteTotal > 0 ? "1px solid var(--danger)40" : "1px solid var(--success)40",
                     }}
                   >
                     <span
                       style={{
                         fontSize: "11.5px",
                         fontWeight: "700",
-                        color:
-                          resteTotal > 0 ? "var(--danger)" : "var(--success)",
+                        color: resteTotal > 0 ? "var(--danger)" : "var(--success)",
                         textTransform: "uppercase",
                         letterSpacing: "0.3px",
                       }}
@@ -1791,8 +1610,7 @@ const ReparationDetail = () => {
                       style={{
                         fontSize: "20px",
                         fontWeight: "800",
-                        color:
-                          resteTotal > 0 ? "var(--danger)" : "var(--success)",
+                        color: resteTotal > 0 ? "var(--danger)" : "var(--success)",
                       }}
                     >
                       {formatMoney(resteTotal)}
@@ -1842,10 +1660,7 @@ const ReparationDetail = () => {
             >
               Historique & Modifications
             </h6>
-            <span
-              className="badge-modern badge-modern-gray"
-              style={{ marginLeft: "auto" }}
-            >
+            <span className="badge-modern badge-modern-gray" style={{ marginLeft: "auto" }}>
               {timelineData.length} entrée(s)
             </span>
           </div>
@@ -1857,22 +1672,8 @@ const ReparationDetail = () => {
             paginationPerPage={10}
             paginationRowsPerPageOptions={[5, 10, 25, 50]}
             noDataComponent={
-              <div
-                style={{
-                  padding: "40px 20px",
-                  textAlign: "center",
-                  color: "var(--gray-500)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "36px",
-                    marginBottom: "8px",
-                    opacity: 0.3,
-                  }}
-                >
-                  📭
-                </div>
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--gray-500)" }}>
+                <div style={{ fontSize: "36px", marginBottom: "8px", opacity: 0.3 }}>📭</div>
                 <div style={{ fontSize: "13px" }}>Aucun historique</div>
               </div>
             }
@@ -1906,7 +1707,6 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
 
   const oldConstat = oldDiag.constat || "";
   const newConstat = newDiag.constat || "";
-
   const constatChanged = oldConstat !== newConstat;
 
   const imprevusDiffs = [];
@@ -1930,10 +1730,8 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
         prix: oldImp.prixSupplementaire || 0,
       });
     } else if (oldImp && newImp) {
-      const descChanged =
-        (oldImp.description || "") !== (newImp.description || "");
-      const prixChanged =
-        (oldImp.prixSupplementaire || 0) !== (newImp.prixSupplementaire || 0);
+      const descChanged = (oldImp.description || "") !== (newImp.description || "");
+      const prixChanged = (oldImp.prixSupplementaire || 0) !== (newImp.prixSupplementaire || 0);
       const decisionChanged = oldImp.accepte !== newImp.accepte;
 
       if (descChanged || prixChanged || decisionChanged) {
@@ -1957,13 +1755,7 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
 
   if (!hasChanges) {
     return (
-      <div
-        style={{
-          fontSize: "12px",
-          color: "var(--gray-500)",
-          fontStyle: "italic",
-        }}
-      >
+      <div style={{ fontSize: "12px", color: "var(--gray-500)", fontStyle: "italic" }}>
         Diagnostic mis à jour
       </div>
     );
@@ -2007,13 +1799,7 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
               </span>
             )}
             {newConstat && (
-              <span
-                style={{
-                  color: "var(--gray-800)",
-                  fontWeight: "600",
-                  fontSize: "12px",
-                }}
-              >
+              <span style={{ color: "var(--gray-800)", fontWeight: "600", fontSize: "12px" }}>
                 {newConstat}
               </span>
             )}
@@ -2034,25 +1820,10 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
 const ImprevuDiffItem = ({ diff }) => {
   const getDecisionConfig = (accepte) => {
     if (accepte === true)
-      return {
-        label: "Accepté",
-        icon: "✅",
-        color: "var(--success)",
-        bg: "var(--success-light)",
-      };
+      return { label: "Accepté", icon: "✅", color: "var(--success)", bg: "var(--success-light)" };
     if (accepte === false)
-      return {
-        label: "Refusé",
-        icon: "❌",
-        color: "var(--danger)",
-        bg: "var(--danger-light)",
-      };
-    return {
-      label: "En attente",
-      icon: "⏳",
-      color: "var(--warning)",
-      bg: "var(--warning-light)",
-    };
+      return { label: "Refusé", icon: "❌", color: "var(--danger)", bg: "var(--danger-light)" };
+    return { label: "En attente", icon: "⏳", color: "var(--warning)", bg: "var(--warning-light)" };
   };
 
   if (diff.type === "added") {
@@ -2072,15 +1843,7 @@ const ImprevuDiffItem = ({ diff }) => {
           flexWrap: "wrap",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
           <span
             style={{
               fontSize: "10px",
@@ -2106,14 +1869,7 @@ const ImprevuDiffItem = ({ diff }) => {
             {diff.description}
           </span>
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexShrink: 0,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
           <strong style={{ fontSize: "12.5px", color: "var(--gray-800)" }}>
             + {Number(diff.prix || 0).toFixed(2)} DT
           </strong>
@@ -2150,15 +1906,7 @@ const ImprevuDiffItem = ({ diff }) => {
           flexWrap: "wrap",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
           <span
             style={{
               fontSize: "10px",
@@ -2184,9 +1932,7 @@ const ImprevuDiffItem = ({ diff }) => {
             {diff.description}
           </span>
         </div>
-        <strong
-          style={{ fontSize: "12.5px", color: "var(--danger)", flexShrink: 0 }}
-        >
+        <strong style={{ fontSize: "12.5px", color: "var(--danger)", flexShrink: 0 }}>
           − {Number(diff.prix || 0).toFixed(2)} DT
         </strong>
       </div>
@@ -2209,14 +1955,7 @@ const ImprevuDiffItem = ({ diff }) => {
           gap: "6px",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
           <span
             style={{
               fontSize: "10px",
@@ -2230,30 +1969,14 @@ const ImprevuDiffItem = ({ diff }) => {
           >
             ✏️ MODIFIÉ
           </span>
-          <span
-            style={{
-              fontSize: "12.5px",
-              fontWeight: "600",
-              color: "var(--gray-800)",
-            }}
-          >
+          <span style={{ fontSize: "12.5px", fontWeight: "600", color: "var(--gray-800)" }}>
             {diff.description || diff.oldDescription}
           </span>
         </div>
 
         {diff.prixChanged && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              paddingLeft: "4px",
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-              Prix :
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", paddingLeft: "4px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", color: "var(--gray-500)" }}>Prix :</span>
             <span
               style={{
                 fontSize: "11.5px",
@@ -2263,15 +1986,7 @@ const ImprevuDiffItem = ({ diff }) => {
             >
               {Number(diff.oldPrix || 0).toFixed(2)} DT
             </span>
-            <span
-              style={{
-                color: "var(--gray-400)",
-                fontWeight: "700",
-                fontSize: "11px",
-              }}
-            >
-              →
-            </span>
+            <span style={{ color: "var(--gray-400)", fontWeight: "700", fontSize: "11px" }}>→</span>
             <strong style={{ fontSize: "12px", color: "var(--gray-800)" }}>
               {Number(diff.newPrix || 0).toFixed(2)} DT
             </strong>
@@ -2279,17 +1994,8 @@ const ImprevuDiffItem = ({ diff }) => {
         )}
 
         {diff.descChanged && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "2px",
-              paddingLeft: "4px",
-            }}
-          >
-            <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-              Description :
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", paddingLeft: "4px" }}>
+            <div style={{ fontSize: "11px", color: "var(--gray-500)" }}>Description :</div>
             <span
               style={{
                 fontSize: "11.5px",
@@ -2299,31 +2005,15 @@ const ImprevuDiffItem = ({ diff }) => {
             >
               {diff.oldDescription}
             </span>
-            <span
-              style={{
-                fontSize: "12px",
-                color: "var(--gray-800)",
-                fontWeight: "600",
-              }}
-            >
+            <span style={{ fontSize: "12px", color: "var(--gray-800)", fontWeight: "600" }}>
               {diff.description}
             </span>
           </div>
         )}
 
         {diff.decisionChanged && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              paddingLeft: "4px",
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: "var(--gray-500)" }}>
-              Décision :
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", paddingLeft: "4px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", color: "var(--gray-500)" }}>Décision :</span>
             <span
               style={{
                 fontSize: "10px",
@@ -2336,15 +2026,7 @@ const ImprevuDiffItem = ({ diff }) => {
             >
               {oldDec.icon} {oldDec.label}
             </span>
-            <span
-              style={{
-                color: "var(--gray-400)",
-                fontWeight: "700",
-                fontSize: "11px",
-              }}
-            >
-              →
-            </span>
+            <span style={{ color: "var(--gray-400)", fontWeight: "700", fontSize: "11px" }}>→</span>
             <span
               style={{
                 fontSize: "10px",

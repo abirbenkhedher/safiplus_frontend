@@ -103,7 +103,7 @@ export const exportHistory = async (params = {}) => {
 };
 
 // ============================================================
-// ✅ NOUVEAU : EXPORT APPAREILS (Statistiques)
+// ✅ EXPORT APPAREILS (Statistiques)
 // ============================================================
 export const exportAppareils = async ({ appareils, filters = {} }) => {
   const filename = `appareils_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -121,9 +121,8 @@ export const exportAppareils = async ({ appareils, filters = {} }) => {
   return { success: true };
 };
 
-
 // ============================================================
-// ✅ NOUVEAU : EXPORT FAMILLES
+// ✅ EXPORT FAMILLES
 // ============================================================
 export const exportFamilles = async ({ familles, filters = {} }) => {
   const filename = `familles_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -140,7 +139,7 @@ export const exportFamilles = async ({ familles, filters = {} }) => {
 };
 
 // ============================================================
-// ✅ NOUVEAU : EXPORT CATÉGORIES
+// ✅ EXPORT CATÉGORIES
 // ============================================================
 export const exportCategories = async ({ categories, filters = {} }) => {
   const filename = `categories_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -149,6 +148,25 @@ export const exportCategories = async ({ categories, filters = {} }) => {
     { categories, filters },
     { responseType: 'blob' }
   );
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
+};
+
+// ============================================================
+// ✅ NOUVEAU : EXPORT RÉPARATEURS (Statistiques SAV)
+// ============================================================
+export const exportReparateurs = async ({ reparateurs, filters = {}, topRetours = [] }) => {
+  const filename = `reparateurs_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  const response = await apiClient.post(
+    '/export/reparateurs',
+    { reparateurs, filters, topRetours },
+    { responseType: 'blob' }
+  );
+
   const blob = new Blob([response.data], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });

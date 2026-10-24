@@ -28,4 +28,6 @@ export const getAppareilsStats = (params) =>
 
 export const exportStats = (params) => 
   apiClient.get(`/statistiques/export?${buildQuery(params)}`, { responseType: "blob" });
-// ✅ Pas d'accolade finale en trop
+
+export const getReparateursStats = (params) => 
+  apiClient.get(`/statistiques/reparateurs?${buildQuery(params)}`);

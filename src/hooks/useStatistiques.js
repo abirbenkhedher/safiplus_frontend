@@ -6,6 +6,7 @@ import {
   getFamillesStats, 
   getCategoriesStats,
   getAppareilsStats,
+  getReparateursStats,
 } from "../api/statistiques";
 
 export const useStatistiques = (tab) => {
@@ -28,6 +29,7 @@ export const useStatistiques = (tab) => {
       familles:    getFamillesStats,
       categories:  getCategoriesStats,
       appareils:   getAppareilsStats,
+      reparateurs: getReparateursStats,
     };
 
     try {
