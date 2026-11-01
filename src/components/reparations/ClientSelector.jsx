@@ -409,13 +409,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
   return (
     <div ref={containerRef}>
       <div style={{ position: 'relative' }}>
-        <FaSearch
-          style={{
-            position: 'absolute', left: '14px', top: '50%',
-            transform: 'translateY(-50%)', color: 'var(--gray-400)',
-            fontSize: '12px', pointerEvents: 'none',
-          }}
-        />
+        
         <input
           type="text"
           value={searchTerm}

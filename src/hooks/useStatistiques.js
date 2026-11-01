@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStatistiquesContext } from "../context/StatistiquesContext";
 import {
-  getOverview, 
-  getReparationsStats, 
-  getFamillesStats, 
+  getOverview,
+  getReparationsStats,
+  getFamillesStats,
   getCategoriesStats,
   getAppareilsStats,
   getReparateursStats,
+  getStatutsStats, // ✅ NOUVEAU
 } from "../api/statistiques";
 
 export const useStatistiques = (tab) => {
@@ -16,10 +17,10 @@ export const useStatistiques = (tab) => {
   const [error, setError] = useState("");
 
   const fetchData = useCallback(async () => {
-    const params = { 
-      from: period.from, 
-      to: period.to, 
-      ...filters 
+    const params = {
+      from: period.from,
+      to: period.to,
+      ...filters,
     };
 
     // On choisit la bonne fonction selon l'onglet actif
@@ -30,6 +31,7 @@ export const useStatistiques = (tab) => {
       categories:  getCategoriesStats,
       appareils:   getAppareilsStats,
       reparateurs: getReparateursStats,
+      statuts:     getStatutsStats, // ✅ NOUVEAU
     };
 
     try {
@@ -42,12 +44,12 @@ export const useStatistiques = (tab) => {
     } finally {
       setLoading(false);
     }
-  }, [tab, period, filters]); // Se relance si on change de tab, de date ou de filtre
+  }, [tab, period, filters]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // On renvoie les données et la fonction pour recharger manuellement (bouton "Réessayer")
+  // On renvoie les données et la fonction pour recharger manuellement
   return { data, loading, error, refetch: fetchData };
 };

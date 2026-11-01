@@ -3,6 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { getDashboardStats, getDashboardCharts } from "../../api/dashboard";
 import StatsCards from "./StatsCards";
 import Charts from "./Charts";
+// ✅ NOUVEAU : widget alertes stock
+import StockAlertWidget from "./StockAlertWidget";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -172,6 +174,15 @@ const Dashboard = () => {
       {/* 4 CARTES ESSENTIELLES */}
       {/* ========================================== */}
       <StatsCards stats={stats} userRole={user?.role} />
+
+      {/* ========================================== */}
+      {/* ✅ NOUVEAU : Widget alertes stock */}
+      {/* ========================================== */}
+      {["ADMIN", "REPARATEUR"].includes(user?.role) && (
+        <div style={{ marginTop: "20px" }}>
+          <StockAlertWidget />
+        </div>
+      )}
 
       {/* ========================================== */}
       {/* 3 GRAPHIQUES CLÉS */}

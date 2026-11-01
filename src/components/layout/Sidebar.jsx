@@ -5,7 +5,8 @@ import {
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
   FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
   FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
-  FaChartLine, FaMapMarkerAlt
+  FaChartLine, FaMapMarkerAlt,
+  FaWarehouse, FaReceipt,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
@@ -43,6 +44,10 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             },
           },
         },
+        // ✅ Stock : ADMIN + REPARATEUR
+        { path: '/stock', icon: <FaWarehouse />, label: 'Stock', roles: ['ADMIN', 'REPARATEUR'] },
+        // ✅ Dépenses : ADMIN uniquement
+        { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', roles: ['ADMIN'] },
       ]
     },
     {

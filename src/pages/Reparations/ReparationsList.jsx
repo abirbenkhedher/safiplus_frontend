@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
@@ -28,32 +28,20 @@ import {
 } from "../../utils/filterStorage";
 
 // ============================================================
-// ✅ Détection de refresh (F5)
-// ============================================================
-const isPageRefresh = () => {
-  try {
-    const navEntries = performance.getEntriesByType("navigation");
-    if (navEntries.length > 0) {
-      return navEntries[0].type === "reload";
-    }
-    if (performance.navigation) {
-      return performance.navigation.type === 1;
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
-};
-
-// ============================================================
 // ✅ Constantes
 // ============================================================
 const DELAI_ALERTE_HEURES = 48;
+const DEFAULT_PER_PAGE = 20;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const STATUTS_TERMINES = [
   "REPARE", "NON REPARE", "SORTIE NON REPARE", "SAV",
   "SORTIE REPARE", "SAV REPARE", "SAV NON REPARE",
   "SAV SORTIE REPARE", "SAV SORTIE NON REPARE",
+];
+
+const STATUTS_SANS_REPARATEUR_OBLIGATOIRE_LABEL = [
+  "EN COURS", "EN ATTENTE", "NOUVEAU", "NOUVELLE", "ATTENTE",
 ];
 
 const STATUT_EN_COURS = "EN COURS";
@@ -89,17 +77,14 @@ const ReparationsList = () => {
   const canDelete = user?.role === "ADMIN";
 
   // ============================================================
-  // ✅ Mode "retard" : lu depuis sessionStorage au montage
+  // ✅ Mode "retard"
   // ============================================================
   const [isRetardMode, setIsRetardMode] = useState(() => loadRetardMode());
 
-  // ✅ Synchronisation URL → state (UNIQUEMENT si pas un refresh)
   useEffect(() => {
     const urlHasRetard = searchParams.get("retard") === "1";
     const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
-
     if (isRefresh) return;
-
     if (urlHasRetard && !isRetardMode) {
       setIsRetardMode(true);
       saveRetardMode(true);
@@ -107,7 +92,6 @@ const ReparationsList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // ✅ Si refresh → nettoyer l'URL du paramètre retard
   useEffect(() => {
     const isRefresh = sessionStorage.getItem("reparations_refresh_flag") === "1";
     if (isRefresh && searchParams.get("retard") === "1") {
@@ -117,9 +101,6 @@ const ReparationsList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ============================================================
-  // ✅ Désactiver le mode retard
-  // ============================================================
   const exitRetardMode = () => {
     setIsRetardMode(false);
     saveRetardMode(false);
@@ -127,15 +108,24 @@ const ReparationsList = () => {
     setSearchParams(searchParams);
   };
 
+  // ============================================================
+  // States
+  // ============================================================
   const [reparations, setReparations] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Pagination serveur
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
+  const [totalCount, setTotalCount] = useState(0);
+
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
   const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
+  const [searchInput, setSearchInput] = useState(filters.search || "");
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReparation, setSelectedReparation] = useState(null);
@@ -149,20 +139,74 @@ const ReparationsList = () => {
   const [editingStatusId, setEditingStatusId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
+  // ✅ Erreurs par ligne (Solution 3)
+  const [rowErrors, setRowErrors] = useState({});
+  const rowErrorTimers = useRef({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(rowErrorTimers.current).forEach((t) => clearTimeout(t));
+      rowErrorTimers.current = {};
+    };
+  }, []);
+
+  const showRowError = (rowId, message, duration = 5000) => {
+    if (rowErrorTimers.current[rowId]) {
+      clearTimeout(rowErrorTimers.current[rowId]);
+    }
+    setRowErrors((prev) => ({ ...prev, [rowId]: message }));
+    rowErrorTimers.current[rowId] = setTimeout(() => {
+      setRowErrors((prev) => {
+        const next = { ...prev };
+        delete next[rowId];
+        return next;
+      });
+      delete rowErrorTimers.current[rowId];
+    }, duration);
+  };
+
+  const clearRowError = (rowId) => {
+    if (rowErrorTimers.current[rowId]) {
+      clearTimeout(rowErrorTimers.current[rowId]);
+      delete rowErrorTimers.current[rowId];
+    }
+    setRowErrors((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+  };
+
   const handleNew = () => openNewReparation();
   const handleEdit = (rep) => openEditReparation(rep);
 
   // ============================================================
-  // ✅ PERSISTANCE
+  // ✅ PERSISTANCE filtres
   // ============================================================
   useEffect(() => {
     saveFilters(filters);
   }, [filters]);
 
   // ============================================================
-  // CHARGEMENT
+  // ✅ CHARGEMENTS
   // ============================================================
-  const loadData = async () => {
+
+  // 1️⃣ Référentiels : UNE SEULE FOIS
+  const loadReferentiels = async () => {
+    try {
+      const [statusesRes, usersRes] = await Promise.all([
+        getStatuses(),
+        getUsers(),
+      ]);
+      setStatuses(statusesRes.data);
+      setUsers(usersRes.data);
+    } catch (err) {
+      console.error("Erreur référentiels:", err);
+    }
+  };
+
+  // 2️⃣ Réparations : avec pagination SERVEUR
+  const loadReparations = async () => {
     try {
       setLoading(true);
       const params = {};
@@ -176,18 +220,25 @@ const ReparationsList = () => {
         }
       });
 
-      params.limit = 10000;
-      params.page = 1;
+      params.limit = perPage;
+      params.page = page;
 
-      const [repRes, statusesRes, usersRes] = await Promise.all([
-        getReparations(params),
-        getStatuses(),
-        getUsers(),
-      ]);
-      setReparations(repRes.data);
-      setStatuses(statusesRes.data);
-      setUsers(usersRes.data);
+      const response = await getReparations(params);
+
+      // ✅ Récupérer les données
+      const data = Array.isArray(response?.data) ? response.data : [];
+      setReparations(data);
+
+      // ✅ Récupérer le total
+      const total =
+        Number(response?.pagination?.total) ||
+        Number(response?.totalCount) ||
+        Number(response?.total) ||
+        data.length;
+
+      setTotalCount(total);
     } catch (err) {
+      console.error("Erreur loadReparations:", err);
       setError("Erreur lors du chargement des données");
     } finally {
       setLoading(false);
@@ -195,17 +246,47 @@ const ReparationsList = () => {
   };
 
   useEffect(() => {
-    loadData();
+    loadReferentiels();
+  }, []);
+
+  useEffect(() => {
+    loadReparations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, page, perPage]);
 
   useEffect(() => {
     const unregister = registerOnSuccess(() => {
-      loadData();
+      loadReparations();
     });
     return unregister;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ============================================================
+  // ✅ Reset page à 1 quand les filtres changent
+  // ============================================================
+  const prevFiltersKey = useRef(JSON.stringify(filters));
+  useEffect(() => {
+    const currentKey = JSON.stringify(filters);
+    if (prevFiltersKey.current !== currentKey) {
+      prevFiltersKey.current = currentKey;
+      if (page !== 1) setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  // ============================================================
+  // ✅ DEBOUNCE recherche
+  // ============================================================
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        setFilters((prev) => ({ ...prev, search: searchInput }));
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   // ============================================================
   // ✅ HANDLERS
@@ -234,8 +315,10 @@ const ReparationsList = () => {
 
   const resetFilters = () => {
     setFilters(DEFAULT_FILTERS);
+    setSearchInput("");
     clearFilters();
     clearSelection();
+    setPage(1);
   };
 
   const activeCount = useMemo(() => {
@@ -250,7 +333,7 @@ const ReparationsList = () => {
   const hasActiveFilters = activeCount > 0;
 
   // ============================================================
-  // COMMERCIAUX
+  // COMMERCIAUX / RÉPARATEURS
   // ============================================================
   const commerciaux = useMemo(
     () =>
@@ -314,7 +397,7 @@ const ReparationsList = () => {
   }, [statuses]);
 
   // ============================================================
-  // ✅ OPTIONS pour les MultiSelect
+  // ✅ OPTIONS MultiSelect
   // ============================================================
   const familleOptions = useMemo(
     () => familles.map((f) => ({ value: f._id, label: f.nom })),
@@ -378,13 +461,32 @@ const ReparationsList = () => {
   );
 
   // ============================================================
-  // ✅ CHANGEMENT RAPIDE DE STATUT
+  // ✅ CHANGEMENT RAPIDE DE STATUT (Solution 3)
   // ============================================================
   const handleQuickStatusChange = async (row, newStatusId) => {
     if (!newStatusId || newStatusId === row.status?._id) {
       setEditingStatusId(null);
       return;
     }
+
+    const newStatus = statuses.find((s) => String(s._id) === String(newStatusId));
+    const newStatusLabel = (newStatus?.label || "").toUpperCase().trim();
+
+    const isStatutEnCours = STATUTS_SANS_REPARATEUR_OBLIGATOIRE_LABEL.some((s) =>
+      newStatusLabel.includes(s)
+    );
+
+    if (!isStatutEnCours && !row.reparateur) {
+      showRowError(
+        row._id,
+        `Le réparateur est obligatoire pour "${newStatusLabel}"`,
+        5000
+      );
+      setEditingStatusId(null);
+      return;
+    }
+
+    clearRowError(row._id);
 
     try {
       setUpdatingStatusId(row._id);
@@ -398,10 +500,11 @@ const ReparationsList = () => {
       setSuccess(`Statut mis à jour : ${updated.status?.label || ""}`);
       setTimeout(() => setSuccess(""), 2500);
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Erreur lors du changement de statut"
+      showRowError(
+        row._id,
+        err.response?.data?.message || "Erreur lors du changement",
+        5000
       );
-      setTimeout(() => setError(""), 3000);
     } finally {
       setUpdatingStatusId(null);
       setEditingStatusId(null);
@@ -422,7 +525,7 @@ const ReparationsList = () => {
       await deleteReparation(selectedReparation._id);
       setSuccess("Réparation supprimée avec succès");
       setShowDeleteDialog(false);
-      loadData();
+      loadReparations();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(err.response?.data?.message || "Erreur");
@@ -442,17 +545,14 @@ const ReparationsList = () => {
       const ids = selectedRows.map((r) => r._id);
       const res = await deleteManyReparations(ids);
 
-      setSuccess(
-        `${res.deletedCount || 0} réparation(s) supprimée(s) avec succès`
-      );
+      setSuccess(`${res.deletedCount || 0} réparation(s) supprimée(s)`);
       setShowDeleteManyDialog(false);
       clearSelection();
-      loadData();
+      loadReparations();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          "Erreur lors de la suppression multiple"
+        err.response?.data?.message || "Erreur lors de la suppression multiple"
       );
       setShowDeleteManyDialog(false);
     } finally {
@@ -471,7 +571,6 @@ const ReparationsList = () => {
       });
       return;
     }
-
     await exportReparations({
       reparations: reparations,
       filters: filters,
@@ -482,6 +581,7 @@ const ReparationsList = () => {
     setSelectedRows(selectedRows);
   };
 
+  // ✅ Stats calculées SUR LA PAGE COURANTE
   const stats = useMemo(() => {
     const total = reparations.length;
     const impayees = reparations.filter((r) => {
@@ -501,7 +601,7 @@ const ReparationsList = () => {
   }, [reparations]);
 
   // ============================================================
-  // ✅ FILTRAGE PAR RETARD (mode "retard")
+  // ✅ FILTRAGE PAR RETARD
   // ============================================================
   const reparationsFilteredByRetard = useMemo(() => {
     if (!isRetardMode) return reparations;
@@ -522,57 +622,22 @@ const ReparationsList = () => {
     });
   }, [reparations, isRetardMode]);
 
-  // ============================================================
-  // ✅ TRI PAR PERTINENCE
-  // ============================================================
   const sortedReparations = useMemo(() => {
-    const base = reparationsFilteredByRetard;
-    const query = (filters.search || "").trim().toLowerCase();
-    if (!query) return base;
+    return reparationsFilteredByRetard;
+  }, [reparationsFilteredByRetard]);
 
-    const getScore = (r) => {
-      const numero = String(r.numero || "").toLowerCase();
-      const clientNom = String(r.client?.nom || "").toLowerCase();
-      const clientPhone = String(r.client?.phone || "").toLowerCase();
-      const clientPhone2 = String(r.client?.phone2 || "").toLowerCase();
-      const clientCode = String(r.client?.code || "").toLowerCase();
-      const clientCodeFidelite = String(r.client?.codeFidelite || "").toLowerCase();
-      const marque = String(r.marque?.nom || "").toLowerCase();
-      const modele = String(r.modele?.nom || "").toLowerCase();
-      const objet = String(r.objet?.nom || "").toLowerCase();
-
-      if (numero === query) return 10000;
-      if (numero.startsWith(query)) return 9500;
-      if (numero.includes(query)) return 9000;
-
-      if (clientCodeFidelite === query) return 8500;
-      if (clientCodeFidelite.startsWith(query)) return 8000;
-      if (clientCodeFidelite.includes(query)) return 7500;
-
-      if (clientPhone === query || clientPhone2 === query) return 7000;
-      if (clientPhone.startsWith(query) || clientPhone2.startsWith(query)) return 6500;
-      if (clientPhone.includes(query) || clientPhone2.includes(query)) return 6000;
-
-      if (clientNom === query) return 5500;
-      if (clientNom.startsWith(query)) return 5000;
-      if (clientNom.includes(query)) return 4500;
-
-      if (clientCode.includes(query)) return 4000;
-
-      if (marque === query || modele === query || objet === query) return 3500;
-      if (marque.includes(query) || modele.includes(query) || objet.includes(query)) return 3000;
-
-      return 100;
-    };
-
-    return [...base]
-      .map((r) => ({ r, score: getScore(r) }))
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return new Date(b.r.createdAt) - new Date(a.r.createdAt);
-      })
-      .map(({ r }) => r);
-  }, [reparationsFilteredByRetard, filters.search]);
+  // ============================================================
+  // ✅ COMPTEUR "SANS RÉPARATEUR"
+  // ============================================================
+  const countSansReparateur = useMemo(() => {
+    return reparations.filter((r) => {
+      const label = normalizeLabel(r.status?.label);
+      const requires = !STATUTS_SANS_REPARATEUR_OBLIGATOIRE_LABEL.some((s) =>
+        label.includes(s)
+      );
+      return requires && !r.reparateur;
+    }).length;
+  }, [reparations]);
 
   // ============================================================
   // COLONNES
@@ -812,7 +877,7 @@ const ReparationsList = () => {
       selector: (row) => row.status?.label,
       sortable: true,
       center: true,
-      width: "160px",
+      width: "180px",
       cell: (row) => {
         const imprevusEnAttente = row.imprevusEnAttente || 0;
         const currentLabel = normalizeLabel(row.status?.label);
@@ -820,32 +885,84 @@ const ReparationsList = () => {
         const isEditing = editingStatusId === row._id;
         const isUpdating = updatingStatusId === row._id;
 
+        const currentRequiresReparateur =
+          !STATUTS_SANS_REPARATEUR_OBLIGATOIRE_LABEL.some((s) =>
+            currentLabel.includes(s)
+          );
+        const needsReparateur = currentRequiresReparateur && !row.reparateur;
+
+        const rowError = rowErrors[row._id];
+
         if (isEditing && isEditable) {
           return (
-            <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: "flex", alignItems: "center", gap: "4px" }}
+            >
               <select
                 autoFocus
                 value={row.status?._id || ""}
                 onChange={(e) => handleQuickStatusChange(row, e.target.value)}
-                onBlur={() => { setTimeout(() => setEditingStatusId(null), 150); }}
+                onBlur={() => {
+                  setTimeout(() => setEditingStatusId(null), 150);
+                }}
                 disabled={isUpdating}
                 style={{
-                  fontSize: "11px", padding: "3px 6px", borderRadius: "6px",
-                  border: "1px solid var(--primary)", background: "white",
-                  cursor: isUpdating ? "wait" : "pointer", minWidth: "110px",
+                  fontSize: "11px",
+                  padding: "3px 6px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--primary)",
+                  background: "white",
+                  cursor: isUpdating ? "wait" : "pointer",
+                  minWidth: "110px",
                 }}
               >
                 {editableStatuses.map((s) => (
-                  <option key={s._id} value={s._id}>{s.label}</option>
+                  <option key={s._id} value={s._id}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
-              {isUpdating && <FaSpinner size={11} className="spin" style={{ color: "var(--primary)" }} />}
+              {isUpdating && (
+                <FaSpinner
+                  size={11}
+                  className="spin"
+                  style={{ color: "var(--primary)" }}
+                />
+              )}
             </div>
           );
         }
 
         return (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "3px",
+            }}
+          >
+            {rowError && (
+              <div
+                style={{
+                  fontSize: "9.5px",
+                  fontWeight: "700",
+                  color: "white",
+                  background: "var(--danger)",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  maxWidth: "170px",
+                  textAlign: "center",
+                  lineHeight: "1.3",
+                  boxShadow: "0 2px 8px rgba(239,68,68,0.4)",
+                  animation: "shakeIn 400ms ease",
+                }}
+              >
+                ⚠️ {rowError}
+              </div>
+            )}
+
             <span
               className="badge-modern"
               onClick={(e) => {
@@ -853,26 +970,66 @@ const ReparationsList = () => {
                 e.stopPropagation();
                 setEditingStatusId(row._id);
               }}
-              title={isEditable ? "Cliquer pour changer le statut" : ""}
+              title={
+                isEditable
+                  ? needsReparateur
+                    ? "⚠️ Réparateur manquant — cliquer pour changer le statut"
+                    : "Cliquer pour changer le statut"
+                  : ""
+              }
               style={{
-                background: row.status?.color || "var(--gray-500)", color: "white",
-                whiteSpace: "nowrap", fontSize: "10px", padding: "3px 8px",
+                background: row.status?.color || "var(--gray-500)",
+                color: "white",
+                whiteSpace: "nowrap",
+                fontSize: "10px",
+                padding: "3px 8px",
                 cursor: isEditable ? "pointer" : "default",
                 opacity: isUpdating ? 0.6 : 1,
                 transition: "transform 100ms ease, opacity 100ms ease",
                 border: isEditable ? "1px dashed rgba(255,255,255,0.5)" : "none",
               }}
-              onMouseEnter={(e) => { if (isEditable) e.currentTarget.style.transform = "scale(1.05)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+              onMouseEnter={(e) => {
+                if (isEditable) e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
             >
               {row.status?.label || "N/A"}
               {isUpdating && " ⏳"}
             </span>
+
+            {needsReparateur && (
+              <span
+                style={{
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  color: "var(--danger)",
+                  background: "var(--danger-light)",
+                  padding: "1px 6px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  whiteSpace: "nowrap",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                }}
+                title="Aucun réparateur assigné sur cette réparation"
+              >
+                <FaExclamationTriangle size={8} /> Sans réparateur
+              </span>
+            )}
+
             {imprevusEnAttente > 0 && (
               <span
                 style={{
-                  fontSize: "9px", fontWeight: "700", color: "var(--warning)",
-                  background: "var(--warning-light)", padding: "1px 5px", borderRadius: "6px",
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  color: "var(--warning)",
+                  background: "var(--warning-light)",
+                  padding: "1px 6px",
+                  borderRadius: "6px",
+                  whiteSpace: "nowrap",
                 }}
               >
                 ⚠️ {imprevusEnAttente}
@@ -882,7 +1039,7 @@ const ReparationsList = () => {
         );
       },
     },
-    {
+      {
       name: "Prix",
       selector: (row) => row.prix,
       sortable: true,
@@ -997,7 +1154,6 @@ const ReparationsList = () => {
           <span style={{ fontSize: "11px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
         ),
     },
-    // ✅ NOUVELLE COLONNE : Réparateur SAV
     {
       name: "Réparateur SAV",
       selector: (row) => row.reparateurSAV?.firstName,
@@ -1080,13 +1236,14 @@ const ReparationsList = () => {
   // ============================================================
   return (
     <div className="fade-in-up">
+      {/* ==================== HEADER ==================== */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: "700", color: "var(--gray-900)", marginBottom: "4px" }}>
             Réparations
           </h1>
           <p style={{ fontSize: "13px", color: "var(--gray-500)", margin: 0 }}>
-            {sortedReparations.length} réparation(s) • {stats.enCours} en cours
+            <strong style={{ color: "var(--gray-800)" }}>{totalCount}</strong> réparation(s) au total
             {selectedRows.length > 0 && (
               <span style={{ color: "var(--primary)", fontWeight: "600", marginLeft: "8px" }}>
                 • {selectedRows.length} sélectionnée(s)
@@ -1122,6 +1279,7 @@ const ReparationsList = () => {
         </div>
       </div>
 
+      {/* ==================== ALERTES ==================== */}
       {success && (
         <div
           style={{
@@ -1143,6 +1301,7 @@ const ReparationsList = () => {
         </div>
       )}
 
+      {/* ==================== BANDEAU RETARD ==================== */}
       {isRetardMode && (
         <div
           style={{
@@ -1185,9 +1344,10 @@ const ReparationsList = () => {
         </div>
       )}
 
+      {/* ==================== STATS ==================== */}
       <div className="row g-3 mb-4">
         {[
-          { label: "Total", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
+          { label: "Total affiché", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
           { label: "Impayées", value: stats.impayees, icon: <FaMoneyBillWave />, color: "#ef4444", bg: "rgba(239, 68, 68, 0.1)" },
           { label: "En cours", value: stats.enCours, icon: <FaSpinner />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
           { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
@@ -1227,6 +1387,7 @@ const ReparationsList = () => {
         ))}
       </div>
 
+      {/* ==================== FILTRES ==================== */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
         <div className="filters-line filters-line-1">
           <div className="filter-item filter-item-search">
@@ -1234,12 +1395,26 @@ const ReparationsList = () => {
               <FaSearch className="filter-search-icon" />
               <input
                 type="text"
-                name="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="form-control-modern"
                 placeholder="Rechercher : reçu, code fidélité, téléphone, client, marque..."
-                value={filters.search}
-                onChange={handleFilterChange}
               />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput("")}
+                  style={{
+                    position: "absolute", right: "12px", top: "50%",
+                    transform: "translateY(-50%)", background: "transparent",
+                    border: "none", cursor: "pointer", color: "var(--gray-400)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "4px",
+                  }}
+                  title="Effacer"
+                >
+                  <FaTimes size={12} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1269,6 +1444,27 @@ const ReparationsList = () => {
             <div className="filter-item filter-item-clear">
               <button className="btn-modern btn-modern-outline filter-clear-btn" onClick={resetFilters}>
                 <FaTimes size={12} /> Effacer {activeCount > 0 && `(${activeCount})`}
+              </button>
+            </div>
+          )}
+
+          {countSansReparateur > 0 && (
+            <div className="filter-item filter-item-clear">
+              <button
+                className="btn-modern btn-modern-outline filter-clear-btn"
+                onClick={() => {
+                  setError(
+                    `⚠️ ${countSansReparateur} réparation(s) sans réparateur sur cette page. Utilisez la colonne "Statut" pour les identifier (badge rouge).`
+                  );
+                  setTimeout(() => setError(""), 5000);
+                }}
+                style={{
+                  borderColor: "var(--danger)",
+                  color: "var(--danger)",
+                }}
+                title="Voir les réparations sans réparateur"
+              >
+                <FaExclamationTriangle size={11} /> Sans réparateur ({countSansReparateur})
               </button>
             </div>
           )}
@@ -1350,11 +1546,12 @@ const ReparationsList = () => {
             }}
           >
             <span>🔎</span>
-            <span>{sortedReparations.length} résultat(s) avec filtres actifs</span>
+            <span>{totalCount} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
 
+      {/* ==================== TABLEAU (SANS SKELETON) ==================== */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
@@ -1367,7 +1564,19 @@ const ReparationsList = () => {
             navigate(url);
           }}
           emptyMessage={isRetardMode ? "Aucune réparation en retard 🎉" : "Aucune réparation trouvée"}
-          paginationPerPage={10}
+
+          pagination
+          paginationServer
+          paginationTotalRows={totalCount}
+          paginationPerPage={perPage}
+          paginationDefaultPage={page}
+          paginationRowsPerPageOptions={[10, 20, 50, 100]}
+          onChangePage={(newPage) => setPage(newPage)}
+          onChangeRowsPerPage={(newPerPage, newPage) => {
+            setPerPage(newPerPage);
+            setPage(newPage);
+          }}
+
           dense={true}
           selectableRows={true}
           onSelectedRowsChange={handleSelectedRowsChange}
@@ -1375,6 +1584,7 @@ const ReparationsList = () => {
         />
       </div>
 
+      {/* ==================== DIALOGS ==================== */}
       {canDelete && (
         <ConfirmDialog
           show={showDeleteDialog}
@@ -1410,7 +1620,7 @@ const ReparationsList = () => {
           position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
           color: var(--gray-400); font-size: 13px; pointer-events: none; z-index: 1;
         }
-        .filter-search-wrapper .form-control-modern { padding-left: 40px !important; width: 100%; height: 44px; }
+        .filter-search-wrapper .form-control-modern { padding-left: 40px !important; padding-right: 36px !important; width: 100%; height: 44px; }
         .filter-item-date .form-control-modern { height: 44px; width: 100%; }
         .filter-clear-btn {
           height: 44px; padding: 0 18px; white-space: nowrap;
@@ -1443,8 +1653,15 @@ const ReparationsList = () => {
         .rdt_TableCol { padding: 8px 10px !important; }
         .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
         .rdt_Table { width: 100% !important; }
+
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
+
+        @keyframes shakeIn {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-4px); }
+          40%, 80% { transform: translateX(4px); }
+        }
       `}</style>
     </div>
   );

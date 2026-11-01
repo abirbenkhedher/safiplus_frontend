@@ -30,6 +30,9 @@ import PannesCRUD from "./pages/pannes/PannesCRUD";
 import Statistiques from "./pages/Statistiques/Statistiques";
 import { setupRefreshDetection } from "./utils/filterStorage";
 import ZonesCRUD from "./pages/Zone/ZonesCRUD";
+// ✅ NOUVEAU : Stock & Dépenses
+import StockList from "./pages/Stock/StockList";
+import DepensesList from "./pages/Depenses/DepensesList";
 
 setupRefreshDetection();
 
@@ -98,6 +101,26 @@ function App() {
                 element={
                   <ProtectedRoute permission="reparations">
                     <ReparationDetail />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ✅ NOUVEAU : Stock (ADMIN + REPARATEUR) */}
+              <Route
+                path="stock"
+                element={
+                  <ProtectedRoute roles={["ADMIN", "REPARATEUR"]}>
+                    <StockList />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ✅ NOUVEAU : Dépenses (ADMIN uniquement) */}
+              <Route
+                path="depenses"
+                element={
+                  <ProtectedRoute roles={["ADMIN"]}>
+                    <DepensesList />
                   </ProtectedRoute>
                 }
               />

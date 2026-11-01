@@ -30,7 +30,6 @@ const customStyles = {
       paddingRight: '16px',
     },
   },
-  // ✅ NOUVEAU : Réduire la largeur de la colonne de sélection
   cells: {
     style: {
       paddingLeft: '16px',
@@ -43,13 +42,12 @@ const customStyles = {
       fontSize: '13.5px',
       color: 'var(--gray-700)',
       transition: 'background 150ms ease',
-      '&:hover': {
-        backgroundColor: 'var(--gray-50)',
-        cursor: 'pointer',
-      },
-      '&:not(:last-of-type)': {
-        borderBottom: '1px solid var(--gray-100)',
-      },
+      // ✅ SUPPRIMÉ : '&:not(:last-of-type)' (invalide en CSS-in-JS)
+    },
+    // ✅ Remplacé par highlightOnHoverStyle (prop officielle du composant)
+    highlightOnHoverStyle: {
+      backgroundColor: 'var(--gray-50)',
+      cursor: 'pointer',
     },
   },
   pagination: {
@@ -85,10 +83,22 @@ const DataTable = ({
   exportLabel = 'Exporter',
   striped = false,
   dense = false,
+
+  // ✅ PROPS pour pagination SERVEUR
+  paginationServer = false,
+  paginationTotalRows,
+  paginationDefaultPage,
+  onChangePage,
+  onChangeRowsPerPage,
+
+  // ✅ KEY FIELD (crucial pour la sélection de lignes)
+  keyField = '_id',
 }) => {
   const [search, setSearch] = useState('');
 
   const filteredData = useMemo(() => {
+    // ⚠️ Si pagination serveur, on ne filtre PAS en local
+    if (paginationServer) return data;
     if (!search.trim()) return data;
     const query = search.toLowerCase().trim();
     return data.filter(row => {
@@ -105,7 +115,7 @@ const DataTable = ({
         return false;
       });
     });
-  }, [data, search]);
+  }, [data, search, paginationServer]);
 
   const finalColumns = useMemo(() => {
     const cols = [...columns];
@@ -153,7 +163,7 @@ const DataTable = ({
       <div className="empty-state-icon">📭</div>
       <div className="empty-state-title">Aucune donnée</div>
       <div className="empty-state-text">
-        {search ? `Aucun résultat pour "${search}"` : emptyMessage}
+        {search && !paginationServer ? `Aucun résultat pour "${search}"` : emptyMessage}
       </div>
     </div>
   );
@@ -162,7 +172,7 @@ const DataTable = ({
     <div className="datatable-wrapper">
       {(searchable || exportable) && (
         <div className="datatable-header">
-          {searchable && (
+          {searchable && !paginationServer && (
             <div className="datatable-search" style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
               <FaSearch style={{
                 position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
@@ -201,21 +211,30 @@ const DataTable = ({
       )}
 
       <DataTableRDTC
+        keyField={keyField}                        // ✅ CRUCIAL
         columns={finalColumns}
         data={filteredData}
         progressPending={loading}
         progressComponent={<CustomLoader />}
         noDataComponent={<CustomNoData />}
         customStyles={customStyles}
+
+        // ✅ PAGINATION — avec support serveur
         pagination={pagination}
+        paginationServer={paginationServer}
+        paginationTotalRows={paginationTotalRows}
         paginationPerPage={paginationPerPage}
+        paginationDefaultPage={paginationDefaultPage}
         paginationRowsPerPageOptions={paginationRowsPerPageOptions}
+        onChangePage={onChangePage}
+        onChangeRowsPerPage={onChangeRowsPerPage}
         paginationComponentOptions={{
           rowsPerPageText: 'Lignes par page:',
           rangeSeparatorText: 'sur',
-          selectAllRowsItem: true,
+          selectAllRowsItem: !paginationServer,
           selectAllRowsItemText: 'Tous',
         }}
+
         noHeader
         highlightOnHover
         pointerOnHover={!!onRowClicked}
@@ -261,7 +280,6 @@ const DataTable = ({
         }
         .btn-icon-danger:hover { background: var(--danger); border-color: var(--danger); }
 
-        /* ✅ CORRECTION : Table pleine largeur */
         .datatable-wrapper .rdt_TableWrapper {
           width: 100% !important; overflow-x: auto !important;
         }
@@ -274,7 +292,6 @@ const DataTable = ({
         .datatable-wrapper .rdt_TableCol,
         .datatable-wrapper .rdt_TableCell { flex-grow: 1; }
 
-        /* ✅ NOUVEAU : Réduire la colonne de sélection (checkbox) */
         .rdt_TableCol:first-child,
         .rdt_TableCell:first-child {
           flex: 0 0 40px !important;

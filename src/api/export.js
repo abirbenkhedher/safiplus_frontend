@@ -156,7 +156,7 @@ export const exportCategories = async ({ categories, filters = {} }) => {
 };
 
 // ============================================================
-// ✅ NOUVEAU : EXPORT RÉPARATEURS (Statistiques SAV)
+// ✅ EXPORT RÉPARATEURS (Statistiques SAV)
 // ============================================================
 export const exportReparateurs = async ({ reparateurs, filters = {}, topRetours = [] }) => {
   const filename = `reparateurs_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -164,6 +164,25 @@ export const exportReparateurs = async ({ reparateurs, filters = {}, topRetours 
   const response = await apiClient.post(
     '/export/reparateurs',
     { reparateurs, filters, topRetours },
+    { responseType: 'blob' }
+  );
+
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  downloadBlob(blob, filename);
+  return { success: true };
+};
+
+// ============================================================
+// ✅ NOUVEAU : EXPORT STATUTS (Statistiques)
+// ============================================================
+export const exportStatuts = async ({ statuts, filters = {} }) => {
+  const filename = `statuts_stats_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  const response = await apiClient.post(
+    '/export/statuts',
+    { statuts, filters },
     { responseType: 'blob' }
   );
 

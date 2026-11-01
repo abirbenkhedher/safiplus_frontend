@@ -1,6 +1,8 @@
-import apiClient from "./client"; // Ton instance axios existante
+import apiClient from "./client";
 
-// Fonction utilitaire pour construire les query params
+// ============================================================
+// ✅ Helper : construire les query params
+// ============================================================
 const buildQuery = (params) => {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([key, val]) => {
@@ -11,23 +13,33 @@ const buildQuery = (params) => {
   return q.toString();
 };
 
-export const getOverview = (params) => 
+// ============================================================
+// ✅ GET statistiques
+// ============================================================
+export const getOverview = (params) =>
   apiClient.get(`/statistiques/overview?${buildQuery(params)}`);
 
-export const getReparationsStats = (params) => 
+export const getReparationsStats = (params) =>
   apiClient.get(`/statistiques/reparations?${buildQuery(params)}`);
 
-export const getFamillesStats = (params) => 
+export const getFamillesStats = (params) =>
   apiClient.get(`/statistiques/familles?${buildQuery(params)}`);
 
-export const getCategoriesStats = (params) => 
+export const getCategoriesStats = (params) =>
   apiClient.get(`/statistiques/categories?${buildQuery(params)}`);
 
-export const getAppareilsStats = (params) => 
-  apiClient.get(`/statistiques/appareils?${buildQuery(params)}`); // ✅ apiClient, pas api
+export const getAppareilsStats = (params) =>
+  apiClient.get(`/statistiques/appareils?${buildQuery(params)}`);
 
-export const exportStats = (params) => 
-  apiClient.get(`/statistiques/export?${buildQuery(params)}`, { responseType: "blob" });
-
-export const getReparateursStats = (params) => 
+export const getReparateursStats = (params) =>
   apiClient.get(`/statistiques/reparateurs?${buildQuery(params)}`);
+
+// ✅ NOUVEAU
+export const getStatutsStats = (params) =>
+  apiClient.get(`/statistiques/statuts?${buildQuery(params)}`);
+
+// ============================================================
+// ✅ Export (JSON — legacy)
+// ============================================================
+export const exportStats = (params) =>
+  apiClient.get(`/statistiques/export?${buildQuery(params)}`, { responseType: "blob" });
