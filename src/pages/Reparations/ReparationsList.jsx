@@ -58,6 +58,8 @@ const DEFAULT_FILTERS = {
   zone: [],
   dateDebut: "",
   dateFin: "",
+  dateModifDebut: "",
+  dateModifFin: "",
 };
 
 const normalizeLabel = (label) =>
@@ -367,28 +369,31 @@ const ReparationsList = () => {
     return map;
   }, [users]);
 
-  const getLastModificationInfo = (row) => {
-    const mods = row.modifications || [];
-    if (mods.length === 0) return { user: null, date: null };
+ const getLastModificationInfo = (row) => {
+  const mods = row.modifications || [];
+  if (mods.length === 0) return { user: null, date: null };
 
-    const filtered = mods.filter((m) => m.field !== "_create");
-    const list = filtered.length > 0 ? filtered : mods;
+  const filtered = mods.filter((m) => m.field !== "_create");
+  const list = filtered.length > 0 ? filtered : mods;
 
-    const last = [...list].sort(
-      (a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt)
-    )[0];
+  const last = [...list].sort(
+    (a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt)
+  )[0];
 
-    if (!last) return { user: null, date: null };
+  if (!last) return { user: null, date: null };
 
-    let user = null;
-    if (typeof last.modifiedBy === "string") {
-      user = usersById.get(last.modifiedBy) || null;
-    } else if (last.modifiedBy && typeof last.modifiedBy === "object") {
-      user = last.modifiedBy;
-    }
+  let user = null;
+  if (typeof last.modifiedBy === "string") {
+    user = usersById.get(last.modifiedBy) || null;
+  } else if (last.modifiedBy && typeof last.modifiedBy === "object") {
+    user = last.modifiedBy;
+  }
 
-    return { user, date: last.modifiedAt };
-  };
+  // ✅ AFFICHER updatedAt (date forcée par l'admin) au lieu de last.modifiedAt
+  const displayDate = row.updatedAt || last.modifiedAt;
+
+  return { user, date: displayDate };
+};
 
   const editableStatuses = useMemo(() => {
     return statuses.filter((s) =>
@@ -1039,7 +1044,7 @@ const ReparationsList = () => {
         );
       },
     },
-      {
+    {
       name: "Prix",
       selector: (row) => row.prix,
       sortable: true,
@@ -1078,6 +1083,7 @@ const ReparationsList = () => {
       },
     },
     {
+      // ✅ Colonne "Modifié par" : la date de modification est affichée ici (sous le user)
       name: "Modifié par",
       selector: (row) => {
         const { user: u } = getLastModificationInfo(row);
@@ -1113,8 +1119,11 @@ const ReparationsList = () => {
                 {u.firstName || u.username || "—"}
               </div>
               {date && (
-                <div style={{ fontSize: "9.5px", color: "var(--gray-400)" }}>
-                  {new Date(date).toLocaleDateString("fr-FR")}
+                <div
+                  style={{ fontSize: "9.5px", color: "var(--primary)", fontWeight: 600 }}
+                  title={`Modifié le ${new Date(date).toLocaleString("fr-FR")}`}
+                >
+                  ✏️ {new Date(date).toLocaleDateString("fr-FR")}
                 </div>
               )}
             </div>
@@ -1219,6 +1228,7 @@ const ReparationsList = () => {
         ),
     },
     {
+      // ✅ Colonne "Date" : uniquement la date de CRÉATION (plus de date de modification ici)
       name: "Date",
       selector: (row) => row.createdAt,
       sortable: true,
@@ -1436,6 +1446,33 @@ const ReparationsList = () => {
               name="dateFin"
               className="form-control-modern"
               value={filters.dateFin}
+              onChange={handleFilterChange}
+            />
+          </div>
+
+          {/* ✅ Filtres date de modification */}
+          <div className="filter-item filter-item-date">
+            <label className="filter-label" title="Filtrer par date de dernière modification">
+              <FaCalendarAlt size={10} /> Modif. du
+            </label>
+            <input
+              type="date"
+              name="dateModifDebut"
+              className="form-control-modern"
+              value={filters.dateModifDebut}
+              onChange={handleFilterChange}
+            />
+          </div>
+
+          <div className="filter-item filter-item-date">
+            <label className="filter-label" title="Filtrer par date de dernière modification">
+              <FaCalendarAlt size={10} /> Modif. au
+            </label>
+            <input
+              type="date"
+              name="dateModifFin"
+              className="form-control-modern"
+              value={filters.dateModifFin}
               onChange={handleFilterChange}
             />
           </div>

@@ -18,7 +18,7 @@ import {
   FaTimes,
   FaCheckCircle,
   FaExclamationTriangle,
-  FaWrench,  // ✅ AJOUT : icône pour le réparateur SAV
+  FaWrench,
 } from "react-icons/fa";
 import { getReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
@@ -31,14 +31,14 @@ import ReparationQRCode from "../../components/reparations/ReparationQRCode";
 import ReparationModal from "../../components/reparations/ReparationModal";
 
 // ============================================================
-// ✅ FIELD LABELS (ajout de reparateurSAV)
+// ✅ FIELD LABELS
 // ============================================================
 const FIELD_LABELS = {
   prix: "Prix",
   acompte: "Acompte",
   status: "Statut",
   reparateur: "Réparateur",
-  reparateurSAV: "Réparateur SAV",  // ✅ AJOUT
+  reparateurSAV: "Réparateur SAV",
   problemeDeclare: "Problème déclaré",
   panneType: "Type de panne",
   marque: "Marque",
@@ -52,6 +52,7 @@ const FIELD_LABELS = {
   observation: "Observation",
   diagnosticImprevus: "Diagnostic & Imprévus",
   smsEnvoye: "SMS envoyé",
+  updatedAt: "Date de modification", // ✅ AJOUT
 };
 
 const DELAI_ALERTE_HEURES = 48;
@@ -129,11 +130,15 @@ const ReparationDetail = () => {
     if (value === null || value === undefined || value === "") return "—";
     if (field === "prix" || field === "acompte") return formatMoney(value);
     if (field === "datePrevisionnelle") return formatDate(value);
+
+    // ✅ AJOUT : formatage complet pour la date de modification
+    if (field === "updatedAt") return formatDateTime(value);
+
     if (field === "status") {
       const status = statuses.find((s) => s._id === String(value));
       return status?.label || String(value);
     }
-    if (field === "reparateur" || field === "reparateurSAV") {  // ✅ AJOUT reparateurSAV
+    if (field === "reparateur" || field === "reparateurSAV") {
       const user = users.find((u) => u._id === String(value));
       return user ? `${user.firstName} ${user.lastName}` : "Non assigné";
     }
@@ -378,6 +383,37 @@ const ReparationDetail = () => {
             );
           } else if (row.field === "diagnosticImprevus") {
             content = <DiagnosticDiff oldValue={row.oldValue} newValue={row.newValue} />;
+          } else if (row.field === "updatedAt") {
+            // ✅ NOUVEAU : cas spécial pour la date de modification forcée
+            content = (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <strong
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    color: "var(--primary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.3px",
+                    marginRight: "4px",
+                  }}
+                >
+                  🕒 {FIELD_LABELS[row.field] || row.field} :
+                </strong>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--gray-500)",
+                    textDecoration: "line-through",
+                  }}
+                >
+                  {resolveValue(row.field, row.oldValue)}
+                </span>
+                <span style={{ color: "var(--gray-400)", fontWeight: "700" }}>→</span>
+                <span style={{ fontSize: "12.5px", fontWeight: "700", color: "var(--primary)" }}>
+                  {resolveValue(row.field, row.newValue)}
+                </span>
+              </div>
+            );
           } else {
             content = (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -406,7 +442,8 @@ const ReparationDetail = () => {
 
           const isDiag = row.field === "diagnosticImprevus";
           const isDelete = row.field === "_delete";
-          const isSAV = row.field === "reparateurSAV";  // ✅ AJOUT : cas spécial pour le SAV
+          const isSAV = row.field === "reparateurSAV";
+          const isDateModif = row.field === "updatedAt"; // ✅ AJOUT
 
           return (
             <div
@@ -418,7 +455,9 @@ const ReparationDetail = () => {
                   : isDiag
                   ? "#fef3c7"
                   : isSAV
-                  ? "#fed7aa"  // ✅ Couleur orange pour le SAV
+                  ? "#fed7aa"
+                  : isDateModif
+                  ? "#e0e7ff" // ✅ bleu clair
                   : "#d1fae5",
                 borderLeft: `3px solid ${
                   isDelete
@@ -426,7 +465,9 @@ const ReparationDetail = () => {
                     : isDiag
                     ? "var(--warning)"
                     : isSAV
-                    ? "#f59e0b"  // ✅ Orange pour le SAV
+                    ? "#f59e0b"
+                    : isDateModif
+                    ? "var(--primary)" // ✅ bleu
                     : "#10b981"
                 }`,
                 borderRadius: "6px",
@@ -953,7 +994,7 @@ const ReparationDetail = () => {
               </div>
             </div>
 
-            {/* ✅ NOUVELLE CARTE : GESTION (avec réparateur + réparateur SAV) */}
+            {/* GESTION */}
             <div className="card-modern mb-3">
               <div
                 style={{
@@ -994,7 +1035,6 @@ const ReparationDetail = () => {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {/* Réparateur */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
                   <span style={{ fontSize: "12.5px", color: "var(--gray-500)", fontWeight: "500" }}>
                     Réparateur
@@ -1006,7 +1046,6 @@ const ReparationDetail = () => {
                   </span>
                 </div>
 
-                {/* ✅ Réparateur SAV */}
                 {reparation.reparateurSAV && (
                   <div
                     style={{
@@ -1035,7 +1074,6 @@ const ReparationDetail = () => {
                   </div>
                 )}
 
-                {/* Date réception */}
                 <div
                   style={{
                     display: "flex",
@@ -1053,7 +1091,6 @@ const ReparationDetail = () => {
                   </span>
                 </div>
 
-                {/* Date prévisionnelle */}
                 {reparation.datePrevisionnelle && (
                   <div
                     style={{

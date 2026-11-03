@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope,
-  FaFileExcel, FaTimes, FaUserCheck, FaWallet,
+  FaDownload, FaTimes, FaUserCheck, FaWallet,   // ← FaDownload au lieu de FaFileExcel
   FaMoneyBillWave, FaTrophy, FaGift, FaTrash,
 } from 'react-icons/fa';
-import { getClients, deleteClient, deleteManyClients } from '../../api/clients';
+import { getClients, deleteClient, deleteManyClients, importClients } from '../../api/clients';
+import ImportExcelButton from '../../components/common/ImportExcelButton';  // ← AJOUT
 import { exportClients } from '../../api/export';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -382,41 +383,81 @@ const ClientsList = () => {
           </p>
         </div>
 
-        <div className="d-flex gap-2 flex-wrap">
-          {selectedRows.length > 0 && (
-            <button
-              className="btn-modern btn-modern-outline"
-              onClick={clearSelection}
-            >
-              <FaTimes /> Désélectionner
-            </button>
-          )}
+      <div className="d-flex gap-2 flex-wrap">
+  {selectedRows.length > 0 && (
+    <button
+      className="btn-modern btn-modern-outline"
+      onClick={clearSelection}
+    >
+      <FaTimes /> Désélectionner
+    </button>
+  )}
 
-          {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
-          {selectedRows.length > 0 && canDelete && (
-            <button
-              className="btn-modern btn-modern-danger"
-              onClick={() => setShowDeleteManyDialog(true)}
-              title={`Supprimer les ${selectedRows.length} clients sélectionnés`}
-            >
-              <FaTrash /> Supprimer ({selectedRows.length})
-            </button>
-          )}
+  {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
+  {selectedRows.length > 0 && canDelete && (
+    <button
+      className="btn-modern btn-modern-danger"
+      onClick={() => setShowDeleteManyDialog(true)}
+      title={`Supprimer les ${selectedRows.length} clients sélectionnés`}
+    >
+      <FaTrash /> Supprimer ({selectedRows.length})
+    </button>
+  )}
 
-          <button
-            className="btn-modern btn-modern-success"
-            onClick={handleExportExcel}
-          >
-            <FaFileExcel />
-            {selectedRows.length > 0
-              ? ` Exporter (${selectedRows.length})`
-              : ' Exporter'}
-          </button>
+  {/* ✅ Export Excel */}
+  <button
+    className="btn-modern btn-modern-success"
+    onClick={handleExportExcel}
+  >
+    <FaDownload />
+    {selectedRows.length > 0
+      ? ` Exporter (${selectedRows.length})`
+      : ' Exporter'}
+  </button>
 
-          <button className="btn-modern btn-modern-primary" onClick={() => openFormModal()}>
-            <FaPlus /> Nouveau client
-          </button>
-        </div>
+  {/* ✅ NOUVEAU : Import Excel (admin uniquement) */}
+  {canDelete && (
+    <ImportExcelButton
+      onImport={importClients}
+      onSuccess={loadClients}
+      title="Import clients"
+      subtitle="Importer clients"
+      labels={{
+        created: "Clients créés",
+        duplicates: "Doublons (téléphone existant)",
+        errors: "Erreurs",
+        createdTitle: "✅ Clients créés",
+        duplicatesTitle: "⚠️ Doublons (téléphone déjà existant)",
+        errorsTitle: "❌ Erreurs",
+        duplicatesHint:
+          "Ces clients existaient déjà. Voici leur code fidélité existant :",
+      }}
+      columns={[
+        { key: "nom", label: "Nom" },
+        { key: "phone", label: "Téléphone" },
+        {
+          key: "code",
+          label: "Code",
+          render: (item) => <code>{item.code || "—"}</code>,
+        },
+        {
+          key: "codeFidelite",
+          label: "Code fidélité",
+          render: (item) => (
+            <strong style={{ color: "#92400e", fontFamily: "monospace" }}>
+              {item.codeFidelite || "—"}
+            </strong>
+          ),
+        },
+      ]}
+    />
+  )}
+
+  {/* ✅ Nouveau client */}
+  <button className="btn-modern btn-modern-primary" onClick={() => openFormModal()}>
+    <FaPlus /> Nouveau client
+  </button>
+</div>
       </div>
 
       {success && (

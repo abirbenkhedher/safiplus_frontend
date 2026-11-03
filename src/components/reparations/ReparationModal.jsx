@@ -6,11 +6,13 @@ import {
   FaStethoscope, FaChevronDown,
   FaExclamationTriangle,
   FaCheck, FaBoxOpen,
+  FaCalendarAlt,
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
 import { DRAFT_KEY } from "../../constants/reparations";
 import { getStock, consommerStock, annulerConsommation } from "../../api/stock";
+import { useAuth } from "../../context/AuthContext";
 import ClientSelector from "./ClientSelector";
 import SearchSelect from "./SearchSelect";
 import ObservationsList from "./ObservationsList";
@@ -87,6 +89,15 @@ const statutRequiertReparateur = (statusLabel = "") => {
   const label = (statusLabel || "").toUpperCase().trim();
   if (!label) return false;
   return !STATUTS_SANS_REPARATEUR_OBLIGATOIRE.some((s) => label.includes(s));
+};
+
+// ✅ Convertit une Date en string "YYYY-MM-DD" pour <input type="date">
+const toDateInputValue = (dateInput) => {
+  if (!dateInput) return "";
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 // ============================================================
@@ -169,7 +180,6 @@ const CollapsibleSection = memo(({ icon, title, color = "var(--primary)", isOpen
   </div>
 ));
 
-// ✅ FieldLabel manquant — ajoutez-le ici
 const FieldLabel = ({ children, required, color }) => (
   <label
     style={{
@@ -201,6 +211,12 @@ const ReparationModal = ({
   const [hasDraft, setHasDraft] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
+
+  // ✅ Date de modification personnalisée (admin seulement)
+  const { user } = useAuth();
+  const isAdmin = (user?.role || "").toUpperCase() === "ADMIN";
+  const [dateModification, setDateModification] = useState("");
+  const [dateModificationInitial, setDateModificationInitial] = useState("");
 
   const [showQuickModele, setShowQuickModele] = useState(false);
   const [showQuickMarque, setShowQuickMarque] = useState(false);
@@ -354,6 +370,8 @@ const ReparationModal = ({
       loadedInitialClientRef.current = null;
       setPendingPieces([]);
       setOriginalPieces([]);
+      setDateModification("");
+      setDateModificationInitial("");
       return;
     }
 
@@ -392,6 +410,18 @@ const ReparationModal = ({
       const diag = reparation.diagnosticImprevus;
       setShowDiagnostic(!!(diag && (diag.constat || (diag.imprevus && diag.imprevus.length > 0) || (diag.decisionClient?.statut && diag.decisionClient.statut !== "en_attente"))));
 
+      // ✅ Pré-remplir la date de modification (admin) + mémoriser l'initiale
+      //    ⚠️ CORRIGÉ : toDateInputValue (date seule) et non toDateTimeLocalValue
+      if (isAdmin) {
+        const updatedAt = reparation.updatedAt || reparation.createdAt;
+        const formatted = toDateInputValue(updatedAt);
+        setDateModification(formatted);
+        setDateModificationInitial(formatted);
+      } else {
+        setDateModification("");
+        setDateModificationInitial("");
+      }
+
       setError("");
       setSuccess("");
       setEnvoyerSMS(false);
@@ -429,8 +459,10 @@ const ReparationModal = ({
       setShowQuickMarque(false);
       setOriginalPieces([]);
       setPendingPieces([]);
+      setDateModification("");
+      setDateModificationInitial("");
     }
-  }, [show, reparation, isEdit, initialClientId]);
+  }, [show, reparation, isEdit, initialClientId, isAdmin]);
 
   useEffect(() => {
     if (statuses.length === 0 || isEdit || formData.status) return;
@@ -569,6 +601,10 @@ const ReparationModal = ({
         status: fd.status || null,
         reparateur: fd.reparateur || null,
         reparateurSAV: fd.reparateurSAV || null,
+        // ✅ Envoie UNIQUEMENT la date (début de journée) si l'admin l'a modifiée
+        ...(isAdmin && isEdit && dateModification && dateModification !== dateModificationInitial
+          ? { dateModification: `${dateModification}T00:00:00` }
+          : {}),
       };
 
       const response = isEdit
@@ -657,7 +693,7 @@ const ReparationModal = ({
     } finally {
       setSaving(false);
     }
-  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose, statuses, pendingPieces, originalPieces]);
+  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose, statuses, pendingPieces, originalPieces, isAdmin, dateModification, dateModificationInitial]);
 
   useEffect(() => {
     if (!show) return;
@@ -806,7 +842,7 @@ const ReparationModal = ({
             overflow: "hidden",
           }}
         >
-          {/* HEADER — style harmonisé avec StockForm */}
+          {/* HEADER */}
           <div
             className="reparation-modal-header"
             style={{
@@ -875,9 +911,6 @@ const ReparationModal = ({
             }}
             className="reparation-modal-body"
           >
-            {/* ============================================================ */}
-            {/* 🎨 Styles globaux : champs harmonisés avec StockForm         */}
-            {/* ============================================================ */}
             <style>{`
               .reparation-modal-body .form-control-modern,
               .reparation-modal-body input:not([type="checkbox"]):not([type="radio"]),
@@ -1300,44 +1333,41 @@ const ReparationModal = ({
               </SectionBlock>
 
               {/* PANNE */}
-              {/* PANNE */}
-<SectionBlock icon={<FaClipboardList size={12} />} title="Panne" color="var(--warning)">
-  <PannesMultiSelect
-    options={pannesFiltrees}
-    value={formData.panneType}
-    onChange={(val) => handleFieldChange("panneType", val)}
-    disabled={!formData.categorie}
-    placeholder={formData.categorie ? "Pannes *" : "Choisissez une catégorie"}
-  />
+              <SectionBlock icon={<FaClipboardList size={12} />} title="Panne" color="var(--warning)">
+                <PannesMultiSelect
+                  options={pannesFiltrees}
+                  value={formData.panneType}
+                  onChange={(val) => handleFieldChange("panneType", val)}
+                  disabled={!formData.categorie}
+                  placeholder={formData.categorie ? "Pannes *" : "Choisissez une catégorie"}
+                />
 
-  {/* ✅ Note interne AVANT */}
-  <div style={{ marginTop: "12px" }}>
-    <FieldLabel required>Note interne</FieldLabel>
-    <textarea
-      value={formData.note}
-      onChange={(e) => handleFieldChange("note", e.target.value)}
-      rows={2}
-      placeholder="Note interne *"
-      style={{ ...textareaStyle, minHeight: "60px", height: "60px" }}
-      onFocus={(e) => applyFocus(e, true)}
-      onBlur={(e) => applyFocus(e, false)}
-    />
-  </div>
+                <div style={{ marginTop: "12px" }}>
+                  <FieldLabel required>Note interne</FieldLabel>
+                  <textarea
+                    value={formData.note}
+                    onChange={(e) => handleFieldChange("note", e.target.value)}
+                    rows={2}
+                    placeholder="Note interne *"
+                    style={{ ...textareaStyle, minHeight: "60px", height: "60px" }}
+                    onFocus={(e) => applyFocus(e, true)}
+                    onBlur={(e) => applyFocus(e, false)}
+                  />
+                </div>
 
-  {/* ✅ Description APRÈS */}
-  <div style={{ marginTop: "12px" }}>
-    <FieldLabel>Description du problème</FieldLabel>
-    <textarea
-      value={formData.problemeDeclare}
-      onChange={(e) => handleFieldChange("problemeDeclare", e.target.value)}
-      rows={2}
-      placeholder="Description du problème (optionnel)"
-      style={{ ...textareaStyle, minHeight: "60px", height: "60px" }}
-      onFocus={(e) => applyFocus(e, true)}
-      onBlur={(e) => applyFocus(e, false)}
-    />
-  </div>
-</SectionBlock>
+                <div style={{ marginTop: "12px" }}>
+                  <FieldLabel>Description du problème</FieldLabel>
+                  <textarea
+                    value={formData.problemeDeclare}
+                    onChange={(e) => handleFieldChange("problemeDeclare", e.target.value)}
+                    rows={2}
+                    placeholder="Description du problème (optionnel)"
+                    style={{ ...textareaStyle, minHeight: "60px", height: "60px" }}
+                    onFocus={(e) => applyFocus(e, true)}
+                    onBlur={(e) => applyFocus(e, false)}
+                  />
+                </div>
+              </SectionBlock>
             </div>
 
             {/* COLONNE DROITE */}
@@ -1362,7 +1392,6 @@ const ReparationModal = ({
                 <PaymentSection formData={formData} onChange={setFormData} />
               </SectionBlock>
 
-              {/* Warnings pièces */}
               {isEdit && isRepareSansPieces && (
                 <div
                   style={{
@@ -1557,6 +1586,38 @@ const ReparationModal = ({
                     📱 Envoyer un SMS au client
                   </div>
                 </div>
+
+                {/* ✅ Date de modification personnalisée (Admin, édition) — DATE SEULE */}
+                {isAdmin && isEdit && (
+                  <div style={{ marginTop: "12px" }}>
+                    <FieldLabel color="var(--warning)">
+                      <FaCalendarAlt size={10} style={{ marginRight: "4px" }} />
+                      Date de modification (Admin)
+                    </FieldLabel>
+                    <input
+                      type="date"
+                      value={dateModification}
+                      onChange={(e) => setDateModification(e.target.value)}
+                      style={inputStyle}
+                      onFocus={(e) => applyFocus(e, true)}
+                      onBlur={(e) => applyFocus(e, false)}
+                    />
+                    <div
+                      style={{
+                        fontSize: "10.5px",
+                        color: "var(--gray-500)",
+                        marginTop: "4px",
+                        fontStyle: "italic",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <FaExclamationTriangle size={9} style={{ color: "var(--warning)" }} />
+                      Modifiez ce champ uniquement si vous voulez forcer une date. Laissez tel quel pour une date automatique (maintenant).
+                    </div>
+                  </div>
+                )}
               </SectionBlock>
 
               <SectionBlock icon={<FaCommentAlt size={12} />} title="Observations" color="var(--gray-600)">
