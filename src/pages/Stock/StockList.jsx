@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   FaPlus, FaSearch, FaTimes, FaTrash, FaFilter,
   FaBoxes, FaTag, FaMobileAlt, FaTrademark, FaExclamationTriangle,
-  FaTimesCircle, FaDollarSign, FaPlusCircle, FaMinusCircle,
+  FaTimesCircle, FaPlusCircle, FaMinusCircle,
   FaCheck, FaHistory,
 } from "react-icons/fa";
 import {
@@ -67,7 +67,6 @@ const StockList = () => {
       setLoading(true);
       const params = {};
 
-      // ✅ Convertir les tableaux en CSV pour l'API
       Object.keys(filters).forEach((k) => {
         const v = filters[k];
         if (Array.isArray(v)) {
@@ -179,7 +178,6 @@ const StockList = () => {
     clearSelection();
   };
 
-  // ✅ Compteur de filtres actifs (comme ReparationsList)
   const activeCount = useMemo(() => {
     let count = 0;
     Object.values(filters).forEach((v) => {
@@ -191,9 +189,6 @@ const StockList = () => {
 
   const hasActiveFilters = activeCount > 0;
 
-  // ============================================================
-  // Handlers filtres (multi + search)
-  // ============================================================
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -202,12 +197,10 @@ const StockList = () => {
   const handleMultiChange = (name, values) => {
     setFilters((prev) => {
       const next = { ...prev, [name]: values };
-      // ✅ Cascade : si on change objet → reset marque + modele
       if (name === "objet") {
         next.marque = [];
         next.modele = [];
       }
-      // ✅ Cascade : si on change marque → reset modele
       if (name === "marque") {
         next.modele = [];
       }
@@ -216,7 +209,7 @@ const StockList = () => {
   };
 
   // ============================================================
-  // Filtres cascade (basés sur les tableaux de filtres)
+  // Filtres cascade
   // ============================================================
   const marquesFiltrees = useMemo(() => {
     if (filters.objet.length === 0) return referentiels.marques;
@@ -235,7 +228,7 @@ const StockList = () => {
   }, [referentiels.modeles, filters.marque]);
 
   // ============================================================
-  // ✅ Options pour les MultiSelect
+  // Options MultiSelect
   // ============================================================
   const categorieOptions = useMemo(
     () =>
@@ -314,7 +307,7 @@ const StockList = () => {
   };
 
   // ============================================================
-  // Colonnes DataTable
+  // ✅ Colonnes DataTable — Sans colonne Historique
   // ============================================================
   const columns = useMemo(
     () => [
@@ -383,6 +376,46 @@ const StockList = () => {
             {row.modele?.nom || "—"}
           </span>
         ),
+      },
+      {
+        name: "Prix réparation",
+        selector: (row) => row.prixIndicatif || 0,
+        sortable: true,
+        right: true,
+        width: "130px",
+        cell: (row) => {
+          const prix = Number(row.prixIndicatif) || 0;
+          if (prix <= 0) {
+            return (
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--gray-400)",
+                  fontStyle: "italic",
+                }}
+              >
+                —
+              </span>
+            );
+          }
+          return (
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#10b981",
+              }}
+            >
+              {new Intl.NumberFormat("fr-FR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(prix)}{" "}
+              <span style={{ fontSize: "10.5px", fontWeight: "600", color: "var(--gray-500)" }}>
+                DT
+              </span>
+            </span>
+          );
+        },
       },
       {
         name: "Stock",
@@ -496,23 +529,6 @@ const StockList = () => {
           );
         },
       },
-      {
-        name: "Historique",
-        center: true,
-        width: "100px",
-        cell: (row) => (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setHistoryFor(row);
-            }}
-            title="Historique"
-            style={btnAction}
-          >
-            <FaHistory />
-          </button>
-        ),
-      },
     ],
     // eslint-disable-next-line
     [busyId, editQte, canDelete]
@@ -575,34 +591,41 @@ const StockList = () => {
         </div>
       </div>
 
-      {/* KPI */}
+      {/* KPI — 3 cartes */}
       {stats && (
         <div className="row g-3 mb-4">
-          <div className="col-12 col-sm-6 col-lg-3">
-            <KpiCard icon={<FaBoxes />} label="Lignes" value={stats.total} color="#4361ee" bg="rgba(67,97,238,0.1)" />
-          </div>
-          <div className="col-12 col-sm-6 col-lg-3">
-            <KpiCard icon={<FaExclamationTriangle />} label="En alerte" value={stats.enAlerte} color="#f59e0b" bg="rgba(245,158,11,0.1)" />
-          </div>
-          <div className="col-12 col-sm-6 col-lg-3">
-            <KpiCard icon={<FaTimesCircle />} label="Rupture" value={stats.rupture} color="#ef4444" bg="rgba(239,68,68,0.1)" />
-          </div>
-          <div className="col-12 col-sm-6 col-lg-3">
+          <div className="col-12 col-sm-6 col-lg-4">
             <KpiCard
-              icon={<FaDollarSign />}
-              label="Valeur"
-              value={`${new Intl.NumberFormat("fr-FR").format(stats.valeur)} DT`}
-              color="#10b981"
-              bg="rgba(16,185,129,0.1)"
-              isText
+              icon={<FaBoxes />}
+              label="Lignes"
+              value={stats.total}
+              color="#4361ee"
+              bg="rgba(67,97,238,0.1)"
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-lg-4">
+            <KpiCard
+              icon={<FaExclamationTriangle />}
+              label="En alerte"
+              value={stats.enAlerte}
+              color="#f59e0b"
+              bg="rgba(245,158,11,0.1)"
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-lg-4">
+            <KpiCard
+              icon={<FaTimesCircle />}
+              label="Rupture"
+              value={stats.rupture}
+              color="#ef4444"
+              bg="rgba(239,68,68,0.1)"
             />
           </div>
         </div>
       )}
 
-      {/* ✅ FILTRES — style ReparationsList avec MultiSelect */}
+      {/* FILTRES */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
-        {/* LIGNE 1 : Recherche + Effacer */}
         <div className="filters-line filters-line-1">
           <div className="filter-item filter-item-search">
             <div className="filter-search-wrapper">
@@ -630,7 +653,6 @@ const StockList = () => {
           )}
         </div>
 
-        {/* LIGNE 2 : Les 6 MultiSelect */}
         <div className="filters-line filters-line-2">
           <div className="filter-item">
             <MultiSelect
@@ -699,7 +721,6 @@ const StockList = () => {
           </div>
         </div>
 
-        {/* Compteur de résultats filtrés */}
         {hasActiveFilters && (
           <div
             style={{
@@ -717,7 +738,7 @@ const StockList = () => {
         )}
       </div>
 
-      {/* DATATABLE */}
+      {/* ✅ DATATABLE — avec icône FaHistory pour "Voir" */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
@@ -729,6 +750,9 @@ const StockList = () => {
           selectableRows={true}
           onSelectedRowsChange={handleSelectedRowsChange}
           clearSelectedRows={toggleCleared}
+          viewIcon={<FaHistory size={12} />}
+          viewTitle="Historique"
+          onView={(row) => setHistoryFor(row)}
           onEdit={(row) => {
             setEditing(row);
             setShowForm(true);
@@ -790,7 +814,7 @@ const StockList = () => {
         />
       )}
 
-      {/* STYLES — identiques à ReparationsList */}
+      {/* STYLES */}
       <style>{`
         .filters-line {
           display: flex;
@@ -885,7 +909,6 @@ const StockList = () => {
           }
         }
 
-        /* DataTable compact */
         .rdt_TableHeadRow { min-height: 42px !important; }
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
@@ -970,21 +993,6 @@ const btnIncrSmall = {
   alignItems: "center",
   justifyContent: "center",
   transition: "transform 100ms ease",
-};
-
-const btnAction = {
-  width: "30px",
-  height: "30px",
-  background: "white",
-  border: "1px solid var(--gray-200)",
-  borderRadius: "6px",
-  cursor: "pointer",
-  color: "var(--gray-500)",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "12px",
-  transition: "all 150ms ease",
 };
 
 export default StockList;

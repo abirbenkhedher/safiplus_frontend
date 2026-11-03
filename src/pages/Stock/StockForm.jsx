@@ -50,7 +50,6 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
   const saveDraft = () => {
     if (isEdit) return;
     const f = formRef.current;
-    // ✅ Sauvegarder dès qu'UN SEUL champ est rempli
     const hasContent =
       !!f.categorie || !!f.typeArticle || !!f.objet || !!f.marque ||
       !!f.modele || Number(f.quantite) > 0 || !!f.observation ||
@@ -80,7 +79,6 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
       const draft = JSON.parse(raw);
       if (!draft) return;
 
-      // ✅ Restaurer si AU MOINS un champ est rempli
       const hasSomething =
         !!draft.categorie || !!draft.typeArticle || !!draft.objet ||
         !!draft.marque || !!draft.modele || Number(draft.quantite) > 0 ||
@@ -95,7 +93,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
   }, []);
 
   // ============================================================
-  // ✅ Auto-save brouillon (debounce RÉDUIT à 800ms)
+  // ✅ Auto-save brouillon
   // ============================================================
   useEffect(() => {
     if (isEdit) return;
@@ -103,14 +101,8 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
     return () => clearTimeout(t);
   }, [form, isEdit]);
 
-  // ============================================================
-  // ✅ Sauvegarde IMMÉDIATE à la fermeture du modal
-  // ============================================================
   const handleClose = () => {
-    if (!isEdit && !saving) {
-      // sauvegarder immédiatement (avant que le composant unmount)
-      saveDraft();
-    }
+    if (!isEdit && !saving) saveDraft();
     onClose();
   };
 
@@ -240,12 +232,12 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
           background: "white",
           borderRadius: "20px",
           width: "100%",
-          maxWidth: "1200px",   // ✅ plus large
-          maxHeight: "96vh",     // ✅ plus haut
+          maxWidth: "1200px",
+          maxHeight: "96vh",
           display: "flex",
           flexDirection: "column",
           boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
-          overflow: "visible",   // ✅ dropdowns ne seront pas coupés
+          overflow: "hidden",   // ✅ scroll interne géré par <form>
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -307,6 +299,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               justifyContent: "center",
               fontSize: "15px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              flexShrink: 0,
             }}
             onMouseEnter={(e) => {
               if (!saving) {
@@ -326,10 +319,12 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
         {/* BODY */}
         <form
           onSubmit={handleSubmit}
+          className="stock-form-body"
           style={{
             padding: "20px 26px",
-            overflow: "visible",   // ✅ pas de scroll interne
             flex: 1,
+            overflowY: "auto",   // ✅ scroll interne
+            WebkitOverflowScrolling: "touch",
           }}
         >
           {hasDraft && !isEdit && (
@@ -346,6 +341,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: "10px",
+                flexWrap: "wrap",
               }}
             >
               <span>📝 Brouillon récupéré</span>
@@ -432,7 +428,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
 
                 {!showAddType ? (
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <SearchSelect
                         options={typesArticle.map((t) => ({ value: t._id, label: t.nom }))}
                         value={form.typeArticle}
@@ -466,7 +462,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                     )}
                   </div>
                 ) : (
-                  <div style={{ display: "flex", gap: "6px", alignItems: "stretch" }}>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "stretch", flexWrap: "wrap" }}>
                     <input
                       type="text"
                       value={newTypeNom}
@@ -482,7 +478,8 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                         }
                       }}
                       style={{
-                        flex: 1,
+                        flex: "1 1 150px",
+                        minWidth: 0,
                         padding: "9px 13px",
                         border: "1.5px solid var(--primary)",
                         borderRadius: "10px",
@@ -603,7 +600,10 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                 />
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}>
+              <div
+                className="stock-form-2col-sub"
+                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}
+              >
                 <div>
                   <FieldLabel>Seuil d'alerte</FieldLabel>
                   <input
@@ -619,7 +619,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                 </div>
 
                 <div>
-                  <FieldLabel>Prix indicatif</FieldLabel>
+                  <FieldLabel>Prix de réparation</FieldLabel>
                   <div style={{ position: "relative" }}>
                     <input
                       type="number"
@@ -642,6 +642,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                       DT
                     </span>
                   </div>
+                  <div style={hintStyle}>Prix de réparation estimé</div>
                 </div>
               </div>
 
@@ -649,7 +650,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                 <textarea
                   value={form.observation}
                   onChange={(e) => set("observation", e.target.value)}
-                                    style={{
+                  style={{
                     ...inputStyle,
                     minHeight: "80px",
                     resize: "vertical",
@@ -682,15 +683,6 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               )}
             </div>
           </div>
-
-          <style>{`
-            @media (max-width: 768px) {
-              .stock-form-2col {
-                grid-template-columns: 1fr !important;
-                gap: 20px !important;
-              }
-            }
-          `}</style>
         </form>
 
         {/* FOOTER — Bouton "Enregistrer" uniquement */}
@@ -721,9 +713,11 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               cursor: saving ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: "8px",
               boxShadow: saving ? "none" : "0 2px 10px rgba(67,97,238,0.35)",
               transition: "all 150ms ease",
+              minWidth: "140px",
             }}
             onMouseEnter={(e) => {
               if (!saving) {
@@ -751,6 +745,56 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
             )}
           </button>
         </div>
+
+        {/* ✅ RESPONSIVE STYLES */}
+        <style>{`
+          @media (max-width: 992px) {
+            .stock-form-2col {
+              grid-template-columns: 1fr !important;
+              gap: 20px !important;
+            }
+          }
+
+          @media (max-width: 640px) {
+            .stock-form-body {
+              padding: 16px 14px !important;
+            }
+            .stock-form-2col-sub {
+              grid-template-columns: 1fr !important;
+              gap: 12px !important;
+            }
+            /* Header plus compact */
+            .stock-form-header {
+              padding: 14px 16px !important;
+            }
+            .stock-form-header h2 {
+              font-size: 15px !important;
+            }
+            .stock-form-header p {
+              font-size: 11px !important;
+            }
+            /* Footer compact */
+            .stock-form-footer {
+              padding: 12px 14px !important;
+            }
+          }
+
+          /* Très petits écrans */
+          @media (max-width: 380px) {
+            .stock-form-body {
+              padding: 12px 10px !important;
+            }
+            .stock-form-header {
+              padding: 12px 12px !important;
+            }
+            .stock-form-footer {
+              padding: 10px 12px !important;
+            }
+            .stock-form-footer button {
+              width: 100% !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );

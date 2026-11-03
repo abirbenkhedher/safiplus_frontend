@@ -8,6 +8,7 @@ import {
   getAppareilsStats,
   getReparateursStats,
   getStatutsStats, // ✅ NOUVEAU
+  getBeneficeStats,
 } from "../api/statistiques";
 
 export const useStatistiques = (tab) => {
@@ -32,6 +33,8 @@ export const useStatistiques = (tab) => {
       appareils:   getAppareilsStats,
       reparateurs: getReparateursStats,
       statuts:     getStatutsStats, // ✅ NOUVEAU
+      benefice:    getBeneficeStats, // ✅ NOUVEAU
+
     };
 
     try {

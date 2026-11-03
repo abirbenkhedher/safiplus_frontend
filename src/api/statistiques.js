@@ -38,8 +38,14 @@ export const getReparateursStats = (params) =>
 export const getStatutsStats = (params) =>
   apiClient.get(`/statistiques/statuts?${buildQuery(params)}`);
 
+
+// ✅ NOUVEAU : Bénéfice
+export const getBeneficeStats = (params) =>
+  apiClient.get(`/statistiques/benefice?${buildQuery(params)}`);
+
 // ============================================================
 // ✅ Export (JSON — legacy)
 // ============================================================
 export const exportStats = (params) =>
   apiClient.get(`/statistiques/export?${buildQuery(params)}`, { responseType: "blob" });
+

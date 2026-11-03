@@ -42,9 +42,7 @@ const customStyles = {
       fontSize: '13.5px',
       color: 'var(--gray-700)',
       transition: 'background 150ms ease',
-      // ✅ SUPPRIMÉ : '&:not(:last-of-type)' (invalide en CSS-in-JS)
     },
-    // ✅ Remplacé par highlightOnHoverStyle (prop officielle du composant)
     highlightOnHoverStyle: {
       backgroundColor: 'var(--gray-50)',
       cursor: 'pointer',
@@ -66,6 +64,8 @@ const DataTable = ({
   onView,
   onEdit,
   onDelete,
+  viewIcon,                    // ✅ NOUVEAU : icône personnalisée pour "Voir"
+  viewTitle = "Voir",          // ✅ NOUVEAU : tooltip personnalisé pour "Voir"
   actions = true,
   actionsWidth = '120px',
   searchable = true,
@@ -97,7 +97,6 @@ const DataTable = ({
   const [search, setSearch] = useState('');
 
   const filteredData = useMemo(() => {
-    // ⚠️ Si pagination serveur, on ne filtre PAS en local
     if (paginationServer) return data;
     if (!search.trim()) return data;
     const query = search.toLowerCase().trim();
@@ -127,8 +126,15 @@ const DataTable = ({
         cell: (row) => (
           <div className="d-flex gap-1 justify-content-center">
             {onView && (
-              <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onView(row); }} title="Voir">
-                <FaEye size={12} />
+              <button
+                className="btn-icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView(row);
+                }}
+                title={viewTitle}                // ✅ Tooltip personnalisable
+              >
+                {viewIcon || <FaEye size={12} />}  {/* ✅ Icône personnalisable */}
               </button>
             )}
             {onEdit && (
@@ -149,7 +155,7 @@ const DataTable = ({
       });
     }
     return cols;
-  }, [columns, actions, onView, onEdit, onDelete, actionsWidth]);
+  }, [columns, actions, onView, onEdit, onDelete, actionsWidth, viewIcon, viewTitle]);
 
   const CustomLoader = () => (
     <div style={{ padding: '40px', textAlign: 'center' }}>
@@ -211,15 +217,13 @@ const DataTable = ({
       )}
 
       <DataTableRDTC
-        keyField={keyField}                        // ✅ CRUCIAL
+        keyField={keyField}
         columns={finalColumns}
         data={filteredData}
         progressPending={loading}
         progressComponent={<CustomLoader />}
         noDataComponent={<CustomNoData />}
         customStyles={customStyles}
-
-        // ✅ PAGINATION — avec support serveur
         pagination={pagination}
         paginationServer={paginationServer}
         paginationTotalRows={paginationTotalRows}
@@ -234,7 +238,6 @@ const DataTable = ({
           selectAllRowsItem: !paginationServer,
           selectAllRowsItemText: 'Tous',
         }}
-
         noHeader
         highlightOnHover
         pointerOnHover={!!onRowClicked}
