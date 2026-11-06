@@ -6,7 +6,7 @@ import {
   FaStethoscope, FaChevronDown,
   FaExclamationTriangle,
   FaCheck, FaBoxOpen,
-  FaCalendarAlt,
+  FaCalendarAlt, FaLock,
 } from "react-icons/fa";
 import { createReparation, updateReparation } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
@@ -52,6 +52,11 @@ const STATUTS_NON_REPARE = [
 
 const STATUTS_SANS_REPARATEUR_OBLIGATOIRE = [
   "EN COURS", "EN ATTENTE", "NOUVEAU", "NOUVELLE", "ATTENTE",
+];
+
+// ✅ Liste des statuts de clôture (utilisé pour indice visuel)
+const STATUTS_CLOTURE = [
+  "REPARE", "SAV REPARE", "SORTIE REPARE", "SAV SORTIE REPARE",
 ];
 
 const sortByOrdre = (arr = []) =>
@@ -101,7 +106,7 @@ const toDateInputValue = (dateInput) => {
 };
 
 // ============================================================
-// 🎨 STYLES INLINE (identiques au StockForm)
+// 🎨 STYLES INLINE
 // ============================================================
 const inputStyle = {
   width: "100%",
@@ -212,11 +217,11 @@ const ReparationModal = ({
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [envoyerSMS, setEnvoyerSMS] = useState(false);
 
-  // ✅ Date de modification personnalisée (admin seulement)
+  // ✅ NOUVEAU : date de clôture (admin seulement)
   const { user } = useAuth();
   const isAdmin = (user?.role || "").toUpperCase() === "ADMIN";
-  const [dateModification, setDateModification] = useState("");
-  const [dateModificationInitial, setDateModificationInitial] = useState("");
+  const [dateCloture, setDateCloture] = useState("");
+  const [dateClotureInitial, setDateClotureInitial] = useState("");
 
   const [showQuickModele, setShowQuickModele] = useState(false);
   const [showQuickMarque, setShowQuickMarque] = useState(false);
@@ -370,8 +375,8 @@ const ReparationModal = ({
       loadedInitialClientRef.current = null;
       setPendingPieces([]);
       setOriginalPieces([]);
-      setDateModification("");
-      setDateModificationInitial("");
+      setDateCloture("");
+      setDateClotureInitial("");
       return;
     }
 
@@ -410,16 +415,14 @@ const ReparationModal = ({
       const diag = reparation.diagnosticImprevus;
       setShowDiagnostic(!!(diag && (diag.constat || (diag.imprevus && diag.imprevus.length > 0) || (diag.decisionClient?.statut && diag.decisionClient.statut !== "en_attente"))));
 
-      // ✅ Pré-remplir la date de modification (admin) + mémoriser l'initiale
-      //    ⚠️ CORRIGÉ : toDateInputValue (date seule) et non toDateTimeLocalValue
-      if (isAdmin) {
-        const updatedAt = reparation.updatedAt || reparation.createdAt;
-        const formatted = toDateInputValue(updatedAt);
-        setDateModification(formatted);
-        setDateModificationInitial(formatted);
+      // ✅ Pré-remplir la date de clôture (admin)
+      if (isAdmin && reparation.dateCloture) {
+        const formatted = toDateInputValue(reparation.dateCloture);
+        setDateCloture(formatted);
+        setDateClotureInitial(formatted);
       } else {
-        setDateModification("");
-        setDateModificationInitial("");
+        setDateCloture("");
+        setDateClotureInitial("");
       }
 
       setError("");
@@ -459,8 +462,8 @@ const ReparationModal = ({
       setShowQuickMarque(false);
       setOriginalPieces([]);
       setPendingPieces([]);
-      setDateModification("");
-      setDateModificationInitial("");
+      setDateCloture("");
+      setDateClotureInitial("");
     }
   }, [show, reparation, isEdit, initialClientId, isAdmin]);
 
@@ -601,9 +604,13 @@ const ReparationModal = ({
         status: fd.status || null,
         reparateur: fd.reparateur || null,
         reparateurSAV: fd.reparateurSAV || null,
-        // ✅ Envoie UNIQUEMENT la date (début de journée) si l'admin l'a modifiée
-        ...(isAdmin && isEdit && dateModification && dateModification !== dateModificationInitial
-          ? { dateModification: `${dateModification}T00:00:00` }
+        // ✅ NOUVEAU : envoie dateCloture (admin, édition uniquement)
+        ...(isAdmin && isEdit && dateCloture !== dateClotureInitial
+          ? {
+              dateCloture: dateCloture
+                ? `${dateCloture}T00:00:00`
+                : null, // null = réinitialiser
+            }
           : {}),
       };
 
@@ -693,7 +700,7 @@ const ReparationModal = ({
     } finally {
       setSaving(false);
     }
-  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose, statuses, pendingPieces, originalPieces, isAdmin, dateModification, dateModificationInitial]);
+  }, [isEdit, reparation, envoyerSMS, printTicket, onSuccess, onClose, statuses, pendingPieces, originalPieces, isAdmin, dateCloture, dateClotureInitial]);
 
   useEffect(() => {
     if (!show) return;
@@ -811,6 +818,17 @@ const ReparationModal = ({
   const isNonRepareAvecPieces = useMemo(() => {
     return isEdit && STATUTS_NON_REPARE.includes(statusLabelCurrent) && piecesActivesCount > 0;
   }, [isEdit, statusLabelCurrent, piecesActivesCount]);
+
+  // ✅ Indication visuelle : réparation clôturée ?
+  const isCloture = useMemo(() => {
+    if (!STATUTS_CLOTURE.includes(statusLabelCurrent)) return false;
+    const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
+      .filter((i) => i.accepte === true)
+      .reduce((sum, i) => sum + (Number(i.prixSupplementaire) || 0), 0);
+    const prixTotal = (Number(formData.prix) || 0) + imprevusAcceptes;
+    const acompte = Number(formData.acompte) || 0;
+    return acompte >= prixTotal && prixTotal > 0;
+  }, [statusLabelCurrent, formData.diagnosticImprevus, formData.prix, formData.acompte]);
 
   if (!show) return null;
 
@@ -1587,18 +1605,21 @@ const ReparationModal = ({
                   </div>
                 </div>
 
-                {/* ✅ Date de modification personnalisée (Admin, édition) — DATE SEULE */}
+                {/* ✅ NOUVEAU : Date de clôture (Admin, édition) */}
                 {isAdmin && isEdit && (
                   <div style={{ marginTop: "12px" }}>
-                    <FieldLabel color="var(--warning)">
-                      <FaCalendarAlt size={10} style={{ marginRight: "4px" }} />
-                      Date de modification (Admin)
+                    <FieldLabel color="var(--success)">
+                      <FaLock size={10} style={{ marginRight: "4px" }} />
+                      Date de clôture (Admin)
                     </FieldLabel>
                     <input
                       type="date"
-                      value={dateModification}
-                      onChange={(e) => setDateModification(e.target.value)}
-                      style={inputStyle}
+                      value={dateCloture}
+                      onChange={(e) => setDateCloture(e.target.value)}
+                      style={{
+                        ...inputStyle,
+                        borderColor: dateCloture ? "var(--success)" : "var(--gray-300)",
+                      }}
                       onFocus={(e) => applyFocus(e, true)}
                       onBlur={(e) => applyFocus(e, false)}
                     />
@@ -1609,13 +1630,39 @@ const ReparationModal = ({
                         marginTop: "4px",
                         fontStyle: "italic",
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "flex-start",
                         gap: "4px",
+                        lineHeight: "1.4",
                       }}
                     >
-                      <FaExclamationTriangle size={9} style={{ color: "var(--warning)" }} />
-                      Modifiez ce champ uniquement si vous voulez forcer une date. Laissez tel quel pour une date automatique (maintenant).
+                      <FaExclamationTriangle size={9} style={{ color: "var(--success)", flexShrink: 0, marginTop: "2px" }} />
+                      <span>
+                        Date à laquelle la réparation a été <strong>soldée</strong>
+                        {" "}(statut "sortie réparée" + reste = 0).
+                        Modifiable manuellement si besoin.
+                      </span>
                     </div>
+
+                    {/* ✅ Indicateur auto-clôture */}
+                    {isCloture && !dateCloture && (
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          padding: "8px 12px",
+                          background: "var(--success-light)",
+                          color: "var(--success)",
+                          borderRadius: "8px",
+                          fontSize: "11.5px",
+                          fontWeight: "600",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <FaLock size={10} />
+                        Cette réparation sera automatiquement clôturée à l'enregistrement.
+                      </div>
+                    )}
                   </div>
                 )}
               </SectionBlock>

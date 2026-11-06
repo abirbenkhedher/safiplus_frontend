@@ -3,31 +3,23 @@ import {
   FaFileExcel,
   FaSpinner,
   FaTimes,
+  FaCheck,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaBan,
 } from "react-icons/fa";
 
 // ============================================================
-// ✅ COMPOSANT GÉNÉRIQUE : Import Excel réutilisable
+// ✅ COMPOSANT GÉNÉRIQUE : Import Excel en 2 étapes
 // ============================================================
-/**
- * @param {Function} onImport       - (file) => Promise<response> avec { data: { created, duplicates, errors, total } }
- * @param {Function} onSuccess      - () => void appelé après succès
- * @param {string}   title          - Titre du modal (défaut "Import Excel")
- * @param {string}   subtitle       - Sous-titre du bouton (défaut "Importer Excel")
- * @param {Array}    columns        - Colonnes pour les tableaux created/duplicates
- *                                    ex: [{ key: 'nom', label: 'Nom' }, ...]
- * @param {Object}   labels         - Personnalisation des textes
- *                                    { created, duplicates, errors, createdTitle, duplicatesTitle, errorsTitle, duplicatesHint }
- * @param {string}   accept         - Types de fichiers acceptés (défaut ".xlsx,.xls,.csv")
- * @param {string}   buttonClass    - Classe CSS du bouton (défaut "btn-modern btn-modern-outline")
- * @param {Object}   buttonStyle    - Style inline du bouton
- * @param {boolean}  disabled       - Désactiver le bouton
- */
 const ImportExcelButton = ({
-  onImport,
+  onPreview,
+  onConfirm,
   onSuccess,
   title = "Import Excel",
   subtitle = "Importer Excel",
   columns = [],
+  notCreatedColumns = null,
   labels = {},
   accept = ".xlsx,.xls,.csv",
   buttonClass = "btn-modern btn-modern-outline",
@@ -36,27 +28,31 @@ const ImportExcelButton = ({
 }) => {
   const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [step, setStep] = useState("idle"); // idle | preview | report
+  const [pendingFile, setPendingFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [report, setReport] = useState(null);
   const [error, setError] = useState("");
-  const [showReport, setShowReport] = useState(false);
 
-  // ✅ Textes avec valeurs par défaut
   const L = {
     created: "Créés",
-    duplicates: "Doublons (déjà existants)",
+    notCreated: "Non créés",
     errors: "Erreurs",
-    createdTitle: "✅ Éléments créés",
-    duplicatesTitle: "⚠️ Doublons (déjà existants)",
+    createdTitle: "✅ Éléments à créer",
+    notCreatedTitle: "❌ Éléments NON créés",
+    createdReportTitle: "✅ Clients créés",
     errorsTitle: "❌ Erreurs",
-    duplicatesHint: "",
+    notCreatedHint: "",
+    confirmText: "Confirmer l'import",
+    cancelText: "Annuler",
     ...labels,
   };
 
+  // ✅ 1. Sélection du fichier → onPreview
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // ✅ Validation format
     if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
       setError("Format non supporté. Utilisez .xlsx, .xls ou .csv");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -65,28 +61,53 @@ const ImportExcelButton = ({
 
     setLoading(true);
     setError("");
-    setResult(null);
+    setPreview(null);
+    setReport(null);
+    setPendingFile(file);
 
     try {
-      const response = await onImport(file);
-      setResult(response.data || response);
-      setShowReport(true);
-      onSuccess?.();
+      const response = await onPreview(file);
+      setPreview(response.data || response);
+      setStep("preview");
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Erreur lors de l'import"
+        err.response?.data?.message || err.message || "Erreur lors de l'aperçu"
       );
+      setPendingFile(null);
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const handleCloseReport = () => {
-    setShowReport(false);
-    setResult(null);
+  // ✅ 2. Confirmation → onConfirm
+  const handleConfirm = async () => {
+    if (!pendingFile) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await onConfirm(pendingFile);
+      setReport(response.data || response);
+      setStep("report");
+      onSuccess?.();
+    } catch (err) {
+      setError(
+        err.response?.data?.message || err.message || "Erreur lors de l'import"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (loading) return;
+    setStep("idle");
+    setPreview(null);
+    setReport(null);
+    setPendingFile(null);
+    setError("");
   };
 
   return (
@@ -106,9 +127,9 @@ const ImportExcelButton = ({
         style={buttonStyle}
         title={subtitle}
       >
-        {loading ? (
+        {loading && step === "idle" ? (
           <>
-            <FaSpinner className="spin" /> Import...
+            <FaSpinner className="spin" /> Analyse...
           </>
         ) : (
           <>
@@ -117,246 +138,229 @@ const ImportExcelButton = ({
         )}
       </button>
 
-      {/* ✅ MODAL RAPPORT */}
-      {showReport && result && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.6)",
-            backdropFilter: "blur(4px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) handleCloseReport();
-          }}
+      {/* ✅ MODAL PREVIEW */}
+      {step === "preview" && preview && (
+        <Modal
+          onClose={handleClose}
+          title={title}
+          subtitle={`${preview.total || 0} ligne(s) analysée(s)`}
         >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "16px",
-              maxWidth: "900px",
-              width: "100%",
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
-            }}
-          >
-            {/* HEADER */}
-            <div
-              style={{
-                padding: "18px 24px",
-                borderBottom: "1px solid var(--gray-200)",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  background: "linear-gradient(135deg, #10b981, #059669)",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "18px",
-                }}
-              >
-                <FaFileExcel />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>
-                  {title}
-                </h3>
+          <div style={summaryGridStyle}>
+            <StatCard
+              label={L.created}
+              value={preview.toCreate?.length || 0}
+              color="#10b981"
+              bg="#d1fae5"
+              icon={<FaCheck />}
+            />
+            <StatCard
+              label={L.notCreated}
+              value={preview.notCreated?.length || 0}
+              color="#ef4444"
+              bg="#fee2e2"
+              icon={<FaBan />}
+            />
+            <StatCard
+              label={L.errors}
+              value={preview.errors?.length || 0}
+              color="#f59e0b"
+              bg="#fef3c7"
+              icon={<FaExclamationTriangle />}
+            />
+          </div>
+
+          {/* ✅ Clients non créés */}
+          {preview.notCreated?.length > 0 && (
+            <Section title={L.notCreatedTitle} color="#ef4444">
+              {L.notCreatedHint && (
                 <p
                   style={{
-                    margin: "2px 0 0",
-                    fontSize: "12px",
-                    color: "var(--gray-500)",
+                    fontSize: "11.5px",
+                    color: "var(--gray-600)",
+                    margin: "0 0 8px 0",
+                    padding: "0 12px",
                   }}
                 >
-                  {result.total || 0} ligne(s) traitée(s)
+                  {L.notCreatedHint}
                 </p>
-              </div>
-              <button
-                onClick={handleCloseReport}
+              )}
+              <DataGrid
+                items={preview.notCreated}
+                columns={
+                  notCreatedColumns || [
+                    { key: "nom", label: "Nom" },
+                    { key: "phone", label: "Téléphone", render: (i) => i.phone || "—" },
+                    { key: "reason", label: "Raison" },
+                  ]
+                }
+                showLine
+              />
+            </Section>
+          )}
+
+          {/* ✅ À créer */}
+          {preview.toCreate?.length > 0 && columns.length > 0 && (
+            <Section title={L.createdTitle} color="#10b981">
+              <DataGrid
+                items={preview.toCreate.map((item) => ({
+                  ...item,
+                  ...item.clientData,
+                }))}
+                columns={columns}
+                showLine
+              />
+            </Section>
+          )}
+
+          {/* ✅ Erreurs */}
+          {preview.errors?.length > 0 && (
+            <Section title={L.errorsTitle} color="#f59e0b">
+              <ul
                 style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: "var(--gray-100)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  margin: 0,
+                  padding: "10px 12px 10px 30px",
+                  fontSize: "12px",
                 }}
               >
-                <FaTimes />
-              </button>
-            </div>
+                {preview.errors.map((e, i) => (
+                  <li key={i} style={{ marginBottom: "4px" }}>
+                    <strong>Ligne {e.line}</strong> — {e.reason}
+                    {e.nom && (
+                      <span style={{ color: "var(--gray-500)" }}>
+                        {" "}
+                        ({e.nom})
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
-            {/* BODY */}
-            <div
-              style={{
-                padding: "20px 24px",
-                overflowY: "auto",
-                flex: 1,
-              }}
+          <div style={footerStyle}>
+            <button
+              className="btn-modern btn-modern-outline"
+              onClick={handleClose}
+              disabled={loading}
             >
-              {/* ✅ Résumé */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: "12px",
-                  marginBottom: "20px",
-                }}
-              >
-                <StatCard
-                  label={L.created}
-                  value={result.created?.length || 0}
-                  color="#10b981"
-                  bg="#d1fae5"
-                />
-                <StatCard
-                  label={L.duplicates}
-                  value={result.duplicates?.length || 0}
-                  color="#f59e0b"
-                  bg="#fef3c7"
-                />
-                <StatCard
-                  label={L.errors}
-                  value={result.errors?.length || 0}
-                  color="#ef4444"
-                  bg="#fee2e2"
-                />
-              </div>
-
-              {/* ✅ Créés */}
-              {result.created?.length > 0 && columns.length > 0 && (
-                <Section title={L.createdTitle} color="#10b981">
-                  <DataGrid
-                    items={result.created}
-                    columns={columns}
-                    showLine={true}
-                  />
-                </Section>
-              )}
-
-              {/* ✅ Doublons */}
-              {result.duplicates?.length > 0 && columns.length > 0 && (
-                <Section title={L.duplicatesTitle} color="#f59e0b">
-                  {L.duplicatesHint && (
-                    <p
-                      style={{
-                        fontSize: "11.5px",
-                        color: "var(--gray-600)",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      {L.duplicatesHint}
-                    </p>
-                  )}
-                  <DataGrid
-                    items={result.duplicates}
-                    columns={columns}
-                    showLine={true}
-                  />
-                </Section>
-              )}
-
-              {/* ✅ Erreurs */}
-              {result.errors?.length > 0 && (
-                <Section title={L.errorsTitle} color="#ef4444">
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: "20px",
-                      fontSize: "12px",
-                      padding: "10px 12px 10px 30px",
-                    }}
-                  >
-                    {result.errors.map((e, i) => (
-                      <li key={i} style={{ marginBottom: "4px" }}>
-                        <strong>Ligne {e.line}</strong> — {e.reason}
-                        {e.nom && (
-                          <span style={{ color: "var(--gray-500)" }}>
-                            {" "}
-                            ({e.nom})
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </Section>
-              )}
-            </div>
-
-            {/* FOOTER */}
-            <div
-              style={{
-                padding: "14px 24px",
-                borderTop: "1px solid var(--gray-200)",
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
+              <FaTimes /> {L.cancelText}
+            </button>
+            <button
+              className="btn-modern btn-modern-primary"
+              onClick={handleConfirm}
+              disabled={loading || (preview.toCreate?.length || 0) === 0}
             >
-              <button
-                className="btn-modern btn-modern-primary"
-                onClick={handleCloseReport}
-              >
-                Fermer
-              </button>
-            </div>
+              {loading ? (
+                <>
+                  <FaSpinner className="spin" /> Import en cours...
+                </>
+              ) : (
+                <>
+                  <FaCheckCircle /> {L.confirmText} (
+                  {preview.toCreate?.length || 0})
+                </>
+              )}
+            </button>
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {/* ✅ MODAL RAPPORT FINAL */}
+      {step === "report" && report && (
+        <Modal
+          onClose={handleClose}
+          title={`${title} — Résultat`}
+          subtitle={`${report.total || 0} ligne(s) traitée(s)`}
+        >
+          <div style={summaryGridStyle}>
+            <StatCard
+              label="Créés"
+              value={report.created?.length || 0}
+              color="#10b981"
+              bg="#d1fae5"
+              icon={<FaCheck />}
+            />
+            <StatCard
+              label="Non créés"
+              value={report.notCreated?.length || 0}
+              color="#ef4444"
+              bg="#fee2e2"
+              icon={<FaBan />}
+            />
+            <StatCard
+              label="Erreurs"
+              value={report.errors?.length || 0}
+              color="#f59e0b"
+              bg="#fef3c7"
+              icon={<FaExclamationTriangle />}
+            />
+          </div>
+
+          {/* ✅ Clients non créés */}
+          {report.notCreated?.length > 0 && (
+            <Section title="❌ Clients NON créés" color="#ef4444">
+              <DataGrid
+                items={report.notCreated}
+                columns={
+                  notCreatedColumns || [
+                    { key: "nom", label: "Nom" },
+                    { key: "phone", label: "Téléphone", render: (i) => i.phone || "—" },
+                    { key: "reason", label: "Raison" },
+                  ]
+                }
+                showLine
+              />
+            </Section>
+          )}
+
+          {/* ✅ Clients créés */}
+          {report.created?.length > 0 && (
+            <Section title={L.createdReportTitle} color="#10b981">
+              <DataGrid items={report.created} columns={columns} showLine />
+            </Section>
+          )}
+
+          {/* ✅ Erreurs */}
+          {report.errors?.length > 0 && (
+            <Section title="❌ Erreurs" color="#f59e0b">
+              <ul
+                style={{
+                  margin: 0,
+                  padding: "10px 12px 10px 30px",
+                  fontSize: "12px",
+                }}
+              >
+                {report.errors.map((e, i) => (
+                  <li key={i} style={{ marginBottom: "4px" }}>
+                    <strong>Ligne {e.line}</strong> — {e.reason}
+                    {e.nom && (
+                      <span style={{ color: "var(--gray-500)" }}>
+                        {" "}
+                        ({e.nom})
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          <div style={footerStyle}>
+            <button
+              className="btn-modern btn-modern-primary"
+              onClick={handleClose}
+            >
+              Fermer
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* ✅ ERREUR FLOTTANTE */}
       {error && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            padding: "12px 18px",
-            background: "var(--danger-light)",
-            color: "var(--danger)",
-            borderRadius: "10px",
-            boxShadow: "0 4px 16px rgba(239,68,68,0.3)",
-            zIndex: 9999,
-            fontSize: "13px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            maxWidth: "400px",
-          }}
-        >
+        <div style={errorToastStyle}>
           <span>⚠️ {error}</span>
-          <button
-            onClick={() => setError("")}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--danger)",
-              cursor: "pointer",
-              padding: "4px",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
+          <button onClick={() => setError("")} style={errorCloseStyle}>
             <FaTimes size={11} />
           </button>
         </div>
@@ -368,7 +372,101 @@ const ImportExcelButton = ({
 // ============================================================
 // Sous-composants
 // ============================================================
-const StatCard = ({ label, value, color, bg }) => (
+const Modal = ({ onClose, title, subtitle, children }) => (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(15,23,42,0.6)",
+      backdropFilter: "blur(4px)",
+      zIndex: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "16px",
+    }}
+    onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+  >
+    <div
+      style={{
+        background: "white",
+        borderRadius: "16px",
+        maxWidth: "900px",
+        width: "100%",
+        maxHeight: "90vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+      }}
+    >
+      <div
+        style={{
+          padding: "18px 24px",
+          borderBottom: "1px solid var(--gray-200)",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "10px",
+            background: "linear-gradient(135deg, #10b981, #059669)",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "18px",
+          }}
+        >
+          <FaFileExcel />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>
+            {title}
+          </h3>
+          {subtitle && (
+            <p
+              style={{
+                margin: "2px 0 0",
+                fontSize: "12px",
+                color: "var(--gray-500)",
+              }}
+            >
+              {subtitle}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            border: "none",
+            background: "var(--gray-100)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <FaTimes />
+        </button>
+      </div>
+      <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
+        {children}
+      </div>
+    </div>
+  </div>
+);
+
+const StatCard = ({ label, value, color, bg, icon }) => (
   <div
     style={{
       padding: "14px 16px",
@@ -378,6 +476,7 @@ const StatCard = ({ label, value, color, bg }) => (
       textAlign: "center",
     }}
   >
+    <div style={{ fontSize: "22px", color, marginBottom: "4px" }}>{icon}</div>
     <div style={{ fontSize: "24px", fontWeight: "800", color }}>{value}</div>
     <div
       style={{ fontSize: "11px", color, fontWeight: "600", marginTop: "2px" }}
@@ -403,7 +502,7 @@ const Section = ({ title, color, children }) => (
     </h4>
     <div
       style={{
-        maxHeight: "300px",
+        maxHeight: "260px",
         overflowY: "auto",
         borderRadius: "8px",
         border: "1px solid var(--gray-200)",
@@ -414,10 +513,6 @@ const Section = ({ title, color, children }) => (
   </div>
 );
 
-/**
- * Affiche un tableau dynamique basé sur une liste de colonnes
- * Chaque colonne : { key, label, render? }
- */
 const DataGrid = ({ items, columns, showLine = true }) => (
   <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
     <thead>
@@ -445,6 +540,50 @@ const DataGrid = ({ items, columns, showLine = true }) => (
   </table>
 );
 
+const summaryGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "12px",
+  marginBottom: "20px",
+};
+const footerStyle = {
+  padding: "14px 24px",
+  borderTop: "1px solid var(--gray-200)",
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "10px",
+  marginTop: "20px",
+  marginLeft: "-24px",
+  marginRight: "-24px",
+  marginBottom: "-20px",
+  background: "var(--gray-50)",
+};
+const errorToastStyle = {
+  position: "fixed",
+  bottom: "20px",
+  right: "20px",
+  padding: "12px 18px",
+  background: "var(--danger-light)",
+  color: "var(--danger)",
+  borderRadius: "10px",
+  boxShadow: "0 4px 16px rgba(239,68,68,0.3)",
+  zIndex: 99999,
+  fontSize: "13px",
+  fontWeight: "600",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  maxWidth: "400px",
+};
+const errorCloseStyle = {
+  background: "transparent",
+  border: "none",
+  color: "var(--danger)",
+  cursor: "pointer",
+  padding: "4px",
+  display: "flex",
+  alignItems: "center",
+};
 const thStyle = {
   padding: "8px 10px",
   fontWeight: "700",

@@ -69,13 +69,26 @@ export const deleteManyClients = async (ids) => {
 };
 
 // ============================================================
-// ✅ POST - Importer des clients depuis un fichier Excel
+// ✅ POST - Aperçu de l'import Excel (SANS création)
 // ============================================================
-export const importClients = async (file) => {
+export const previewImportClients = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await apiClient.post('/clients/import', formData, {
+  const response = await apiClient.post('/clients/import/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+// ============================================================
+// ✅ POST - Confirmer l'import Excel (AVEC création)
+// ============================================================
+export const confirmImportClients = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post('/clients/import/confirm', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return response.data;

@@ -5,6 +5,7 @@ import {
   FaTools, FaCheckCircle, FaSpinner, FaPrint,
   FaMoneyBillWave, FaMapMarkedAlt, FaFilter, FaBoxes,
   FaBriefcase, FaCalendarAlt, FaGift, FaExclamationTriangle,
+  FaLock,
 } from "react-icons/fa";
 import {
   getReparations, deleteReparation, deleteManyReparations, updateReparation,
@@ -60,6 +61,8 @@ const DEFAULT_FILTERS = {
   dateFin: "",
   dateModifDebut: "",
   dateModifFin: "",
+  dateClotureDebut: "",
+  dateClotureFin: "",
 };
 
 const normalizeLabel = (label) =>
@@ -76,7 +79,8 @@ const ReparationsList = () => {
   const { categories, familles = [], zones = [] } = useReparationData();
 
   const { user } = useAuth();
-  const canDelete = user?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN";
+  const canDelete = isAdmin;
 
   // ============================================================
   // ✅ Mode "retard"
@@ -126,7 +130,15 @@ const ReparationsList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [toggleCleared, setToggleCleared] = useState(false);
 
-  const [filters, setFilters] = useState(() => loadFilters(DEFAULT_FILTERS));
+  // ✅ Filtres chargés + nettoyage des champs admin pour non-admin
+  const [filters, setFilters] = useState(() => {
+    const loaded = loadFilters(DEFAULT_FILTERS);
+    if (user?.role !== "ADMIN") {
+      loaded.dateClotureDebut = "";
+      loaded.dateClotureFin = "";
+    }
+    return loaded;
+  });
   const [searchInput, setSearchInput] = useState(filters.search || "");
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -141,9 +153,20 @@ const ReparationsList = () => {
   const [editingStatusId, setEditingStatusId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
-  // ✅ Erreurs par ligne (Solution 3)
+  // ✅ Erreurs par ligne
   const [rowErrors, setRowErrors] = useState({});
   const rowErrorTimers = useRef({});
+
+  // ✅ Si l'utilisateur n'est plus admin (déconnexion/changement),
+  // on nettoie les filtres de clôture qui auraient pu être sauvegardés.
+  useEffect(() => {
+    if (!isAdmin) {
+      setFilters((prev) => {
+        if (!prev.dateClotureDebut && !prev.dateClotureFin) return prev;
+        return { ...prev, dateClotureDebut: "", dateClotureFin: "" };
+      });
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     return () => {
@@ -192,8 +215,6 @@ const ReparationsList = () => {
   // ============================================================
   // ✅ CHARGEMENTS
   // ============================================================
-
-  // 1️⃣ Référentiels : UNE SEULE FOIS
   const loadReferentiels = async () => {
     try {
       const [statusesRes, usersRes] = await Promise.all([
@@ -207,7 +228,6 @@ const ReparationsList = () => {
     }
   };
 
-  // 2️⃣ Réparations : avec pagination SERVEUR
   const loadReparations = async () => {
     try {
       setLoading(true);
@@ -222,16 +242,20 @@ const ReparationsList = () => {
         }
       });
 
+      // ✅ Sécurité : les filtres clôture ne sont envoyés que pour un admin
+      if (!isAdmin) {
+        delete params.dateClotureDebut;
+        delete params.dateClotureFin;
+      }
+
       params.limit = perPage;
       params.page = page;
 
       const response = await getReparations(params);
 
-      // ✅ Récupérer les données
       const data = Array.isArray(response?.data) ? response.data : [];
       setReparations(data);
 
-      // ✅ Récupérer le total
       const total =
         Number(response?.pagination?.total) ||
         Number(response?.totalCount) ||
@@ -369,31 +393,30 @@ const ReparationsList = () => {
     return map;
   }, [users]);
 
- const getLastModificationInfo = (row) => {
-  const mods = row.modifications || [];
-  if (mods.length === 0) return { user: null, date: null };
+  const getLastModificationInfo = (row) => {
+    const mods = row.modifications || [];
+    if (mods.length === 0) return { user: null, date: null };
 
-  const filtered = mods.filter((m) => m.field !== "_create");
-  const list = filtered.length > 0 ? filtered : mods;
+    const filtered = mods.filter((m) => m.field !== "_create");
+    const list = filtered.length > 0 ? filtered : mods;
 
-  const last = [...list].sort(
-    (a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt)
-  )[0];
+    const last = [...list].sort(
+      (a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt)
+    )[0];
 
-  if (!last) return { user: null, date: null };
+    if (!last) return { user: null, date: null };
 
-  let user = null;
-  if (typeof last.modifiedBy === "string") {
-    user = usersById.get(last.modifiedBy) || null;
-  } else if (last.modifiedBy && typeof last.modifiedBy === "object") {
-    user = last.modifiedBy;
-  }
+    let user = null;
+    if (typeof last.modifiedBy === "string") {
+      user = usersById.get(last.modifiedBy) || null;
+    } else if (last.modifiedBy && typeof last.modifiedBy === "object") {
+      user = last.modifiedBy;
+    }
 
-  // ✅ AFFICHER updatedAt (date forcée par l'admin) au lieu de last.modifiedAt
-  const displayDate = row.updatedAt || last.modifiedAt;
+    const displayDate = row.updatedAt || last.modifiedAt;
 
-  return { user, date: displayDate };
-};
+    return { user, date: displayDate };
+  };
 
   const editableStatuses = useMemo(() => {
     return statuses.filter((s) =>
@@ -466,7 +489,7 @@ const ReparationsList = () => {
   );
 
   // ============================================================
-  // ✅ CHANGEMENT RAPIDE DE STATUT (Solution 3)
+  // ✅ CHANGEMENT RAPIDE DE STATUT
   // ============================================================
   const handleQuickStatusChange = async (row, newStatusId) => {
     if (!newStatusId || newStatusId === row.status?._id) {
@@ -586,7 +609,7 @@ const ReparationsList = () => {
     setSelectedRows(selectedRows);
   };
 
-  // ✅ Stats calculées SUR LA PAGE COURANTE
+  // ✅ Stats calculées SUR LA PAGE COURANTE + revenus clôturés
   const stats = useMemo(() => {
     const total = reparations.length;
     const impayees = reparations.filter((r) => {
@@ -602,7 +625,16 @@ const ReparationsList = () => {
       const label = normalizeLabel(r.status?.label);
       return STATUTS_TERMINES.includes(label);
     }).length;
-    return { total, impayees, enCours, terminees };
+
+    const totalEncaisse = reparations
+      .filter((r) => r.dateCloture)
+      .reduce(
+        (sum, r) =>
+          sum + (Number(r.acompte) || Number(r.prixTotal) || Number(r.prix) || 0),
+        0
+      );
+
+    return { total, impayees, enCours, terminees, totalEncaisse };
   }, [reparations]);
 
   // ============================================================
@@ -1083,7 +1115,6 @@ const ReparationsList = () => {
       },
     },
     {
-      // ✅ Colonne "Modifié par" : la date de modification est affichée ici (sous le user)
       name: "Modifié par",
       selector: (row) => {
         const { user: u } = getLastModificationInfo(row);
@@ -1228,7 +1259,6 @@ const ReparationsList = () => {
         ),
     },
     {
-      // ✅ Colonne "Date" : uniquement la date de CRÉATION (plus de date de modification ici)
       name: "Date",
       selector: (row) => row.createdAt,
       sortable: true,
@@ -1238,6 +1268,43 @@ const ReparationsList = () => {
           {new Date(row.createdAt).toLocaleDateString("fr-FR")}
         </span>
       ),
+    },
+    {
+      name: "🔒 Clôture",
+      selector: (row) => row.dateCloture,
+      sortable: true,
+      width: "110px",
+      center: true,
+      cell: (row) => {
+        if (!row.dateCloture) {
+          return (
+            <span
+              style={{
+                fontSize: "10px",
+                color: "var(--gray-400)",
+                fontStyle: "italic",
+              }}
+            >
+              —
+            </span>
+          );
+        }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
+            <FaLock size={9} style={{ color: "var(--success)" }} />
+            <span
+              style={{
+                fontSize: "10.5px",
+                color: "var(--success)",
+                fontWeight: "700",
+              }}
+              title={`Clôturée le ${new Date(row.dateCloture).toLocaleString("fr-FR")}`}
+            >
+              {new Date(row.dateCloture).toLocaleDateString("fr-FR")}
+            </span>
+          </div>
+        );
+      },
     },
   ];
 
@@ -1354,15 +1421,26 @@ const ReparationsList = () => {
         </div>
       )}
 
-      {/* ==================== STATS ==================== */}
+      {/* ==================== STATS (4 ou 5 cartes selon rôle) ==================== */}
       <div className="row g-3 mb-4">
         {[
           { label: "Total affiché", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
           { label: "Impayées", value: stats.impayees, icon: <FaMoneyBillWave />, color: "#ef4444", bg: "rgba(239, 68, 68, 0.1)" },
           { label: "En cours", value: stats.enCours, icon: <FaSpinner />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
           { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
+          // ✅ Carte "Revenus clôturés" uniquement pour l'admin
+          ...(isAdmin
+            ? [{
+                label: "Revenus clôturés (page)",
+                value: `${stats.totalEncaisse.toFixed(2)} DT`,
+                icon: <FaLock />,
+                color: "#059669",
+                bg: "rgba(5, 150, 105, 0.1)",
+                isText: true,
+              }]
+            : []),
         ].map((stat, i) => (
-          <div key={i} className="col-6 col-lg-3">
+          <div key={i} className={`col-6 ${isAdmin ? "col-lg" : "col-lg-3"}`}>
             <div
               style={{
                 background: "var(--gray-50)", border: "1px solid var(--gray-200)",
@@ -1388,7 +1466,14 @@ const ReparationsList = () => {
                 >
                   {stat.label}
                 </div>
-                <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--gray-900)", lineHeight: 1 }}>
+                <div
+                  style={{
+                    fontSize: stat.isText ? "16px" : "24px",
+                    fontWeight: "800",
+                    color: "var(--gray-900)",
+                    lineHeight: 1,
+                  }}
+                >
                   {stat.value}
                 </div>
               </div>
@@ -1398,197 +1483,236 @@ const ReparationsList = () => {
       </div>
 
       {/* ==================== FILTRES ==================== */}
-      <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
-        <div className="filters-line filters-line-1">
-          <div className="filter-item filter-item-search">
-            <div className="filter-search-wrapper">
-              <FaSearch className="filter-search-icon" />
+      <div className="card-modern mb-3 filter-card">
+        {/* ---- Section 1 : Périodes ---- */}
+        <div className="filter-section">
+          <div className="filter-section-title">
+            <FaCalendarAlt size={11} /> Périodes
+          </div>
+
+          <div className="filter-grid filter-grid-dates">
+            <div className="filter-field">
+              <label className="filter-label">Reçu — Du</label>
               <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                type="date"
+                name="dateDebut"
                 className="form-control-modern"
-                placeholder="Rechercher : reçu, code fidélité, téléphone, client, marque..."
+                value={filters.dateDebut}
+                onChange={handleFilterChange}
               />
-              {searchInput && (
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Reçu — Au</label>
+              <input
+                type="date"
+                name="dateFin"
+                className="form-control-modern"
+                value={filters.dateFin}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label" title="Date de dernière modification">
+                Modifié — Du
+              </label>
+              <input
+                type="date"
+                name="dateModifDebut"
+                className="form-control-modern"
+                value={filters.dateModifDebut}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label" title="Date de dernière modification">
+                Modifié — Au
+              </label>
+              <input
+                type="date"
+                name="dateModifFin"
+                className="form-control-modern"
+                value={filters.dateModifFin}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            {/* ✅ Filtres clôture réservés à l'admin */}
+            {isAdmin && (
+              <>
+                <div className="filter-field filter-field-success">
+                  <label className="filter-label" title="Date de clôture (réparation soldée)">
+                    <FaLock size={10} /> Clôture — Du
+                  </label>
+                  <input
+                    type="date"
+                    name="dateClotureDebut"
+                    className="form-control-modern"
+                    value={filters.dateClotureDebut}
+                    onChange={handleFilterChange}
+                  />
+                </div>
+
+                <div className="filter-field filter-field-success">
+                  <label className="filter-label" title="Date de clôture (réparation soldée)">
+                    <FaLock size={10} /> Clôture — Au
+                  </label>
+                  <input
+                    type="date"
+                    name="dateClotureFin"
+                    className="form-control-modern"
+                    value={filters.dateClotureFin}
+                    onChange={handleFilterChange}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ---- Section 2 : Critères ---- */}
+        <div className="filter-section">
+          <div className="filter-section-title">
+            <FaFilter size={11} /> Critères
+          </div>
+
+          <div className="filter-grid filter-grid-criteria">
+            <div className="filter-field">
+              <MultiSelect
+                label="Famille"
+                icon={<FaBoxes size={10} />}
+                options={familleOptions}
+                value={filters.famille}
+                onChange={(v) => handleMultiChange("famille", v)}
+                placeholder="Toutes"
+              />
+            </div>
+
+            <div className="filter-field">
+              <MultiSelect
+                label="Catégorie"
+                icon={<FaBoxes size={10} />}
+                options={categorieOptions}
+                value={filters.categorie}
+                onChange={(v) => handleMultiChange("categorie", v)}
+                placeholder={filters.famille.length > 0 ? "Toutes (famille)" : "Toutes"}
+              />
+            </div>
+
+            <div className="filter-field">
+              <MultiSelect
+                label="Statut"
+                icon={<FaFilter size={10} />}
+                options={statusOptions}
+                value={filters.status}
+                onChange={(v) => handleMultiChange("status", v)}
+                placeholder="Tous"
+              />
+            </div>
+
+            <div className="filter-field">
+              <MultiSelect
+                label="Réparateur"
+                icon={<FaTools size={10} />}
+                options={reparateurOptions}
+                value={filters.reparateur}
+                onChange={(v) => handleMultiChange("reparateur", v)}
+                placeholder="Tous"
+              />
+            </div>
+
+            <div className="filter-field">
+              <MultiSelect
+                label="Commercial"
+                icon={<FaBriefcase size={10} />}
+                options={commercialOptions}
+                value={filters.commercial}
+                onChange={(v) => handleMultiChange("commercial", v)}
+                placeholder="Tous"
+              />
+            </div>
+
+            <div className="filter-field">
+              <MultiSelect
+                label="Zone"
+                icon={<FaMapMarkedAlt size={10} />}
+                options={zoneOptions}
+                value={filters.zone}
+                onChange={(v) => handleMultiChange("zone", v)}
+                placeholder="Toutes les zones"
+              />
+            </div>
+          </div>
+
+          {/* Actions filtres */}
+          {(hasActiveFilters || countSansReparateur > 0) && (
+            <div className="filter-actions">
+              {countSansReparateur > 0 && (
                 <button
-                  onClick={() => setSearchInput("")}
-                  style={{
-                    position: "absolute", right: "12px", top: "50%",
-                    transform: "translateY(-50%)", background: "transparent",
-                    border: "none", cursor: "pointer", color: "var(--gray-400)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: "4px",
+                  className="btn-modern btn-modern-outline filter-action-btn filter-action-danger"
+                  onClick={() => {
+                    setError(
+                      `⚠️ ${countSansReparateur} réparation(s) sans réparateur sur cette page. Utilisez la colonne "Statut" pour les identifier (badge rouge).`
+                    );
+                    setTimeout(() => setError(""), 5000);
                   }}
-                  title="Effacer"
+                  title="Voir les réparations sans réparateur"
                 >
-                  <FaTimes size={12} />
+                  <FaExclamationTriangle size={11} /> Sans réparateur ({countSansReparateur})
+                </button>
+              )}
+
+              {hasActiveFilters && (
+                <button
+                  className="btn-modern btn-modern-outline filter-action-btn"
+                  onClick={resetFilters}
+                >
+                  <FaTimes size={12} /> Effacer les filtres ({activeCount})
                 </button>
               )}
             </div>
-          </div>
-
-          <div className="filter-item filter-item-date">
-            <label className="filter-label"><FaCalendarAlt size={10} /> Du</label>
-            <input
-              type="date"
-              name="dateDebut"
-              className="form-control-modern"
-              value={filters.dateDebut}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          <div className="filter-item filter-item-date">
-            <label className="filter-label"><FaCalendarAlt size={10} /> Au</label>
-            <input
-              type="date"
-              name="dateFin"
-              className="form-control-modern"
-              value={filters.dateFin}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          {/* ✅ Filtres date de modification */}
-          <div className="filter-item filter-item-date">
-            <label className="filter-label" title="Filtrer par date de dernière modification">
-              <FaCalendarAlt size={10} /> Modif. du
-            </label>
-            <input
-              type="date"
-              name="dateModifDebut"
-              className="form-control-modern"
-              value={filters.dateModifDebut}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          <div className="filter-item filter-item-date">
-            <label className="filter-label" title="Filtrer par date de dernière modification">
-              <FaCalendarAlt size={10} /> Modif. au
-            </label>
-            <input
-              type="date"
-              name="dateModifFin"
-              className="form-control-modern"
-              value={filters.dateModifFin}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          {hasActiveFilters && (
-            <div className="filter-item filter-item-clear">
-              <button className="btn-modern btn-modern-outline filter-clear-btn" onClick={resetFilters}>
-                <FaTimes size={12} /> Effacer {activeCount > 0 && `(${activeCount})`}
-              </button>
-            </div>
-          )}
-
-          {countSansReparateur > 0 && (
-            <div className="filter-item filter-item-clear">
-              <button
-                className="btn-modern btn-modern-outline filter-clear-btn"
-                onClick={() => {
-                  setError(
-                    `⚠️ ${countSansReparateur} réparation(s) sans réparateur sur cette page. Utilisez la colonne "Statut" pour les identifier (badge rouge).`
-                  );
-                  setTimeout(() => setError(""), 5000);
-                }}
-                style={{
-                  borderColor: "var(--danger)",
-                  color: "var(--danger)",
-                }}
-                title="Voir les réparations sans réparateur"
-              >
-                <FaExclamationTriangle size={11} /> Sans réparateur ({countSansReparateur})
-              </button>
-            </div>
           )}
         </div>
-
-        <div className="filters-line filters-line-2">
-          <div className="filter-item">
-            <MultiSelect
-              label="Famille"
-              icon={<FaBoxes size={10} />}
-              options={familleOptions}
-              value={filters.famille}
-              onChange={(v) => handleMultiChange("famille", v)}
-              placeholder="Toutes"
-            />
-          </div>
-
-          <div className="filter-item">
-            <MultiSelect
-              label="Catégorie"
-              icon={<FaBoxes size={10} />}
-              options={categorieOptions}
-              value={filters.categorie}
-              onChange={(v) => handleMultiChange("categorie", v)}
-              placeholder={filters.famille.length > 0 ? "Toutes (famille)" : "Toutes"}
-            />
-          </div>
-
-          <div className="filter-item">
-            <MultiSelect
-              label="Statut"
-              icon={<FaFilter size={10} />}
-              options={statusOptions}
-              value={filters.status}
-              onChange={(v) => handleMultiChange("status", v)}
-              placeholder="Tous"
-            />
-          </div>
-
-          <div className="filter-item">
-            <MultiSelect
-              label="Réparateur"
-              icon={<FaTools size={10} />}
-              options={reparateurOptions}
-              value={filters.reparateur}
-              onChange={(v) => handleMultiChange("reparateur", v)}
-              placeholder="Tous"
-            />
-          </div>
-
-          <div className="filter-item">
-            <MultiSelect
-              label="Commercial"
-              icon={<FaBriefcase size={10} />}
-              options={commercialOptions}
-              value={filters.commercial}
-              onChange={(v) => handleMultiChange("commercial", v)}
-              placeholder="Tous"
-            />
-          </div>
-
-          <div className="filter-item">
-            <MultiSelect
-              label="Zone"
-              icon={<FaMapMarkedAlt size={10} />}
-              options={zoneOptions}
-              value={filters.zone}
-              onChange={(v) => handleMultiChange("zone", v)}
-              placeholder="Toutes les zones"
-            />
-          </div>
-        </div>
-
-        {hasActiveFilters && (
-          <div
-            style={{
-              marginTop: "12px", fontSize: "11.5px", color: "var(--gray-500)",
-              display: "flex", alignItems: "center", gap: "6px",
-            }}
-          >
-            <span>🔎</span>
-            <span>{totalCount} résultat(s) avec filtres actifs</span>
-          </div>
-        )}
       </div>
 
-      {/* ==================== TABLEAU (SANS SKELETON) ==================== */}
+      {/* ==================== RECHERCHE (au-dessus du tableau) ==================== */}
+      <div className="search-bar-wrapper">
+        <div className="search-bar">
+          <FaSearch className="search-bar-icon" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="search-bar-input"
+            placeholder="Rechercher : reçu, code fidélité, téléphone, client, marque..."
+          />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput("")}
+              className="search-bar-clear"
+              title="Effacer la recherche"
+            >
+              <FaTimes size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className="search-bar-meta">
+          <span>
+            <strong>{totalCount}</strong> résultat{totalCount > 1 ? "s" : ""}
+            {hasActiveFilters && " (filtré)"}
+          </span>
+          {selectedRows.length > 0 && (
+            <span className="search-bar-selected">
+              • {selectedRows.length} sélectionnée(s)
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ==================== TABLEAU ==================== */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
           columns={columns}
@@ -1645,45 +1769,208 @@ const ReparationsList = () => {
       )}
 
       <style>{`
-        .filters-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; width: 100%; }
-        .filters-line-1 { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--gray-200); }
-        .filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-        .filter-item-search { flex: 1 1 320px; min-width: 220px; }
-        .filter-item-date { flex: 0 1 170px; min-width: 140px; }
-        .filter-item-clear { flex: 0 0 auto; }
-        .filters-line-2 > .filter-item { flex: 1 1 180px; min-width: 150px; }
-        .filter-search-wrapper { position: relative; width: 100%; }
-        .filter-search-icon {
-          position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-          color: var(--gray-400); font-size: 13px; pointer-events: none; z-index: 1;
+        /* ==================== CARTE FILTRES ==================== */
+        .filter-card { padding: 18px 20px; }
+
+        .filter-section + .filter-section {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px dashed var(--gray-200);
         }
-        .filter-search-wrapper .form-control-modern { padding-left: 40px !important; padding-right: 36px !important; width: 100%; height: 44px; }
-        .filter-item-date .form-control-modern { height: 44px; width: 100%; }
-        .filter-clear-btn {
-          height: 44px; padding: 0 18px; white-space: nowrap;
-          display: inline-flex; align-items: center; gap: 6px;
+
+        .filter-section-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          color: var(--gray-500);
+          margin-bottom: 10px;
         }
+
+        /* ---- Grilles responsive ---- */
+        .filter-grid {
+          display: grid;
+          gap: 12px;
+          width: 100%;
+        }
+
+        .filter-grid-dates {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        .filter-grid-criteria {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        .filter-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .filter-field .form-control-modern {
+          height: 44px;
+          width: 100%;
+        }
+
+        .filter-field-success .form-control-modern {
+          border-color: var(--success) !important;
+        }
+
         .filter-label {
-          font-size: 10.5px; font-weight: 700; color: var(--gray-500);
-          text-transform: uppercase; letter-spacing: 0.4px;
-          display: flex; align-items: center; gap: 5px; padding-left: 2px;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: var(--gray-500);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding-left: 2px;
         }
-        @media (max-width: 1200px) and (min-width: 993px) {
-          .filters-line-2 > .filter-item { flex: 1 1 calc(33.333% - 8px); min-width: 140px; }
+
+        .filter-field-success .filter-label {
+          color: var(--success);
         }
-        @media (max-width: 992px) {
-          .filter-item-search { flex: 1 1 100%; }
-          .filter-item-date { flex: 1 1 calc(50% - 6px); }
-          .filter-item-clear { flex: 1 1 100%; }
-          .filter-clear-btn { width: 100%; justify-content: center; }
-          .filters-line-2 > .filter-item { flex: 1 1 calc(50% - 6px); }
+
+        /* ---- Actions ---- */
+        .filter-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: flex-end;
+          margin-top: 14px;
         }
-        @media (max-width: 576px) {
-          .filters-line { gap: 10px; }
-          .filter-item-search, .filter-item-date, .filter-item-clear, .filters-line-2 > .filter-item {
-            flex: 1 1 100%; min-width: 0;
+
+        .filter-action-btn {
+          height: 38px;
+          padding: 0 16px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          white-space: nowrap;
+        }
+
+        .filter-action-danger {
+          border-color: var(--danger) !important;
+          color: var(--danger) !important;
+        }
+
+        /* ==================== BARRE DE RECHERCHE ==================== */
+        .search-bar-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+          width: 100%;
+        }
+
+        .search-bar {
+          position: relative;
+          flex: 1 1 100%;
+          min-width: 240px;
+        }
+
+        .search-bar-icon {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--gray-400);
+          font-size: 14px;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .search-bar-input {
+          width: 100%;
+          height: 48px;
+          padding: 0 44px 0 44px;
+          border: 1.5px solid var(--gray-200);
+          border-radius: 12px;
+          background: white;
+          font-size: 13.5px;
+          color: var(--gray-800);
+          transition: border-color 150ms ease, box-shadow 150ms ease;
+        }
+
+        .search-bar-input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1);
+        }
+
+        .search-bar-clear {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: var(--gray-100);
+          border: none;
+          border-radius: 50%;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: var(--gray-600);
+          transition: background 150ms ease;
+        }
+
+        .search-bar-clear:hover { background: var(--gray-200); }
+
+        .search-bar-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12.5px;
+          color: var(--gray-500);
+          white-space: nowrap;
+        }
+
+        .search-bar-meta strong { color: var(--gray-800); }
+
+        .search-bar-selected {
+          color: var(--primary);
+          font-weight: 600;
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 1200px) {
+          .filter-grid-dates,
+          .filter-grid-criteria {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
+
+        @media (max-width: 768px) {
+          .filter-grid-dates,
+          .filter-grid-criteria {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .filter-actions { justify-content: stretch; }
+          .filter-action-btn { flex: 1 1 100%; justify-content: center; }
+
+          .search-bar-wrapper { flex-direction: column; align-items: stretch; }
+          .search-bar-meta { justify-content: flex-start; }
+        }
+
+        @media (max-width: 480px) {
+          .filter-grid-dates,
+          .filter-grid-criteria {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* ==================== TABLE ==================== */
         .rdt_TableHeadRow { min-height: 42px !important; }
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }

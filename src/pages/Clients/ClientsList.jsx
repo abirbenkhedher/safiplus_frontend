@@ -1,27 +1,45 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope,
-  FaDownload, FaTimes, FaUserCheck, FaWallet,   // ← FaDownload au lieu de FaFileExcel
-  FaMoneyBillWave, FaTrophy, FaGift, FaTrash,
+  FaDownload, FaTimes, FaUserCheck, FaWallet,
+  FaMoneyBillWave, FaTrophy, FaGift, FaTrash, FaSpinner,
 } from 'react-icons/fa';
-import { getClients, deleteClient, deleteManyClients, importClients } from '../../api/clients';
-import ImportExcelButton from '../../components/common/ImportExcelButton';  // ← AJOUT
+import {
+  getClients,
+  deleteClient,
+  deleteManyClients,
+  previewImportClients,
+  confirmImportClients,
+} from '../../api/clients';
+import ImportExcelButton from '../../components/common/ImportExcelButton';
 import { exportClients } from '../../api/export';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
 import ClientFormModal from './ClientFormModal';
-import { useAuth } from '../../context/AuthContext';   // ✅ AJOUT
+import { useAuth } from '../../context/AuthContext';
+
+// ============================================================
+// ✅ Constantes
+// ============================================================
+const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 20;
+
+const DEFAULT_FILTERS = {
+  search: '',
+  paymentStatus: 'all',
+  hasReparations: 'all',
+  topClients: 'all',
+};
 
 const ClientsList = () => {
   const navigate = useNavigate();
-
-  // ✅ Récupérer l'utilisateur connecté
   const { user } = useAuth();
-
-  // ✅ Seul ADMIN peut supprimer
   const canDelete = user?.role === 'ADMIN';
 
+  // ============================================================
+  // States principaux
+  // ============================================================
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -37,87 +55,102 @@ const ClientsList = () => {
   const [showDeleteManyDialog, setShowDeleteManyDialog] = useState(false);
   const [deletingMany, setDeletingMany] = useState(false);
 
-  const [filters, setFilters] = useState({
-    search: '',
-    paymentStatus: 'all',
-    hasReparations: 'all',
-    topClients: 'all',
-  });
+  // ============================================================
+  // ✅ Pagination serveur
+  // ============================================================
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
+  const [totalCount, setTotalCount] = useState(0);
 
+  // ============================================================
+  // ✅ Filtres + recherche debouncée
+  // ============================================================
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [searchInput, setSearchInput] = useState('');
+
+  // ============================================================
+  // ✅ Chargement des clients (pagination serveur)
+  // ============================================================
   const loadClients = async () => {
     try {
       setLoading(true);
-      const response = await getClients();
-      setClients(response.data);
+      const params = {
+        page,
+        limit: perPage,
+      };
+
+      if (filters.search) params.search = filters.search;
+      if (filters.paymentStatus !== 'all') params.paymentStatus = filters.paymentStatus;
+      if (filters.hasReparations !== 'all') params.hasReparations = filters.hasReparations;
+      if (filters.topClients !== 'all') params.topClients = filters.topClients;
+
+      const response = await getClients(params);
+      setClients(response.data || []);
+      setTotalCount(
+        Number(response?.pagination?.total) ||
+          Number(response?.total) ||
+          response?.data?.length ||
+          0
+      );
     } catch (err) {
+      console.error('Erreur loadClients:', err);
       setError('Erreur lors du chargement des clients');
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ Recharger quand page / perPage / filtres changent
   useEffect(() => {
     loadClients();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, perPage, filters]);
 
-  const filteredClients = useMemo(() => {
-    let result = [...clients];
-
-    if (filters.search) {
-      const term = filters.search.toLowerCase();
-      result = result.filter((c) =>
-        c.nom?.toLowerCase().includes(term) ||
-        c.phone?.includes(term) ||
-        c.phone2?.includes(term) ||
-        c.email?.toLowerCase().includes(term) ||
-        c.code?.toLowerCase().includes(term) ||
-        c.adresse?.toLowerCase().includes(term) ||
-        c.zone?.toLowerCase().includes(term) ||
-        c.codeFidelite?.toLowerCase().includes(term)
-      );
+  // ✅ Reset page à 1 quand les filtres changent
+  const prevFiltersKey = useRef(JSON.stringify(filters));
+  useEffect(() => {
+    const currentKey = JSON.stringify(filters);
+    if (prevFiltersKey.current !== currentKey) {
+      prevFiltersKey.current = currentKey;
+      if (page !== 1) setPage(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
-    if (filters.paymentStatus !== 'all') {
-      result = result.filter((c) => {
-        const restant = c.totalRestant || 0;
-        const paye = c.totalPaye || 0;
-        if (filters.paymentStatus === 'paid') return restant === 0 && paye > 0;
-        if (filters.paymentStatus === 'unpaid') return restant > 0 && paye === 0;
-        if (filters.paymentStatus === 'partial') return restant > 0 && paye > 0;
-        return true;
-      });
-    }
+  // ✅ Debounce de la recherche
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        setFilters((prev) => ({ ...prev, search: searchInput }));
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
-    if (filters.hasReparations !== 'all') {
-      result = result.filter((c) => {
-        const count = c.totalReparations || 0;
-        return filters.hasReparations === 'yes' ? count > 0 : count === 0;
-      });
-    }
-
-    if (filters.topClients !== 'all') {
-      const limit = parseInt(filters.topClients);
-      result = result
-        .filter((c) => (c.totalReparations || 0) > 0)
-        .sort((a, b) => (b.totalReparations || 0) - (a.totalReparations || 0))
-        .slice(0, limit);
-    }
-
-    return result;
-  }, [clients, filters]);
-
+  // ============================================================
+  // Stats (sur la page courante + total global)
+  // ============================================================
   const stats = useMemo(() => {
-    const totalClients = clients.length;
+    const totalClients = totalCount;
     const activeClients = clients.filter((c) => c.isActive).length;
     const unpaidClients = clients.filter((c) => (c.totalRestant || 0) > 0).length;
-    const totalRestant = clients.reduce((sum, c) => sum + (c.totalRestant || 0), 0);
+    const totalRestant = clients.reduce(
+      (sum, c) => sum + (c.totalRestant || 0),
+      0
+    );
     return { totalClients, activeClients, unpaidClients, totalRestant };
-  }, [clients]);
+  }, [clients, totalCount]);
 
-  const hasActiveFilters = Object.values(filters).some(
-    (v) => v && v !== 'all' && v !== ''
-  );
+  const hasActiveFilters = useMemo(() => {
+    return Object.values(filters).some(
+      (v) => v && v !== 'all' && v !== ''
+    );
+  }, [filters]);
 
+  // ============================================================
+  // Handlers
+  // ============================================================
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -129,16 +162,12 @@ const ClientsList = () => {
   };
 
   const resetFilters = () => {
-    setFilters({
-      search: '',
-      paymentStatus: 'all',
-      hasReparations: 'all',
-      topClients: 'all',
-    });
+    setFilters(DEFAULT_FILTERS);
+    setSearchInput('');
+    setPage(1);
     clearSelection();
   };
 
-  // ✅ Suppression simple — vérification rôle
   const handleDelete = async () => {
     if (!canDelete) {
       setError("Vous n'avez pas la permission de supprimer");
@@ -158,7 +187,6 @@ const ClientsList = () => {
     }
   };
 
-  // ✅ Suppression multiple — vérification rôle
   const handleDeleteMany = async () => {
     if (!canDelete) {
       setError("Vous n'avez pas la permission de supprimer");
@@ -199,7 +227,7 @@ const ClientsList = () => {
     }
 
     await exportClients({
-      clients: filteredClients,
+      clients: clients,
       filters: filters,
     });
   };
@@ -213,6 +241,9 @@ const ClientsList = () => {
     setShowFormModal(true);
   };
 
+  // ============================================================
+  // Colonnes
+  // ============================================================
   const columns = [
     {
       name: 'Code',
@@ -366,15 +397,19 @@ const ClientsList = () => {
     0
   );
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className="fade-in-up">
+      {/* ==================== HEADER ==================== */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--gray-900)', marginBottom: '4px' }}>
             Clients
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--gray-500)', margin: 0 }}>
-            {filteredClients.length} / {clients.length} client(s) affiché(s)
+            <strong style={{ color: 'var(--gray-800)' }}>{totalCount}</strong> client(s) au total
             {selectedRows.length > 0 && (
               <span style={{ color: 'var(--primary)', fontWeight: '600', marginLeft: '8px' }}>
                 • {selectedRows.length} sélectionné(s)
@@ -383,83 +418,118 @@ const ClientsList = () => {
           </p>
         </div>
 
-      <div className="d-flex gap-2 flex-wrap">
-  {selectedRows.length > 0 && (
-    <button
-      className="btn-modern btn-modern-outline"
-      onClick={clearSelection}
-    >
-      <FaTimes /> Désélectionner
-    </button>
-  )}
+        <div className="d-flex gap-2 flex-wrap">
+          {selectedRows.length > 0 && (
+            <button className="btn-modern btn-modern-outline" onClick={clearSelection}>
+              <FaTimes /> Désélectionner
+            </button>
+          )}
 
-  {/* ✅ Bouton Supprimer sélection UNIQUEMENT pour ADMIN */}
-  {selectedRows.length > 0 && canDelete && (
-    <button
-      className="btn-modern btn-modern-danger"
-      onClick={() => setShowDeleteManyDialog(true)}
-      title={`Supprimer les ${selectedRows.length} clients sélectionnés`}
-    >
-      <FaTrash /> Supprimer ({selectedRows.length})
-    </button>
-  )}
+          {selectedRows.length > 0 && canDelete && (
+            <button
+              className="btn-modern btn-modern-danger"
+              onClick={() => setShowDeleteManyDialog(true)}
+              title={`Supprimer les ${selectedRows.length} clients sélectionnés`}
+            >
+              <FaTrash /> Supprimer ({selectedRows.length})
+            </button>
+          )}
 
-  {/* ✅ Export Excel */}
-  <button
-    className="btn-modern btn-modern-success"
-    onClick={handleExportExcel}
-  >
-    <FaDownload />
-    {selectedRows.length > 0
-      ? ` Exporter (${selectedRows.length})`
-      : ' Exporter'}
-  </button>
+          <button
+            className="btn-modern btn-modern-success"
+            onClick={handleExportExcel}
+          >
+            <FaDownload />
+            {selectedRows.length > 0
+              ? ` Exporter (${selectedRows.length})`
+              : ' Exporter'}
+          </button>
 
-  {/* ✅ NOUVEAU : Import Excel (admin uniquement) */}
-  {canDelete && (
-    <ImportExcelButton
-      onImport={importClients}
-      onSuccess={loadClients}
-      title="Import clients"
-      subtitle="Importer clients"
-      labels={{
-        created: "Clients créés",
-        duplicates: "Doublons (téléphone existant)",
-        errors: "Erreurs",
-        createdTitle: "✅ Clients créés",
-        duplicatesTitle: "⚠️ Doublons (téléphone déjà existant)",
-        errorsTitle: "❌ Erreurs",
-        duplicatesHint:
-          "Ces clients existaient déjà. Voici leur code fidélité existant :",
-      }}
-      columns={[
-        { key: "nom", label: "Nom" },
-        { key: "phone", label: "Téléphone" },
-        {
-          key: "code",
-          label: "Code",
-          render: (item) => <code>{item.code || "—"}</code>,
-        },
-        {
-          key: "codeFidelite",
-          label: "Code fidélité",
-          render: (item) => (
-            <strong style={{ color: "#92400e", fontFamily: "monospace" }}>
-              {item.codeFidelite || "—"}
-            </strong>
-          ),
-        },
-      ]}
-    />
-  )}
+          {canDelete && (
+            <ImportExcelButton
+              onPreview={previewImportClients}
+              onConfirm={confirmImportClients}
+              onSuccess={loadClients}
+              title="Import clients"
+              subtitle="Importer clients"
+              labels={{
+                created: "Clients à créer",
+                toUpdate: "Doublons à mettre à jour",
+                errors: "Erreurs",
+                createdTitle: "✅ Clients à créer",
+                toUpdateTitle: "🔄 Doublons à mettre à jour",
+                errorsTitle: "❌ Erreurs",
+                toUpdateHint:
+                  "Ces clients ont un téléphone déjà existant. Leur code fidélité (si absent), adresse et zone seront mis à jour. Un code fidélité existant n'est jamais remplacé.",
+              }}
+              columns={[
+                { key: "nom", label: "Nom" },
+                { key: "phone", label: "Téléphone" },
+                {
+                  key: "code",
+                  label: "Code",
+                  render: (item) => <code>{item.code || "—"}</code>,
+                },
+                {
+                  key: "codeFidelite",
+                  label: "Code fidélité",
+                  render: (item) => (
+                    <strong style={{ color: "#92400e", fontFamily: "monospace" }}>
+                      {item.codeFidelite || "—"}
+                    </strong>
+                  ),
+                },
+                { key: "adresse", label: "Adresse" },
+                { key: "zone", label: "Zone" },
+              ]}
+              updateColumns={[
+                { key: "nom", label: "Nom" },
+                { key: "phone", label: "Téléphone" },
+                {
+                  key: "codeFidelite",
+                  label: "Code fidélité",
+                  render: (item) => {
+                    if (
+                      item.oldCodeFidelite &&
+                      item.proposedCodeFidelite !== item.oldCodeFidelite
+                    ) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <strong style={{ color: "#92400e", fontFamily: "monospace" }}>
+                            {item.oldCodeFidelite}
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "var(--gray-400)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            conservé (Excel: {item.proposedCodeFidelite || "—"})
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <strong style={{ color: "#92400e", fontFamily: "monospace" }}>
+                        {item.codeFidelite || item.proposedCodeFidelite || "—"}
+                      </strong>
+                    );
+                  },
+                },
+                { key: "adresse", label: "Adresse" },
+                { key: "zone", label: "Zone" },
+              ]}
+            />
+          )}
 
-  {/* ✅ Nouveau client */}
-  <button className="btn-modern btn-modern-primary" onClick={() => openFormModal()}>
-    <FaPlus /> Nouveau client
-  </button>
-</div>
+          <button className="btn-modern btn-modern-primary" onClick={() => openFormModal()}>
+            <FaPlus /> Nouveau client
+          </button>
+        </div>
       </div>
 
+      {/* ==================== ALERTES ==================== */}
       {success && (
         <div style={{ padding: '12px 16px', background: 'var(--success-light)', color: 'var(--success)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '500' }}>
           ✅ {success}
@@ -471,13 +541,13 @@ const ClientsList = () => {
         </div>
       )}
 
-      {/* Cartes stats */}
+      {/* ==================== STATS ==================== */}
       <div className="row g-3 mb-4">
         {[
           { label: 'Total clients', value: stats.totalClients, icon: <FaUsers />, color: '#4361ee', bg: 'rgba(67, 97, 238, 0.1)' },
-          { label: 'Clients actifs', value: stats.activeClients, icon: <FaUserCheck />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
-          { label: 'Clients impayés', value: stats.unpaidClients, icon: <FaWallet />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-          { label: 'Total à recevoir', value: `${stats.totalRestant.toFixed(2)} DT`, icon: <FaMoneyBillWave />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isText: true },
+          { label: 'Actifs (page)', value: stats.activeClients, icon: <FaUserCheck />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+          { label: 'Impayés (page)', value: stats.unpaidClients, icon: <FaWallet />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+          { label: 'À recevoir (page)', value: `${stats.totalRestant.toFixed(2)} DT`, icon: <FaMoneyBillWave />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isText: true },
         ].map((stat, i) => (
           <div key={i} className="col-12 col-sm-6 col-lg-3">
             <div
@@ -536,7 +606,7 @@ const ClientsList = () => {
         ))}
       </div>
 
-      {/* Filtres */}
+      {/* ==================== FILTRES ==================== */}
       <div className="card-modern mb-3" style={{ padding: '14px 16px' }}>
         <div className="clients-filters-grid">
           <div style={{ position: 'relative', minWidth: 0 }}>
@@ -557,9 +627,30 @@ const ClientsList = () => {
               className="form-control-modern"
               style={{ paddingLeft: '40px', width: '100%', height: '42px' }}
               placeholder="Rechercher : nom, téléphone, email, code..."
-              value={filters.search}
-              onChange={handleFilterChange}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--gray-400)',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Effacer"
+              >
+                <FaTimes size={12} />
+              </button>
+            )}
           </div>
 
           <select name="paymentStatus" className="form-control-modern" style={{ height: '42px' }} value={filters.paymentStatus} onChange={handleFilterChange}>
@@ -596,19 +687,19 @@ const ClientsList = () => {
         {hasActiveFilters && (
           <div style={{ marginTop: '10px', fontSize: '11.5px', color: 'var(--gray-500)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>🔎</span>
-            <span>{filteredClients.length} résultat(s) avec filtres actifs</span>
+            <span>{totalCount} résultat(s) avec filtres actifs</span>
           </div>
         )}
       </div>
 
+      {/* ==================== TABLEAU (PAGINATION SERVEUR) ==================== */}
       <DataTable
         columns={columns}
-        data={filteredClients}
+        data={clients}
         loading={loading}
         onRowClicked={selectedRows.length > 0 ? undefined : (row) => navigate(`/clients/${row._id}`)}
         onView={(row) => navigate(`/clients/${row._id}`)}
         onEdit={(row) => openFormModal(row)}
-        // ✅ Bouton supprimer uniquement si admin
         onDelete={
           canDelete
             ? (row) => {
@@ -619,12 +710,25 @@ const ClientsList = () => {
         }
         searchable={false}
         emptyMessage="Aucun client trouvé"
-        paginationPerPage={10}
         selectableRows={true}
         onSelectedRowsChange={handleSelectedRowsChange}
         clearSelectedRows={toggleCleared}
+
+        // ✅ Pagination serveur
+        pagination
+        paginationServer
+        paginationTotalRows={totalCount}
+        paginationPerPage={perPage}
+        paginationDefaultPage={page}
+        paginationRowsPerPageOptions={[10, 20, 50, 100]}
+        onChangePage={(newPage) => setPage(newPage)}
+        onChangeRowsPerPage={(newPerPage, newPage) => {
+          setPerPage(newPerPage);
+          setPage(newPage);
+        }}
       />
 
+      {/* ==================== MODALS ==================== */}
       <ClientFormModal
         show={showFormModal}
         onClose={() => {
@@ -639,7 +743,6 @@ const ClientsList = () => {
         client={editingClient}
       />
 
-      {/* ✅ Dialog suppression simple — uniquement si admin */}
       {canDelete && (
         <ConfirmDialog
           show={showDeleteDialog}
@@ -657,7 +760,6 @@ const ClientsList = () => {
         />
       )}
 
-      {/* ✅ Dialog suppression multiple — uniquement si admin */}
       {canDelete && (
         <ConfirmDialog
           show={showDeleteManyDialog}
@@ -705,6 +807,9 @@ const ClientsList = () => {
             width: 100% !important;
           }
         }
+
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
       `}</style>
     </div>
   );
