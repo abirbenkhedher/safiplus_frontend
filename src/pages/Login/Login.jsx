@@ -19,7 +19,7 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard');
+    if (isAuthenticated) navigate('/');
   }, [isAuthenticated, navigate]);
 
   // Validation d'un champ
@@ -79,7 +79,8 @@ const Login = () => {
       setLoading(false);
 
       if (result.success) {
-        navigate('/dashboard');
+        // ✅ "/" → page d'accueil selon le rôle et les permissions (HomeRedirect)
+        navigate('/');
       } else {
         setGlobalError(result.message || 'Nom d\'utilisateur ou mot de passe incorrect');
       }

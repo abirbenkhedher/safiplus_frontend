@@ -16,7 +16,7 @@ const DepensesList = () => {
   const { user } = useAuth();
 
   // ✅ Seul ADMIN peut supprimer
-  const canDelete = user?.role === "ADMIN";
+  const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
 
   const [depenses, setDepenses] = useState([]);
   const [stats, setStats] = useState(null);

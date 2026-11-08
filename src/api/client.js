@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { applyBoutiqueHeader, handleBoutiqueError } from '../utils/boutiqueStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -16,7 +17,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
+    return applyBoutiqueHeader(config); // ✅ multi-tenant
   },
   (error) => Promise.reject(error)
 );
@@ -27,6 +28,9 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const requestUrl = originalRequest?.url || '';
+
+    // ✅ Boutique non autorisée → on réinitialise la sélection
+    if (handleBoutiqueError(error)) return Promise.reject(error);
 
     // ⚠️ Routes d'authentification (ne PAS rediriger)
     const isAuthRoute =

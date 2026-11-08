@@ -30,8 +30,10 @@ const DEFAULT_FILTERS = {
 };
 
 const StockList = () => {
-  const { user } = useAuth();
-  const canDelete = user?.role === "ADMIN";
+  const { user, hasPermission } = useAuth();
+  const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  // ✅ "stock:read" = consultation seule (pas d'ajout / modification)
+  const canWrite = hasPermission('stock');
 
   const [stocks, setStocks] = useState([]);
   const [stats, setStats] = useState(null);
@@ -447,7 +449,7 @@ const StockList = () => {
                   e.stopPropagation();
                   handleIncrement(row._id, -1);
                 }}
-                disabled={isBusy || row.quantite === 0}
+                disabled={!canWrite || isBusy || row.quantite === 0}
                 title="Retirer 1"
                 style={btnIncrSmall}
               >
@@ -472,7 +474,7 @@ const StockList = () => {
                     });
                   }
                 }}
-                disabled={isBusy}
+                disabled={!canWrite || isBusy}
                 style={{
                   width: "60px",
                   padding: "5px 6px",
@@ -493,7 +495,7 @@ const StockList = () => {
                   e.stopPropagation();
                   handleIncrement(row._id, 1);
                 }}
-                disabled={isBusy}
+                disabled={!canWrite || isBusy}
                 title="Ajouter 1"
                 style={{ ...btnIncrSmall, color: "var(--success)" }}
               >
@@ -579,15 +581,17 @@ const StockList = () => {
             </button>
           )}
 
-          <button
-            className="btn-modern btn-modern-primary"
-            onClick={() => {
-              setEditing(null);
-              setShowForm(true);
-            }}
-          >
-            <FaPlus /> Nouvelle ligne
-          </button>
+          {canWrite && (
+            <button
+              className="btn-modern btn-modern-primary"
+              onClick={() => {
+                setEditing(null);
+                setShowForm(true);
+              }}
+            >
+              <FaPlus /> Nouvelle ligne
+            </button>
+          )}
         </div>
       </div>
 
@@ -753,10 +757,14 @@ const StockList = () => {
           viewIcon={<FaHistory size={12} />}
           viewTitle="Historique"
           onView={(row) => setHistoryFor(row)}
-          onEdit={(row) => {
-            setEditing(row);
-            setShowForm(true);
-          }}
+          onEdit={
+            canWrite
+              ? (row) => {
+                  setEditing(row);
+                  setShowForm(true);
+                }
+              : undefined
+          }
           onDelete={
             canDelete
               ? (row) => {

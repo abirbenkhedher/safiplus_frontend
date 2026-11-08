@@ -2,11 +2,11 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ReparationModalProvider } from "./context/ReparationModalContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import HomeRedirect from "./components/common/HomeRedirect";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
@@ -33,6 +33,10 @@ import ZonesCRUD from "./pages/Zone/ZonesCRUD";
 // ✅ NOUVEAU : Stock & Dépenses
 import StockList from "./pages/Stock/StockList";
 import DepensesList from "./pages/Depenses/DepensesList";
+// ✅ MULTI-TENANT
+import BoutiquesCRUD from "./pages/Boutiques/BoutiquesCRUD";
+import OrganisationsCRUD from "./pages/Organisations/OrganisationsCRUD";
+import ChoixBoutique from "./pages/ChoixBoutique/ChoixBoutique";
 
 setupRefreshDetection();
 
@@ -46,24 +50,42 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/suivi/:numero" element={<SuiviPublic />} />
 
+            {/* ✅ MULTI-TENANT : choix de la boutique après connexion */}
+            <Route
+              path="/choisir-boutique"
+              element={
+                <ProtectedRoute chooser>
+                  <ChoixBoutique />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ✅ ROUTES PROTÉGÉES (avec Layout) */}
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute layout>
                   <Layout />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              {/* ✅ Accueil : dashboard, ou réparations sans la permission "dashboard" */}
+              <Route index element={<HomeRedirect />} />
 
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route
+                path="dashboard"
+                element={
+                  <ProtectedRoute permission="dashboard" redirectHome>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* ✅ STATISTIQUES : réservé à l'ADMIN */}
               <Route
                 path="statistiques"
                 element={
-                  <ProtectedRoute roles={["ADMIN"]}>
+                  <ProtectedRoute permission="statistiques">
                     <Statistiques />
                   </ProtectedRoute>
                 }
@@ -109,7 +131,7 @@ function App() {
               <Route
                 path="stock"
                 element={
-                  <ProtectedRoute roles={["ADMIN", "REPARATEUR"]}>
+                  <ProtectedRoute anyPermission={["stock", "stock:read"]}>
                     <StockList />
                   </ProtectedRoute>
                 }
@@ -119,7 +141,7 @@ function App() {
               <Route
                 path="depenses"
                 element={
-                  <ProtectedRoute roles={["ADMIN"]}>
+                  <ProtectedRoute permission="depenses">
                     <DepensesList />
                   </ProtectedRoute>
                 }
@@ -183,11 +205,11 @@ function App() {
                 }
               />
 
-              {/* ✅ ZONES — accessible à TOUS les utilisateurs connectés */}
+              {/* ✅ ZONES — permission zones (ou clients) */}
               <Route
                 path="zones"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute anyPermission={["zones", "clients"]}>
                     <ZonesCRUD />
                   </ProtectedRoute>
                 }
@@ -202,6 +224,26 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              {/* ✅ MULTI-TENANT : boutiques (propriétaire) */}
+              <Route
+                path="boutiques"
+                element={
+                  <ProtectedRoute owner>
+                    <BoutiquesCRUD />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ✅ MULTI-TENANT : organisations (super admin) */}
+              <Route
+                path="organisations"
+                element={
+                  <ProtectedRoute superAdmin>
+                    <OrganisationsCRUD />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route
                 path="history"
                 element={
@@ -213,7 +255,7 @@ function App() {
             </Route>
 
             {/* ✅ Fallback */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<HomeRedirect />} />
           </Routes>
         </ReparationModalProvider>
       </Router>

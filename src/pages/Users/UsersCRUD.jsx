@@ -33,12 +33,18 @@ import {
   getAvailableModules,
 } from "../../api/users";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { useAuth } from "../../context/AuthContext";
 import DataTable from "../../components/common/DataTable";
 
 const UsersCRUD = () => {
   const [users, setUsers] = useState([]);
   const [availableModules, setAvailableModules] = useState([]);
+  // ✅ Seul un admin peut créer / nommer un administrateur
+  const [canManageAdmins, setCanManageAdmins] = useState(true);
   const [defaultPermissions, setDefaultPermissions] = useState({});
+  // Permissions par défaut d'un rôle, limitées à celles que l'on peut donner
+  const defaultsFor = (role) =>
+    (defaultPermissions[role] || []).filter((p) => availableModules.includes(p));
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -47,7 +53,12 @@ const UsersCRUD = () => {
   const [filterRole, setFilterRole] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // ✅ MULTI-TENANT : boutiques gérables par l'utilisateur connecté
+  const { user: currentUser, orgBoutiques: myBoutiques, isOwner } = useAuth();
+
   const [formData, setFormData] = useState({
+    boutiques: [],
+    isOwner: false,
     username: "",
     email: "",
     phone: "",
@@ -137,6 +148,20 @@ const UsersCRUD = () => {
       isRead: true,
     },
 
+    // ✅ Configuration - Zones
+    zones: { label: "Zones", icon: "📍", category: "configuration" },
+
+    // ✅ Stock & finances
+    stock: { label: "Stock", icon: "🏬", category: "gestion" },
+    "stock:read": {
+      label: "Stock (lecture seule)",
+      icon: "👁️",
+      category: "gestion",
+      isRead: true,
+    },
+    depenses: { label: "Dépenses", icon: "🧾", category: "gestion" },
+    statistiques: { label: "Statistiques", icon: "📈", category: "principal" },
+
     // Administration
     users: { label: "Utilisateurs", icon: "👤", category: "administration" },
     history: { label: "Historique", icon: "📜", category: "administration" },
@@ -157,7 +182,9 @@ const UsersCRUD = () => {
         getAvailableModules(),
       ]);
       setUsers(usersRes.data);
-      setAvailableModules(modulesRes.data.modules || []);
+      // ✅ On ne propose que les permissions que l'utilisateur connecté peut donner
+      setAvailableModules(modulesRes.data.grantable || modulesRes.data.modules || []);
+      setCanManageAdmins(modulesRes.data.canManageAdmins !== false);
       setDefaultPermissions(modulesRes.data.defaultPermissions || {});
     } catch (err) {
       setError("Erreur lors du chargement");
@@ -206,6 +233,8 @@ const UsersCRUD = () => {
             isActive: item.isActive,
             permissions:
               item.permissions || defaultPermissions[item.role] || [],
+            boutiques: (item.boutiques || []).map((b) => b._id || b),
+            isOwner: !!item.isOwner,
           }
         : {
             username: "",
@@ -216,7 +245,9 @@ const UsersCRUD = () => {
             lastName: "",
             role: "COMMERCIAL",
             isActive: true,
-            permissions: defaultPermissions.COMMERCIAL || [],
+            permissions: defaultsFor("COMMERCIAL"),
+            boutiques: myBoutiques.length === 1 ? [myBoutiques[0]._id] : [],
+            isOwner: false,
           },
     );
     setError("");
@@ -235,7 +266,8 @@ const UsersCRUD = () => {
     setFormData({
       ...formData,
       role: newRole,
-      permissions: defaultPermissions[newRole] || [],
+      permissions: defaultsFor(newRole),
+      isOwner: newRole === "ADMIN" ? formData.isOwner : false,
     });
   };
 
@@ -290,6 +322,9 @@ const UsersCRUD = () => {
       return setError("Le mot de passe doit contenir au moins 6 caractères");
     if (!formData.permissions || formData.permissions.length === 0) {
       return setError("Au moins un module doit être accessible");
+    }
+    if (!formData.isOwner && (formData.boutiques || []).length === 0) {
+      return setError("Veuillez affecter au moins une boutique");
     }
 
     try {
@@ -494,6 +529,26 @@ const UsersCRUD = () => {
           </span>
         );
       },
+    },
+    {
+      // ✅ MULTI-TENANT
+      name: "Boutiques",
+      wrap: true,
+      minWidth: "160px",
+      cell: (row) =>
+        row.isOwner ? (
+          <span className="badge-modern badge-modern-primary">
+            Toutes (propriétaire)
+          </span>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", padding: "4px 0" }}>
+            {(row.boutiques || []).map((b) => (
+              <span key={b._id || b} className="badge-modern badge-modern-gray" title={b.nom}>
+                {b.code || b.nom || "?"}
+              </span>
+            ))}
+          </div>
+        ),
     },
     {
       name: "Modules",
@@ -1170,7 +1225,9 @@ const UsersCRUD = () => {
                           onChange={(e) => handleRoleChange(e.target.value)}
                           style={{ width: "100%" }}
                         >
-                          <option value="ADMIN">👑 Administrateur</option>
+                          {(canManageAdmins || formData.role === "ADMIN") && (
+                            <option value="ADMIN">👑 Administrateur</option>
+                          )}
                           <option value="COMMERCIAL">💼 Commercial</option>
                           <option value="REPARATEUR">🔧 Réparateur</option>
                         </select>
@@ -1218,6 +1275,82 @@ const UsersCRUD = () => {
                           </label>
                         </div>
                       </div>
+
+                      {/* ✅ MULTI-TENANT : propriétaire + boutiques */}
+                      {isOwner() && formData.role === "ADMIN" &&
+                        editingItem?._id !== currentUser?._id && (
+                        <div className="col-12">
+                          <label
+                            style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.isOwner}
+                              onChange={(e) =>
+                                setFormData({ ...formData, isOwner: e.target.checked })
+                              }
+                            />
+                            <span style={{ fontSize: "13.5px", fontWeight: "500" }}>
+                              👑 Propriétaire (accès à toutes les boutiques et à leur gestion)
+                            </span>
+                          </label>
+                        </div>
+                      )}
+
+                      {!formData.isOwner && (
+                        <div className="col-12">
+                          <label className="form-label-modern">
+                            Boutiques affectées *
+                          </label>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "8px",
+                              padding: "10px",
+                              border: "1px solid var(--gray-200)",
+                              borderRadius: "10px",
+                            }}
+                          >
+                            {myBoutiques.map((b) => {
+                              const checked = (formData.boutiques || []).includes(b._id);
+                              return (
+                                <label
+                                  key={b._id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    padding: "6px 10px",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    fontSize: "13px",
+                                    background: checked ? "var(--primary-light)" : "var(--gray-50)",
+                                    border: `1px solid ${checked ? "var(--primary)" : "var(--gray-200)"}`,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() =>
+                                      setFormData({
+                                        ...formData,
+                                        boutiques: checked
+                                          ? formData.boutiques.filter((id) => id !== b._id)
+                                          : [...(formData.boutiques || []), b._id],
+                                      })
+                                    }
+                                  />
+                                  {b.nom} <span style={{ color: "var(--gray-500)" }}>({b.code})</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "var(--gray-500)", marginTop: "4px" }}>
+                            ℹ️ L'utilisateur ne verra que les données de ces boutiques
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1291,7 +1424,7 @@ const UsersCRUD = () => {
                               setFormData({
                                 ...formData,
                                 permissions:
-                                  defaultPermissions[formData.role] || [],
+                                  defaultsFor(formData.role),
                               })
                             }
                           >

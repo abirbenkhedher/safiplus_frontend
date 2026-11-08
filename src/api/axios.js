@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { applyBoutiqueHeader, handleBoutiqueError } from '../utils/boutiqueStorage';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
@@ -13,7 +14,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
+    return applyBoutiqueHeader(config); // ✅ multi-tenant
   },
   (error) => Promise.reject(error)
 );
@@ -26,6 +27,9 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const code = error.response?.data?.code;
+
+    // ✅ Boutique non autorisée → on réinitialise la sélection
+    if (handleBoutiqueError(error)) return Promise.reject(error);
 
     // 🔴 Déconnexion auto côté serveur (inactivité COMMERCIAL)
     if (status === 401 && code === 'INACTIVITY_TIMEOUT') {

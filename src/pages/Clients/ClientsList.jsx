@@ -35,7 +35,7 @@ const DEFAULT_FILTERS = {
 const ClientsList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canDelete = user?.role === 'ADMIN';
+  const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
 
   // ============================================================
   // States principaux

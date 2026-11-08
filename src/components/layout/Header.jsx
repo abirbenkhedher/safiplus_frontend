@@ -7,9 +7,10 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AlertesRetard from "./AlertesRetard";
 import TeamMessages from "./TeamMessages";
+import BoutiqueSelector from "./BoutiqueSelector";
 
 const Header = ({ onToggleSidebar }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin, activeBoutique } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -167,7 +168,9 @@ const Header = ({ onToggleSidebar }) => {
   };
 
   const getRoleLabel = (role) => {
+    if (role === 'ADMIN' && user?.isOwner) return 'Propriétaire';
     const labels = {
+      SUPER_ADMIN: 'Super admin',
       ADMIN: 'Administrateur',
       COMMERCIAL: 'Commercial',
       REPARATEUR: 'Réparateur'
@@ -177,6 +180,7 @@ const Header = ({ onToggleSidebar }) => {
 
   const getRoleColor = (role) => {
     const colors = {
+      SUPER_ADMIN: '#7c3aed',
       ADMIN: '#ef4444',
       COMMERCIAL: '#3b82f6',
       REPARATEUR: '#f59e0b'
@@ -194,13 +198,16 @@ const Header = ({ onToggleSidebar }) => {
         ☰
       </button>
 
+      {/* ✅ MULTI-TENANT : boutique active */}
+      <BoutiqueSelector />
+
       {/* ACTIONS */}
       <div className="header-actions">
         
         {/* ✅ ALERTES DE DÉLAI (+48h) — Cloche clignotante */}
-        <AlertesRetard />
+        {(!isSuperAdmin() || activeBoutique) && <AlertesRetard />}
         {/* ✅ Messages d'équipe */}
-        <TeamMessages />
+        {(!isSuperAdmin() || activeBoutique) && <TeamMessages />}
 
         {/* Raccourcis clavier */}
         <div ref={shortcutsRef} style={{ position: 'relative' }}>

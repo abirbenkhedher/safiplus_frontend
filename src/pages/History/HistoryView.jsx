@@ -82,7 +82,7 @@ const HistoryView = () => {
   useEffect(() => {
     loadHistory(1);
     loadStats();
-    if (user?.role === 'ADMIN') {
+    if (['ADMIN', 'SUPER_ADMIN'].includes(user?.role)) {
       loadUsers();
     }
   }, []);
@@ -332,7 +332,7 @@ const HistoryView = () => {
                   <option value="PAYMENT">Paiement</option>
                 </Form.Select>
               </Col>
-              {user?.role === 'ADMIN' && (
+              {['ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
                 <Col md={2}>
                   <Form.Select
                     value={filters.userId}

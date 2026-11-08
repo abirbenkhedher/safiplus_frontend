@@ -7,13 +7,14 @@ import {
   FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
   FaChartLine, FaMapMarkerAlt,
   FaWarehouse, FaReceipt,
+  FaStore, FaBuilding,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
 import logo from '../../assets/logo.png';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
-  const { user, hasPermission, hasAnyRole } = useAuth();
+  const { user, hasPermission, hasAnyRole, isSuperAdmin, isOwner, activeBoutique } = useAuth();
   const { openNewReparation } = useReparationModal();
   const location = useLocation();
 
@@ -23,7 +24,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       items: [
         { path: '/dashboard', icon: <FaHome />, label: 'Dashboard', module: 'dashboard' },
         // ✅ Statistiques : réservé à l'ADMIN
-        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', roles: ['ADMIN'] },
+        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', module: 'statistiques' },
       ]
     },
     {
@@ -45,9 +46,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           },
         },
         // ✅ Stock : ADMIN + REPARATEUR
-        { path: '/stock', icon: <FaWarehouse />, label: 'Stock', roles: ['ADMIN', 'REPARATEUR'] },
+        { path: '/stock', icon: <FaWarehouse />, label: 'Stock', anyModule: ['stock', 'stock:read'] },
         // ✅ Dépenses : ADMIN uniquement
-        { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', roles: ['ADMIN'] },
+        { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', module: 'depenses' },
       ]
     },
     {
@@ -60,31 +61,49 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
         { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },
         // ✅ Zones : visible pour TOUS les rôles connectés (pas de module, pas de roles)
-        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones' },
+        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', anyModule: ['zones', 'clients'] },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
       ]
     },
     {
       title: 'Administration',
       items: [
+        // ✅ MULTI-TENANT : gestion des boutiques (propriétaire)
+        { path: '/boutiques', icon: <FaStore />, label: 'Mes boutiques', owner: true },
         { path: '/users', icon: <FaUserCog />, label: 'Utilisateurs', module: 'users' },
+      ]
+    },
+    {
+      // ✅ MULTI-TENANT : plateforme (super admin)
+      title: 'Plateforme',
+      items: [
+        { path: '/organisations', icon: <FaBuilding />, label: 'Backoffice (sociétés)', superAdmin: true },
       ]
     }
   ];
 
   // ✅ Filtre de visibilité : rôle OU permission (rien = tous)
   const isVisible = (item) => {
+    // ✅ MULTI-TENANT : le super admin ne voit que la gestion de la plateforme
+    // (hors boutique) ; une fois entré dans une boutique, il voit tout
+    if (isSuperAdmin()) return !!item.superAdmin || !!activeBoutique;
+    if (item.superAdmin) return false;
+    if (item.owner) return isOwner();
     if (item.roles && item.roles.length > 0) {
       return hasAnyRole(item.roles);
     }
     if (item.module) {
       return hasPermission(item.module);
     }
+    if (item.anyModule) {
+      return item.anyModule.some((m) => hasPermission(m));
+    }
     return true; // ✅ pas de roles + pas de module → visible pour tous
   };
 
   const getRoleLabel = (role) => {
-    const labels = { ADMIN: 'Admin', COMMERCIAL: 'Commercial', REPARATEUR: 'Réparateur' };
+    if (role === 'ADMIN' && user?.isOwner) return 'Propriétaire';
+    const labels = { SUPER_ADMIN: 'Super admin', ADMIN: 'Admin', COMMERCIAL: 'Commercial', REPARATEUR: 'Réparateur' };
     return labels[role] || role;
   };
 

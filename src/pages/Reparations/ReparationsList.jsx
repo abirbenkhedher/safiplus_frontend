@@ -78,8 +78,8 @@ const ReparationsList = () => {
     useReparationModal();
   const { categories, familles = [], zones = [] } = useReparationData();
 
-  const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
+  const { user, isAllBoutiques } = useAuth();
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
   const canDelete = isAdmin;
 
   // ============================================================
@@ -133,7 +133,7 @@ const ReparationsList = () => {
   // ✅ Filtres chargés + nettoyage des champs admin pour non-admin
   const [filters, setFilters] = useState(() => {
     const loaded = loadFilters(DEFAULT_FILTERS);
-    if (user?.role !== "ADMIN") {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user?.role)) {
       loaded.dateClotureDebut = "";
       loaded.dateClotureFin = "";
     }
@@ -750,7 +750,7 @@ const ReparationsList = () => {
       name: "N°",
       selector: (row) => row.numero,
       sortable: true,
-      width: "100px",
+      width: "130px", // ✅ numéros préfixés par le code boutique
       cell: (row) => {
         const query = (filters.search || "").trim();
         const numero = String(row.numero || "");
@@ -790,6 +790,20 @@ const ReparationsList = () => {
         );
       },
     },
+    // ✅ MULTI-TENANT : colonne boutique en mode "Toutes mes boutiques"
+    ...(isAllBoutiques
+      ? [{
+          name: "Boutique",
+          selector: (row) => row.boutique?.nom,
+          sortable: true,
+          width: "130px",
+          cell: (row) => (
+            <span className="badge-modern badge-modern-gray" title={row.boutique?.nom}>
+              {row.boutique?.code || "—"}
+            </span>
+          ),
+        }]
+      : []),
     {
       name: "Client",
       selector: (row) => row.client?.nom,
