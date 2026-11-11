@@ -23,6 +23,12 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
     seuilAlerte: stock?.seuilAlerte ?? 2,
     prixIndicatif: stock?.prixIndicatif ?? 0,
     observation: stock?.observation || "",
+    // ✅ Fiche article (module atelier)
+    code: stock?.code || "",
+    unite: stock?.unite || "pièce",
+    coutManuel: stock?.coutManuel ?? "",
+    coutUnitaire: "",
+    commissionActive: stock?.commissionActive !== false,
   });
 
   const [typesArticle, setTypesArticle] = useState(referentiels.typesArticle || []);
@@ -193,6 +199,11 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
         seuilAlerte: Number(form.seuilAlerte),
         prixIndicatif: Number(form.prixIndicatif),
         observation: form.observation,
+        code: form.code || null,
+        unite: form.unite || "pièce",
+        coutManuel: form.coutManuel === "" ? null : Number(form.coutManuel),
+        commissionActive: !!form.commissionActive,
+        ...(!isEdit && form.coutUnitaire !== "" ? { coutUnitaire: Number(form.coutUnitaire) } : {}),
       };
 
       if (isEdit) {
@@ -353,6 +364,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                     categorie: "", objet: "", typeArticle: "", marque: "",
                     modele: "", quantite: 0, seuilAlerte: 2,
                     prixIndicatif: 0, observation: "",
+                    code: "", unite: "pièce", coutManuel: "", coutUnitaire: "", commissionActive: true,
                   });
                 }}
                 style={{
@@ -642,9 +654,44 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                       DT
                     </span>
                   </div>
-                  <div style={hintStyle}>Prix de réparation estimé</div>
+                  <div style={hintStyle}>Prix de réparation estimé (sert de prix de vente pour les commissions)</div>
                 </div>
               </div>
+
+              {/* ✅ Fiche article : code, unité, coûts, commission */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+                <div>
+                  <FieldLabel>Code article</FieldLabel>
+                  <input value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} style={inputStyle} placeholder="ex : AFF-IP11" />
+                </div>
+                <div>
+                  <FieldLabel>Unité</FieldLabel>
+                  <input value={form.unite} onChange={(e) => set("unite", e.target.value)} style={inputStyle} />
+                </div>
+                {!isEdit && (
+                  <div>
+                    <FieldLabel>Coût d'achat unitaire initial</FieldLabel>
+                    <input type="number" min="0" step="0.001" value={form.coutUnitaire} onChange={(e) => set("coutUnitaire", e.target.value)} style={inputStyle} />
+                    <div style={hintStyle}>Valorise la quantité initiale (CMP)</div>
+                  </div>
+                )}
+                {isEdit && (
+                  <div>
+                    <FieldLabel>Coût moyen (CMP)</FieldLabel>
+                    <input value={stock?.cmp != null ? `${Number(stock.cmp).toFixed(3)} DT` : "non valorisé"} disabled style={inputStyle} />
+                    <div style={hintStyle}>Mis à jour par les factures d'achat validées</div>
+                  </div>
+                )}
+                <div>
+                  <FieldLabel>Coût manuel</FieldLabel>
+                  <input type="number" min="0" step="0.001" value={form.coutManuel} onChange={(e) => set("coutManuel", e.target.value)} style={inputStyle} />
+                  <div style={hintStyle}>Utilisé en valorisation « coût manuel »</div>
+                </div>
+              </div>
+              <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "13px", marginBottom: "16px" }}>
+                <input type="checkbox" checked={form.commissionActive} onChange={(e) => set("commissionActive", e.target.checked)} />
+                Cet article peut générer une commission
+              </label>
 
               <Field label="Observation">
                 <textarea

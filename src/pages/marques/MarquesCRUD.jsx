@@ -271,7 +271,6 @@ const MarquesCRUD = () => {
         }}
         searchable={false}
         emptyMessage="Aucune marque enregistrée"
-        paginationPerPage={10}
       />
 
       {/* ✅ MODAL PARTAGÉ (création + édition) */}

@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { FaStore, FaMapMarkerAlt, FaPhone, FaSignOutAlt } from 'react-icons/fa';
+import { FaStore, FaMapMarkerAlt, FaPhone, FaSignOutAlt, FaGlobe } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
 // ============================================================
@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 // (utilisateurs ayant accès à plusieurs boutiques)
 // ============================================================
 const ChoixBoutique = () => {
-  const { user, boutiques, activeBoutique, changeBoutique, isSuperAdmin, logout } = useAuth();
+  const { user, boutiques, activeBoutique, changeBoutique, isSuperAdmin, logout, canGlobalView } = useAuth();
 
   if (isSuperAdmin()) return <Navigate to="/organisations" replace />;
   if (boutiques.length <= 1) return <Navigate to="/" replace />;
@@ -26,6 +26,20 @@ const ChoixBoutique = () => {
         </div>
 
         <div className="choix-boutique-grid">
+          {canGlobalView && (
+            <button
+              type="button"
+              className={`choix-boutique-item global ${activeBoutique === 'all' ? 'active' : ''}`}
+              onClick={() => changeBoutique('all', '/')}
+            >
+              <span className="choix-boutique-icon"><FaGlobe /></span>
+              <span className="choix-boutique-name">Toutes les boutiques</span>
+              <span className="choix-boutique-code">VUE GLOBALE</span>
+              <span className="choix-boutique-meta">
+                Données de vos {boutiques.length} boutiques réunies
+              </span>
+            </button>
+          )}
           {boutiques.map((b) => (
             <button
               key={b._id}
@@ -104,6 +118,8 @@ const styles = `
     outline: none;
   }
   .choix-boutique-item.active { border-color: var(--primary, #2563eb); }
+  .choix-boutique-item.global { border-style: dashed; border-color: #059669; }
+  .choix-boutique-item.global .choix-boutique-icon { background: #d1fae5; color: #059669; }
   .choix-boutique-icon {
     width: 40px; height: 40px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;

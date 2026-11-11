@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 const BACKOFFICE = '__backoffice__';
 
 const BoutiqueSelector = () => {
-  const { boutiques, activeBoutique, changeBoutique, isSuperAdmin } = useAuth();
+  const { boutiques, activeBoutique, changeBoutique, isSuperAdmin, canGlobalView } = useAuth();
   const superAdmin = isSuperAdmin();
 
   if (boutiques.length === 0) return null;
@@ -50,7 +50,10 @@ const BoutiqueSelector = () => {
   );
 
   return (
-    <div className={`boutique-selector ${superAdmin && !activeBoutique ? 'backoffice' : ''}`} title="Changer de boutique">
+    <div
+      className={`boutique-selector ${superAdmin && !activeBoutique ? 'backoffice' : ''} ${activeBoutique === 'all' ? 'global' : ''}`}
+      title="Changer de boutique"
+    >
       <FaStore className="boutique-selector-icon" />
       <select
         className="boutique-selector-select"
@@ -70,10 +73,16 @@ const BoutiqueSelector = () => {
         ) : (
           <>
             {!activeBoutique && <option value="">Choisir une boutique…</option>}
+            {canGlobalView && <option value="all">🌐 Toutes les boutiques (vue globale)</option>}
             {boutiques.map(option)}
           </>
         )}
       </select>
+      {activeBoutique === 'all' && (
+        <span className="boutique-selector-ro" title="Vue globale : consultation uniquement (ajout / modification dans une boutique)">
+          Consultation
+        </span>
+      )}
       <style>{styles}</style>
     </div>
   );
@@ -93,6 +102,14 @@ const styles = `
     min-width: 0;
   }
   .boutique-selector.backoffice { border-color: #7c3aed; }
+  .boutique-selector.global { border-color: #059669; }
+  .boutique-selector.global .boutique-selector-icon { color: #059669; }
+  .boutique-selector-ro {
+    font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+    background: #d1fae5; color: #065f46; white-space: nowrap; flex-shrink: 0;
+  }
+  [data-theme="dark"] .boutique-selector-ro { background: #064e3b; color: #a7f3d0; }
+  @media (max-width: 576px) { .boutique-selector-ro { display: none; } }
   .boutique-selector-icon { color: var(--primary, #2563eb); flex-shrink: 0; }
   .boutique-selector-name {
     font-weight: 600;

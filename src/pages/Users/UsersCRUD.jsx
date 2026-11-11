@@ -165,6 +165,22 @@ const UsersCRUD = () => {
     // Administration
     users: { label: "Utilisateurs", icon: "👤", category: "administration" },
     history: { label: "Historique", icon: "📜", category: "administration" },
+
+    // ✅ Module atelier (cahier des charges V1.1)
+    parametres_atelier: { label: "Paramètres de l'atelier", icon: "⚙️", category: "atelier" },
+    fournisseurs: { label: "Fournisseurs", icon: "🚚", category: "atelier" },
+    achats: { label: "Factures d'achat (saisie + validation)", icon: "🧾", category: "atelier" },
+    declarations: { label: "Déclarations journalières (saisie)", icon: "📋", category: "atelier" },
+    consommations_valider: { label: "Contrôler / valider les consommations", icon: "✔️", category: "atelier" },
+    remuneration: { label: "Journal des rémunérations (lecture)", icon: "💵", category: "atelier" },
+    remuneration_autrui: { label: "Voir les rémunérations d'autrui", icon: "👁️", category: "atelier" },
+    remuneration_regles: { label: "Modifier taux, règles et contrats", icon: "📐", category: "atelier" },
+    commissions_valider: { label: "Valider les commissions", icon: "✅", category: "atelier" },
+    paiements_reparateurs: { label: "Avances et paiements réparateurs", icon: "💳", category: "atelier" },
+    operations_annuler: { label: "Annuler une opération validée", icon: "↩️", category: "atelier" },
+    clotures: { label: "Clôtures journalières / mensuelles", icon: "🔒", category: "atelier" },
+    clotures_rouvrir: { label: "Rouvrir une clôture", icon: "🔓", category: "atelier" },
+    rapports: { label: "Tableau de bord atelier et rapports", icon: "📊", category: "atelier" },
   };
 
   const CATEGORIES = {
@@ -172,6 +188,7 @@ const UsersCRUD = () => {
     gestion: { label: "Gestion", icon: "💼", color: "#3b82f6" },
     configuration: { label: "Configuration", color: "#f59e0b" },
     administration: { label: "Administration", color: "#ef4444" },
+    atelier: { label: "Atelier (achats, rémunérations, clôtures)", color: "#10b981" },
   };
 
   const loadData = async () => {
@@ -826,7 +843,6 @@ const UsersCRUD = () => {
         actions={false}
         searchable={false}
         emptyMessage="Aucun utilisateur trouvé"
-        paginationPerPage={10}
       />
 
       {/* MODAL */}

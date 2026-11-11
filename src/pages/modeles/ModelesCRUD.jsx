@@ -268,7 +268,6 @@ const ModelesCRUD = () => {
         }}
         searchable={false}
         emptyMessage="Aucun modèle enregistré"
-        paginationPerPage={10}
       />
 
       {/* ✅ MODAL PARTAGÉ (création + édition) */}

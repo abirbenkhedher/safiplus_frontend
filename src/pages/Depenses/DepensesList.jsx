@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { withBoutiqueColumn } from "../../components/common/boutiqueColumn";
+import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import {
   FaPlus, FaSearch, FaTimes, FaMoneyBillWave,
   FaTools, FaTruck, FaFileInvoice, FaCalendarAlt,
@@ -13,7 +15,7 @@ import DepenseForm from "./DepenseForm";
 
 const DepensesList = () => {
   // ✅ Récupérer l'utilisateur connecté
-  const { user } = useAuth();
+  const { user, isAllBoutiques, boutiqueOf } = useAuth();
 
   // ✅ Seul ADMIN peut supprimer
   const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
@@ -44,12 +46,16 @@ const DepensesList = () => {
       Object.entries(filters).forEach(([k, v]) => {
         if (v) params[k] = v;
       });
+      // Pagination côté navigateur : on charge toutes les dépenses filtrées
+      // (sinon l'option « Tous » n'afficherait que les 100 premières)
+      params.limit = "all";
 
       const [res, statsRes] = await Promise.all([
         getDepenses(params),
         getDepensesStats({
           dateDebut: filters.dateDebut,
           dateFin: filters.dateFin,
+          portee: filters.portee || undefined,
         }),
       ]);
 
@@ -93,7 +99,7 @@ const DepensesList = () => {
   const hasActiveFilters = Object.values(filters).some((v) => v && v !== "");
 
   const resetFilters = () =>
-    setFilters({ type: "", dateDebut: "", dateFin: "", search: "" });
+    setFilters({ type: "", dateDebut: "", dateFin: "", search: "", portee: "" });
 
   // ============================================================
   // ✅ Colonnes DataTable
@@ -134,7 +140,11 @@ const DepensesList = () => {
         sortable: true,
         width: "150px",
         cell: (row) =>
-          row.type === "REPARATION" ? (
+          row.type === "ACHAT" ? (
+            <span className="badge-modern badge-modern-success" style={{ fontSize: "10.5px" }}>
+              🧾 Achat{row.statut && row.statut !== "validee" ? ` (${row.statut})` : ""}
+            </span>
+          ) : row.type === "REPARATION" ? (
             <span
               className="badge-modern badge-modern-primary"
               style={{ fontSize: "10.5px", display: "inline-flex", alignItems: "center", gap: "4px" }}
@@ -313,7 +323,22 @@ const DepensesList = () => {
             <option value="">Tous les types</option>
             <option value="REPARATION">🔧 Réparation</option>
             <option value="DIVERSE">🚚 Diverse</option>
+            <option value="ACHAT">🧾 Facture d'achat</option>
           </select>
+
+          {/* ✅ Vue globale : dépenses administratives / des boutiques */}
+          {isAllBoutiques && (
+            <select
+              className="form-control-modern"
+              style={{ height: "42px" }}
+              value={filters.portee || ""}
+              onChange={(e) => setFilters({ ...filters, portee: e.target.value })}
+            >
+              <option value="">Toutes les dépenses</option>
+              <option value="administrative">🏢 Administratives (globales)</option>
+              <option value="boutiques">🏪 Des boutiques</option>
+            </select>
+          )}
 
           <input
             type="date"
@@ -376,11 +401,15 @@ const DepensesList = () => {
       {/* DATATABLE */}
       {/* ============================================ */}
       <DataTable
-        columns={columns}
+        columns={withBoutiqueColumn(columns, isAllBoutiques, boutiqueOf, "Administrative")}
         data={depenses}
         loading={loading}
         onView={(row) => setViewing(row)}
         onEdit={(row) => {
+          // ✅ Vue globale : seules les dépenses administratives sont modifiables
+          if (row.boutique && blockInGlobalView()) return;
+          // ✅ Factures d'achat : écran dédié (lignes, validation, annulation)
+          if (row.type === "ACHAT") { window.location.assign("/achats"); return; }
           setEditing(row);
           setShowForm(true);
         }}
@@ -388,6 +417,7 @@ const DepensesList = () => {
         onDelete={
           canDelete
             ? (row) => {
+                if (row.boutique && blockInGlobalView()) return;
                 setToDelete(row);
                 setShowDeleteDialog(true);
               }
@@ -395,7 +425,6 @@ const DepensesList = () => {
         }
         searchable={false}
         emptyMessage="Aucune dépense enregistrée"
-        paginationPerPage={10}
       />
 
       {/* ============================================ */}
@@ -424,7 +453,7 @@ const DepensesList = () => {
           depense={viewing}
           onClose={() => setViewing(null)}
           onEdit={
-            canDelete
+            canDelete && viewing.type !== "ACHAT"
               ? () => {
                   setEditing(viewing);
                   setViewing(null);

@@ -6,6 +6,8 @@ import {
   setActiveBoutique,
   clearActiveBoutique,
   resolveActiveBoutique,
+  canUseGlobalView,
+  ALL_BOUTIQUES,
 } from '../utils/boutiqueStorage';
 
 const AuthContext = createContext();
@@ -192,7 +194,15 @@ export const AuthProvider = ({ children }) => {
     boutiques,
     activeBoutique,
     currentBoutique,
-    isAllBoutiques: activeBoutique === 'all',
+    isAllBoutiques: activeBoutique === ALL_BOUTIQUES,
+    canGlobalView: canUseGlobalView(user),
+    // Boutique d'un document (id ou objet peuplé) → { nom, code }
+    boutiqueOf: (ref) => {
+      if (!ref) return null;
+      if (typeof ref === 'object' && ref.nom) return ref;
+      const id = typeof ref === 'object' ? ref._id : ref;
+      return boutiques.find((b) => b._id === String(id)) || null;
+    },
     orgBoutiques,
     needsBoutiqueChoice,
     homePath,

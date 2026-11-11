@@ -1,5 +1,9 @@
 import axios from 'axios';
-import { applyBoutiqueHeader, handleBoutiqueError } from '../utils/boutiqueStorage';
+import {
+  applyBoutiqueHeader,
+  handleBoutiqueError,
+  handleGlobalViewRefusal,
+} from '../utils/boutiqueStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -31,6 +35,9 @@ apiClient.interceptors.response.use(
 
     // ✅ Boutique non autorisée → on réinitialise la sélection
     if (handleBoutiqueError(error)) return Promise.reject(error);
+
+    // ✅ Vue globale = consultation : avertir (et proposer de choisir une boutique)
+    handleGlobalViewRefusal(error);
 
     // ⚠️ Routes d'authentification (ne PAS rediriger)
     const isAuthRoute =

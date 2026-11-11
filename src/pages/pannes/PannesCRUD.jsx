@@ -370,7 +370,6 @@ const PannesCRUD = () => {
         }}
         searchable={false}
         emptyMessage="Aucune panne enregistrée"
-        paginationPerPage={10}
       />
 
       {/* MODAL */}

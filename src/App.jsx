@@ -37,6 +37,16 @@ import DepensesList from "./pages/Depenses/DepensesList";
 import BoutiquesCRUD from "./pages/Boutiques/BoutiquesCRUD";
 import OrganisationsCRUD from "./pages/Organisations/OrganisationsCRUD";
 import ChoixBoutique from "./pages/ChoixBoutique/ChoixBoutique";
+// ✅ Module atelier (cahier des charges V1.1)
+import ParametresAtelier from "./pages/Atelier/ParametresAtelier";
+import Fournisseurs from "./pages/Atelier/Fournisseurs";
+import Achats from "./pages/Atelier/Achats";
+import Declarations from "./pages/Atelier/Declarations";
+import Remuneration from "./pages/Atelier/Remuneration";
+import MaRemuneration from "./pages/Atelier/MaRemuneration";
+import Clotures from "./pages/Atelier/Clotures";
+import Rapports from "./pages/Atelier/Rapports";
+import StockOperations from "./pages/Atelier/StockOperations";
 
 setupRefreshDetection();
 
@@ -243,6 +253,17 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* ✅ Module atelier */}
+              <Route path="parametres-atelier" element={<ProtectedRoute permission="parametres_atelier"><ParametresAtelier /></ProtectedRoute>} />
+              <Route path="fournisseurs" element={<ProtectedRoute anyPermission={["fournisseurs", "achats"]}><Fournisseurs /></ProtectedRoute>} />
+              <Route path="achats" element={<ProtectedRoute anyPermission={["achats", "depenses"]}><Achats /></ProtectedRoute>} />
+              <Route path="declarations" element={<ProtectedRoute anyPermission={["declarations", "consommations_valider"]}><Declarations /></ProtectedRoute>} />
+              <Route path="stock-operations" element={<ProtectedRoute permission="stock"><StockOperations /></ProtectedRoute>} />
+              <Route path="remuneration" element={<ProtectedRoute anyPermission={["remuneration", "remuneration_autrui", "remuneration_regles", "commissions_valider", "paiements_reparateurs"]}><Remuneration /></ProtectedRoute>} />
+              <Route path="ma-remuneration" element={<ProtectedRoute><MaRemuneration /></ProtectedRoute>} />
+              <Route path="clotures" element={<ProtectedRoute anyPermission={["clotures", "clotures_rouvrir"]}><Clotures /></ProtectedRoute>} />
+              <Route path="rapports" element={<ProtectedRoute permission="rapports"><Rapports /></ProtectedRoute>} />
 
               <Route
                 path="history"

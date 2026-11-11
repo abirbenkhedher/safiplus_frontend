@@ -29,9 +29,16 @@ export const clearActiveBoutique = () => setActiveBoutique('');
  *  - plusieurs          → '' tant que l'utilisateur n'a pas choisi (écran de choix)
  *  - SUPER_ADMIN        → '' = backoffice
  */
+export const ALL_BOUTIQUES = 'all';
+
+/** Vue globale (toutes les boutiques) : réservée à l'admin ayant plusieurs boutiques. */
+export const canUseGlobalView = (user) =>
+  user?.role === 'ADMIN' && (user?.boutiquesAccessibles || []).length > 1;
+
 export const resolveActiveBoutique = (user) => {
   const list = user?.boutiquesAccessibles || [];
   const current = getActiveBoutique();
+  if (current === ALL_BOUTIQUES && canUseGlobalView(user)) return current;
   if (list.some((b) => b._id === current)) return current;
   if (user?.role !== 'SUPER_ADMIN' && list.length === 1) return list[0]._id;
   return '';
@@ -42,6 +49,47 @@ export const applyBoutiqueHeader = (config) => {
   const active = getActiveBoutique();
   if (active) config.headers['X-Boutique-Id'] = active;
   return config;
+};
+
+// ============================================================
+// ✅ VUE GLOBALE = CONSULTATION
+// Ajout / modification des données des boutiques interdits (le serveur
+// répond GLOBAL_READONLY). On affiche un avertissement qui propose de
+// passer dans une boutique.
+// ============================================================
+let noticeHandler = null;
+
+/** Enregistré par <GlobalViewNotice /> : (message?) => void */
+export const registerGlobalViewNotice = (fn) => {
+  noticeHandler = fn;
+  return () => {
+    if (noticeHandler === fn) noticeHandler = null;
+  };
+};
+
+export const isGlobalView = () => getActiveBoutique() === ALL_BOUTIQUES;
+
+/**
+ * À appeler avant d'ouvrir un formulaire d'ajout / modification.
+ * Retourne true (et affiche l'avertissement) si on est en vue globale.
+ */
+export const blockInGlobalView = (message) => {
+  if (!isGlobalView()) return false;
+  if (noticeHandler) noticeHandler(message);
+  return true;
+};
+
+const isGlobalRefusal = (error) => {
+  const data = error.response?.data || {};
+  if (data.code === 'GLOBAL_READONLY' || data.code === 'BOUTIQUE_REQUIRED') return true;
+  const msg = typeof data.message === 'string' ? data.message : '';
+  return /vue globale|s[ée]lectionner une boutique/i.test(msg);
+};
+
+/** Intercepteur de réponse : avertissement si refus « vue globale ». */
+export const handleGlobalViewRefusal = (error) => {
+  if (!isGlobalView() || !noticeHandler || !isGlobalRefusal(error)) return;
+  noticeHandler(error.response?.data?.message);
 };
 
 /** Gère les refus liés à la boutique (boutique retirée, désactivée...). */

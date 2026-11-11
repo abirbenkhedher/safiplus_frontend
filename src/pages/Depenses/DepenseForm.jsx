@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { createDepense, updateDepense } from "../../api/depenses";
+import { useAuth } from "../../context/AuthContext";
 
 const CATEGORIES_DIVERSE = ["Transport", "Nettoyage", "Fourniture", "Loyer", "Salaire", "Autre"];
 const MODES_PAIEMENT = [
@@ -12,6 +13,9 @@ const MODES_PAIEMENT = [
 
 const DepenseForm = ({ depense, onClose, onSaved }) => {
   const isEdit = !!depense;
+  // ✅ Vue globale = consultation : on n'y saisit que des dépenses ADMINISTRATIVES
+  // (les dépenses d'une boutique se saisissent dans la boutique)
+  const { isAllBoutiques } = useAuth();
 
   const [form, setForm] = useState({
     type: depense?.type || "REPARATION",
@@ -48,6 +52,7 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
     try {
       setSaving(true);
       const payload = { ...form, montant: Number(form.montant) };
+      if (!isEdit && isAllBoutiques) payload.administrative = true;
       if (isEdit) {
         await updateDepense(depense._id, payload);
       } else {
@@ -86,6 +91,17 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* ✅ Vue globale : affectation de la dépense */}
+          {isAllBoutiques && (
+            <p style={{
+              fontSize: "12.5px", color: "#065f46", background: "#d1fae5",
+              borderRadius: "8px", padding: "8px 12px", margin: "0 0 14px",
+            }}>
+              🏢 <strong>Dépense administrative</strong> (globale, toutes les boutiques).
+              Pour une dépense d'une boutique, passez dans cette boutique.
+            </p>
+          )}
+
           {/* Type toggle */}
           <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
             {["REPARATION", "DIVERSE"].map((t) => (

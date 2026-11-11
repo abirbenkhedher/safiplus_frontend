@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import AlertesRetard from "./AlertesRetard";
 import TeamMessages from "./TeamMessages";
 import BoutiqueSelector from "./BoutiqueSelector";
+import GlobalViewNotice from "./GlobalViewNotice";
 
 const Header = ({ onToggleSidebar }) => {
   const { user, logout, isSuperAdmin, activeBoutique } = useAuth();
@@ -200,6 +201,7 @@ const Header = ({ onToggleSidebar }) => {
 
       {/* ✅ MULTI-TENANT : boutique active */}
       <BoutiqueSelector />
+      <GlobalViewNotice />
 
       {/* ACTIONS */}
       <div className="header-actions">

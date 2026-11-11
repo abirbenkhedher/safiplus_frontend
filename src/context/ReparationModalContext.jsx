@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import ReparationModal from '../components/reparations/ReparationModal';
+import { blockInGlobalView } from '../utils/boutiqueStorage';
 
 const ReparationModalContext = createContext(null);
 
@@ -33,6 +34,7 @@ export const ReparationModalProvider = ({ children }) => {
 
   // ✅ Ouvrir pour une NOUVELLE réparation
   const openNewReparation = useCallback((clientId = null) => {
+    if (blockInGlobalView()) return; // ✅ vue globale = consultation
     setEditingReparation(null);
     setInitialClientId(clientId);
     setShow(true);
@@ -40,6 +42,7 @@ export const ReparationModalProvider = ({ children }) => {
 
   // ✅ Ouvrir pour MODIFIER une réparation existante
   const openEditReparation = useCallback((reparation) => {
+    if (blockInGlobalView()) return; // ✅ vue globale = consultation
     setEditingReparation(reparation);
     setInitialClientId(null);
     setShow(true);

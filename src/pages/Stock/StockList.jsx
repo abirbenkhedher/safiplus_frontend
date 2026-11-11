@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { withBoutiqueColumn } from "../../components/common/boutiqueColumn";
 import {
   FaPlus, FaSearch, FaTimes, FaTrash, FaFilter,
   FaBoxes, FaTag, FaMobileAlt, FaTrademark, FaExclamationTriangle,
@@ -15,6 +16,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import MultiSelect from "../../components/common/MultiSelect";
 import StockForm from "./StockForm";
 import StockHistory from "./StockHistory";
+import { blockInGlobalView } from "../../utils/boutiqueStorage";
 
 // ============================================================
 // ✅ Filtres par défaut (tous des tableaux)
@@ -30,7 +32,7 @@ const DEFAULT_FILTERS = {
 };
 
 const StockList = () => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isAllBoutiques, boutiqueOf } = useAuth();
   const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
   // ✅ "stock:read" = consultation seule (pas d'ajout / modification)
   const canWrite = hasPermission('stock');
@@ -586,7 +588,7 @@ const StockList = () => {
               className="btn-modern btn-modern-primary"
               onClick={() => {
                 setEditing(null);
-                setShowForm(true);
+                if (!blockInGlobalView()) setShowForm(true);
               }}
             >
               <FaPlus /> Nouvelle ligne
@@ -745,12 +747,11 @@ const StockList = () => {
       {/* ✅ DATATABLE — avec icône FaHistory pour "Voir" */}
       <div style={{ width: "100%", overflow: "hidden" }}>
         <DataTable
-          columns={columns}
+          columns={withBoutiqueColumn(columns, isAllBoutiques, boutiqueOf)}
           data={stocks}
           loading={loading}
           searchable={false}
           emptyMessage="Aucune ligne de stock"
-          paginationPerPage={10}
           selectableRows={true}
           onSelectedRowsChange={handleSelectedRowsChange}
           clearSelectedRows={toggleCleared}
@@ -761,7 +762,7 @@ const StockList = () => {
             canWrite
               ? (row) => {
                   setEditing(row);
-                  setShowForm(true);
+                  if (!blockInGlobalView()) setShowForm(true);
                 }
               : undefined
           }

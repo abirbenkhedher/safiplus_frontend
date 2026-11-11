@@ -1,0 +1,335 @@
+/* ============================================================
+   MODULE ATELIER — styles alignés sur le design system (theme.css)
+   Portée : .atelier-page (pages) et .atelier-modal (modales)
+   ============================================================ */
+
+.atelier-page,
+.atelier-modal {
+  --at-surface: #ffffff;
+  --at-border: var(--gray-200);
+  --at-muted: var(--gray-500);
+  --at-text: var(--gray-800);
+  --at-head-bg: var(--gray-50);
+}
+
+/* ---------- Cartes ---------- */
+.atelier-page .card-modern,
+.atelier-modal .card-modern {
+  background: var(--at-surface);
+  border: 1px solid var(--at-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.at-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-800);
+  margin-bottom: 14px;
+}
+.at-card-title-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Champs ---------- */
+.atelier-page .form-control-modern,
+.atelier-modal .form-control-modern {
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  background: var(--at-surface);
+  color: var(--at-text);
+  transition: all var(--transition-fast);
+}
+.atelier-page textarea.form-control-modern,
+.atelier-modal textarea.form-control-modern {
+  height: auto;
+  min-height: 80px;
+  padding: 10px 13px;
+}
+.atelier-page .form-control-modern:focus,
+.atelier-modal .form-control-modern:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+.atelier-page .form-control-modern:disabled,
+.atelier-modal .form-control-modern:disabled {
+  background: var(--gray-100);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+.atelier-page .form-label,
+.atelier-modal .form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+.atelier-page .form-check-input:checked,
+.atelier-modal .form-check-input:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+.at-hint {
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ---------- Boutons compacts (actions de tableau) ---------- */
+.atelier-page .btn-modern.btn-sm,
+.atelier-modal .btn-modern.btn-sm {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  gap: 6px;
+}
+.at-icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+  background: var(--at-surface);
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.at-icon-btn:hover { background: var(--primary); border-color: var(--primary); color: #fff; transform: translateY(-1px); }
+.at-icon-btn.success:hover { background: var(--success); border-color: var(--success); }
+.at-icon-btn.danger:hover { background: var(--danger); border-color: var(--danger); }
+.at-link { background: none; border: none; color: var(--primary); padding: 0; font-size: 12.5px; cursor: pointer; }
+.at-link.danger { color: var(--danger); font-size: 18px; line-height: 1; }
+
+/* ---------- Barre de filtres ---------- */
+.at-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.at-filters > div { min-width: 160px; }
+
+/* ---------- Tableaux ---------- */
+.at-table-wrap {
+  overflow-x: auto;
+  padding: 0 !important;
+}
+.at-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  color: var(--at-text);
+}
+.at-table thead th {
+  background: var(--at-head-bg);
+  color: var(--gray-500);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--at-border);
+  white-space: nowrap;
+  text-align: left;
+}
+.at-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+.at-table tbody tr:last-child td { border-bottom: none; }
+.at-table tbody tr:hover td { background: var(--gray-50); }
+.at-table .text-end { text-align: right; }
+.at-table .at-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.at-empty {
+  text-align: center;
+  padding: 40px 16px !important;
+  color: var(--gray-400);
+}
+.at-empty-icon { font-size: 28px; display: block; margin: 0 auto 8px; opacity: 0.5; }
+.at-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* ---------- KPI ---------- */
+.at-kpi {
+  background: var(--at-surface);
+  border: 1px solid var(--at-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  box-shadow: var(--shadow-sm);
+}
+.at-kpi-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+.at-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.at-kpi-value { font-size: 20px; font-weight: 700; color: var(--gray-900); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.at-kpi-hint { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+
+/* ---------- Onglets (segmentés) ---------- */
+.at-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.at-tab {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.at-tab:hover { color: var(--primary); }
+.at-tab.active { background: var(--at-surface); color: var(--primary); box-shadow: var(--shadow-sm); }
+
+/* ---------- Alertes ---------- */
+.at-alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.at-alert-danger { background: var(--danger-light); color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+.at-alert-success { background: var(--success-light); color: #047857; border-color: rgba(16, 185, 129, 0.25); }
+.at-alert-warning { background: var(--warning-light); color: #b45309; border-color: rgba(245, 158, 11, 0.25); }
+.at-alert-info { background: var(--info-light); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.25); }
+.at-alert-close { background: none; border: none; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
+.at-alert-close:hover { opacity: 1; }
+
+/* ---------- En-tête de page ---------- */
+.at-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.at-header-main { display: flex; gap: 14px; align-items: center; }
+.at-header-icon {
+  width: 46px; height: 46px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff; display: flex; align-items: center; justify-content: center; font-size: 19px;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3); flex-shrink: 0;
+}
+.at-header h1 { font-size: 24px; font-weight: 700; color: var(--gray-900); margin: 0 0 2px; }
+.at-header p { font-size: 13px; color: var(--gray-500); margin: 0; }
+.at-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Lignes de saisie (factures, déclarations) ---------- */
+.at-lines { border: 1px solid var(--at-border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 12px; }
+.at-line { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--gray-100); align-items: start; }
+.at-line:last-child { border-bottom: none; }
+.at-line:nth-child(even) { background: var(--gray-50); }
+.at-total { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+
+/* ---------- Modales ---------- */
+.atelier-modal .modal-content { border: none; border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); }
+.atelier-modal .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--gray-100); }
+.atelier-modal .modal-title { font-size: 17px; font-weight: 700; color: var(--gray-900); }
+.atelier-modal .modal-body { padding: 22px; }
+.atelier-modal .modal-footer { padding: 14px 22px; border-top: 1px solid var(--gray-100); gap: 8px; }
+
+/* ---------- Divers ---------- */
+.at-muted { color: var(--gray-500); font-size: 12.5px; }
+.at-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--gray-500); letter-spacing: 0.4px; }
+.at-stat-value { font-size: 15px; font-weight: 700; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.at-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--gray-100); font-size: 12px; color: var(--gray-700); }
+.at-section-gap { margin-bottom: 20px; }
+
+@media (max-width: 991.98px) {
+  .at-line { grid-template-columns: 1fr 1fr !important; }
+  .at-line > :first-child { grid-column: 1 / -1; }
+}
+
+/* Recherche de dossier */
+.at-picker { position: relative; }
+.at-picker-list {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--at-surface); border: 1px solid var(--at-border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg); max-height: 220px; overflow-y: auto; padding: 4px;
+}
+.at-picker-item { padding: 8px 10px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.at-picker-item:hover { background: var(--primary-light); color: var(--primary); }
+
+@media (max-width: 767.98px) {
+  .at-header h1 { font-size: 20px; }
+  .at-header-icon { width: 40px; height: 40px; font-size: 16px; }
+  .at-filters > div { min-width: calc(50% - 6px); flex: 1; }
+  .at-kpi-value { font-size: 17px; }
+}
+
+/* ============================================================
+   MODE SOMBRE
+   ============================================================ */
+[data-theme="dark"] .atelier-page,
+[data-theme="dark"] .atelier-modal {
+  --at-surface: #1a1d29;
+  --at-border: #2f3444;
+  --at-text: #e5e7eb;
+  --at-head-bg: #242838;
+}
+[data-theme="dark"] .at-card-title,
+[data-theme="dark"] .at-kpi-value,
+[data-theme="dark"] .at-header h1,
+[data-theme="dark"] .at-total,
+[data-theme="dark"] .at-stat-value,
+[data-theme="dark"] .atelier-modal .modal-title { color: #f3f4f6 !important; }
+[data-theme="dark"] .at-table tbody td { border-color: #2a2f3d; }
+[data-theme="dark"] .at-table tbody tr:hover td,
+[data-theme="dark"] .at-line:nth-child(even) { background: #20242f; }
+[data-theme="dark"] .at-tabs { background: #242838; }
+[data-theme="dark"] .at-chip { background: #242838; color: #cbd5e1; }
+[data-theme="dark"] .at-icon-btn { color: #cbd5e1; }
+[data-theme="dark"] .atelier-page .form-control-modern:disabled { background: #20242f !important; }

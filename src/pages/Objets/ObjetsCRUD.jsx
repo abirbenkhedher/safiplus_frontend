@@ -207,7 +207,6 @@ const ObjetsCRUD = () => {
         onDelete={(row) => { setEditingItem(row); setShowDeleteDialog(true); }}
         searchable={false}
         emptyMessage="Aucun objet enregistré"
-        paginationPerPage={10}
       />
 
       {/* Modal */}

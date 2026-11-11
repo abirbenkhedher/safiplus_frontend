@@ -459,7 +459,6 @@ const CategoriesCRUD = () => {
         }}
         searchable={false}
         emptyMessage="Aucune catégorie enregistrée"
-        paginationPerPage={10}
       />
 
       <Modal show={showModal} onHide={handleCloseModal} centered size="lg">

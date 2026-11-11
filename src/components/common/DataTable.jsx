@@ -57,6 +57,11 @@ const customStyles = {
   },
 };
 
+// ✅ Tailles de page communes + option « Tous » (ajoutée par le composant)
+export const PAGE_SIZES = [20, 50, 100];
+// Valeur de perPage signifiant « Tous » (pagination serveur : envoyer limit=all)
+export const ALL_ROWS = 'all';
+
 const DataTable = ({
   columns,
   data,
@@ -71,8 +76,8 @@ const DataTable = ({
   searchable = true,
   searchPlaceholder = 'Rechercher...',
   pagination = true,
-  paginationPerPage = 10,
-  paginationRowsPerPageOptions = [10, 25, 50, 100],
+  paginationPerPage = 20,
+  paginationRowsPerPageOptions = PAGE_SIZES,
   onRowClicked,
   selectableRows = false,
   onSelectedRowsChange,
@@ -157,6 +162,18 @@ const DataTable = ({
     return cols;
   }, [columns, actions, onView, onEdit, onDelete, actionsWidth, viewIcon, viewTitle]);
 
+  // Pagination serveur : « Tous » = la librairie renvoie paginationTotalRows
+  // → on le traduit en ALL_ROWS pour que la page demande limit=all.
+  const showAllServer = paginationServer && paginationPerPage === ALL_ROWS;
+  const effectivePerPage = showAllServer
+    ? Math.max(Number(paginationTotalRows) || 0, 1)
+    : paginationPerPage;
+  const handleChangeRowsPerPage = (rows, page) => {
+    if (!onChangeRowsPerPage) return;
+    const isAll = paginationServer && !paginationRowsPerPageOptions.includes(rows);
+    onChangeRowsPerPage(isAll ? ALL_ROWS : rows, isAll ? 1 : page);
+  };
+
   const CustomLoader = () => (
     <div style={{ padding: '40px', textAlign: 'center' }}>
       <div className="spinner-modern" style={{ margin: '0 auto' }}></div>
@@ -227,15 +244,15 @@ const DataTable = ({
         pagination={pagination}
         paginationServer={paginationServer}
         paginationTotalRows={paginationTotalRows}
-        paginationPerPage={paginationPerPage}
+        paginationPerPage={effectivePerPage}
         paginationDefaultPage={paginationDefaultPage}
         paginationRowsPerPageOptions={paginationRowsPerPageOptions}
         onChangePage={onChangePage}
-        onChangeRowsPerPage={onChangeRowsPerPage}
+        onChangeRowsPerPage={handleChangeRowsPerPage}
         paginationComponentOptions={{
           rowsPerPageText: 'Lignes par page:',
           rangeSeparatorText: 'sur',
-          selectAllRowsItem: !paginationServer,
+          selectAllRowsItem: true,
           selectAllRowsItemText: 'Tous',
         }}
         noHeader

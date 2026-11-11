@@ -49,3 +49,7 @@ export const getBeneficeStats = (params) =>
 export const exportStats = (params) =>
   apiClient.get(`/statistiques/export?${buildQuery(params)}`, { responseType: "blob" });
 
+
+// ✅ Bénéfice détaillé par famille / catégorie
+export const getBeneficeFamillesStats = (params) =>
+  apiClient.get(`/statistiques/benefice-familles?${buildQuery(params)}`);

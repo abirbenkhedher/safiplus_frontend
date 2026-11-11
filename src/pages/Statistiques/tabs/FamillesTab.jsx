@@ -135,7 +135,6 @@ const FamillesTab = () => {
           actions={false}
           searchable={true}
           searchPlaceholder="Rechercher une famille..."
-          paginationPerPage={15}
           dense={true}
           emptyMessage="Aucune donnée pour cette période"
           selectableRows={true}

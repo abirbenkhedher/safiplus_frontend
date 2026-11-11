@@ -1,36 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   FaHome, FaUsers, FaTools, FaMoneyBillWave,
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
-  FaClipboardList, FaWrench, FaChevronLeft, FaChevronRight,
+  FaClipboardList, FaChevronLeft, FaChevronRight, FaChevronDown,
   FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
   FaChartLine, FaMapMarkerAlt,
   FaWarehouse, FaReceipt,
   FaStore, FaBuilding,
+  FaFileInvoice, FaTruck, FaClipboardCheck, FaExchangeAlt, FaWallet, FaLock, FaChartPie, FaSlidersH,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
 import logo from '../../assets/logo.png';
+
+// Sections du menu repliées (préférence locale du navigateur)
+const SECTIONS_KEY = 'sidebarSectionsFermees';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const { user, hasPermission, hasAnyRole, isSuperAdmin, isOwner, activeBoutique } = useAuth();
   const { openNewReparation } = useReparationModal();
   const location = useLocation();
 
+  // ============================================================
+  // ✅ MENU organisé par usage (droits d'accès inchangés)
+  //  - id          : clé de mémorisation (section repliée / dépliée)
+  //  - collapsible : section repliable (repliée par défaut si defaultClosed)
+  // ============================================================
   const menuSections = [
     {
-      title: 'Principal',
+      id: 'accueil',
       items: [
-        { path: '/dashboard', icon: <FaHome />, label: 'Dashboard', module: 'dashboard' },
-        // ✅ Statistiques : réservé à l'ADMIN
-        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', module: 'statistiques' },
+        { path: '/dashboard', icon: <FaHome />, label: 'Tableau de bord', module: 'dashboard' },
       ]
     },
     {
-      title: 'Gestion',
+      id: 'activite',
+      title: 'Activité',
       items: [
-        { path: '/clients', icon: <FaUsers />, label: 'Clients', module: 'clients' },
         {
           path: '/reparations',
           icon: <FaTools />,
@@ -45,42 +52,94 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             },
           },
         },
-        // ✅ Stock : ADMIN + REPARATEUR
-        { path: '/stock', icon: <FaWarehouse />, label: 'Stock', anyModule: ['stock', 'stock:read'] },
-        // ✅ Dépenses : ADMIN uniquement
-        { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', module: 'depenses' },
+        { path: '/clients', icon: <FaUsers />, label: 'Clients', module: 'clients' },
+        { path: '/declarations', icon: <FaClipboardCheck />, label: 'Déclarations', anyModule: ['declarations', 'consommations_valider'] },
       ]
     },
     {
-      title: 'Configuration',
+      id: 'stock',
+      title: 'Stock & achats',
+      collapsible: true,
       items: [
+        { path: '/stock', icon: <FaWarehouse />, label: 'Stock', anyModule: ['stock', 'stock:read'] },
+        { path: '/stock-operations', icon: <FaExchangeAlt />, label: 'Transferts / inventaire', module: 'stock' },
+        { path: '/achats', icon: <FaFileInvoice />, label: "Factures d'achat", anyModule: ['achats', 'depenses'] },
+        { path: '/fournisseurs', icon: <FaTruck />, label: 'Fournisseurs', anyModule: ['fournisseurs', 'achats'] },
+      ]
+    },
+    {
+      id: 'finances',
+      title: 'Finances',
+      collapsible: true,
+      items: [
+        { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', module: 'depenses' },
+        { path: '/remuneration', icon: <FaMoneyBillWave />, label: 'Rémunérations', anyModule: ['remuneration', 'remuneration_autrui', 'remuneration_regles', 'commissions_valider', 'paiements_reparateurs'] },
+        { path: '/ma-remuneration', icon: <FaWallet />, label: 'Ma rémunération', roles: ['REPARATEUR'] },
+        { path: '/clotures', icon: <FaLock />, label: 'Clôtures', anyModule: ['clotures', 'clotures_rouvrir'] },
+      ]
+    },
+    {
+      id: 'analyses',
+      title: 'Analyses',
+      collapsible: true,
+      items: [
+        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', module: 'statistiques' },
+        { path: '/rapports', icon: <FaChartPie />, label: 'Rapports atelier', module: 'rapports' },
+      ]
+    },
+    {
+      id: 'referentiels',
+      title: 'Référentiels',
+      collapsible: true,
+      defaultClosed: true,
+      items: [
+        // Ordre de la hiérarchie : famille → catégorie → objet → marque → modèle
         { path: '/familles', icon: <FaTags />, label: 'Familles', module: 'familles' },
         { path: '/categories', icon: <FaBoxes />, label: 'Catégories', module: 'categories' },
         { path: '/objets', icon: <FaClipboardList />, label: 'Objets', module: 'objets' },
         { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
         { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
         { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes' },
-        // ✅ Zones : visible pour TOUS les rôles connectés (pas de module, pas de roles)
-        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', anyModule: ['zones', 'clients'] },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses' },
+        { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', anyModule: ['zones', 'clients'] },
       ]
     },
     {
+      id: 'administration',
       title: 'Administration',
+      collapsible: true,
       items: [
         // ✅ MULTI-TENANT : gestion des boutiques (propriétaire)
         { path: '/boutiques', icon: <FaStore />, label: 'Mes boutiques', owner: true },
         { path: '/users', icon: <FaUserCog />, label: 'Utilisateurs', module: 'users' },
+        { path: '/parametres-atelier', icon: <FaSlidersH />, label: "Paramètres de l'atelier", module: 'parametres_atelier' },
       ]
     },
     {
       // ✅ MULTI-TENANT : plateforme (super admin)
+      id: 'plateforme',
       title: 'Plateforme',
       items: [
         { path: '/organisations', icon: <FaBuilding />, label: 'Backoffice (sociétés)', superAdmin: true },
       ]
     }
   ];
+
+  // ✅ Sections repliées (mémorisées dans le navigateur)
+  const [closed, setClosed] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SECTIONS_KEY) || 'null');
+      if (saved && typeof saved === 'object') return saved;
+    } catch { /* stockage indisponible */ }
+    return Object.fromEntries(menuSections.filter((s) => s.defaultClosed).map((s) => [s.id, true]));
+  });
+  const toggleSection = (id) => {
+    setClosed((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(next)); } catch { /* ignoré */ }
+      return next;
+    });
+  };
 
   // ✅ Filtre de visibilité : rôle OU permission (rien = tous)
   const isVisible = (item) => {
@@ -112,7 +171,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     return colors[role] || '#6b7280';
   };
 
-  const isActive = (path) => location.pathname.startsWith(path);
+  // "/stock" ne doit pas rester actif sur "/stock-operations"
+  const isActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <>
@@ -131,13 +192,39 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         </div>
 
         <nav className="sidebar-nav">
-          {menuSections.map((section, idx) => {
+          {menuSections.map((section) => {
             const visibleItems = section.items.filter(isVisible);
             if (visibleItems.length === 0) return null;
 
+            // Section contenant la page affichée : toujours ouverte.
+            // Menu replié (icônes) : toutes les icônes restent visibles.
+            const hasActive = visibleItems.some((i) => isActive(i.path));
+            const isClosed = section.collapsible && !!closed[section.id] && !hasActive && !isCollapsed;
+            const listId = `nav-section-${section.id}`;
+
             return (
-              <div className="nav-section" key={idx}>
-                <div className="nav-section-title">{section.title}</div>
+              <div className={`nav-section ${section.title ? '' : 'no-title'}`} key={section.id}>
+                {section.title && (
+                  section.collapsible ? (
+                    <button
+                      type="button"
+                      className="nav-section-title nav-section-toggle"
+                      onClick={() => toggleSection(section.id)}
+                      aria-expanded={!isClosed}
+                      aria-controls={listId}
+                      disabled={hasActive}
+                      title={hasActive ? undefined : isClosed ? 'Afficher' : 'Masquer'}
+                    >
+                      <span>{section.title}</span>
+                      {!hasActive && (
+                        <FaChevronDown className={`nav-section-chevron ${isClosed ? 'closed' : ''}`} />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="nav-section-title">{section.title}</div>
+                  )
+                )}
+                <div id={listId} className="nav-section-items" hidden={isClosed}>
                 {visibleItems.map((item) => (
                   <div key={item.path} className="nav-link-wrapper">
                     <NavLink
@@ -167,6 +254,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
                     )}
                   </div>
                 ))}
+                </div>
               </div>
             );
           })}
@@ -302,7 +390,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           border-radius: 2px;
         }
 
-        .nav-section { margin-bottom: 12px; }
+        .nav-section { margin-bottom: 10px; }
+        .nav-section.no-title { margin-bottom: 6px; }
 
         .nav-section-title {
           font-size: 10px;
@@ -313,6 +402,43 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           padding: 8px 12px 4px;
           margin-bottom: 4px;
           white-space: nowrap;
+        }
+
+        /* ✅ Titre de section repliable */
+        .nav-section-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          text-align: left;
+          transition: color 150ms ease, background 150ms ease;
+        }
+        .nav-section-toggle:hover:not(:disabled),
+        .nav-section-toggle:focus-visible {
+          color: #cbd5e1;
+          background: rgba(255, 255, 255, 0.04);
+          outline: none;
+        }
+        .nav-section-toggle:disabled { cursor: default; }
+        .nav-section-chevron {
+          font-size: 9px;
+          flex-shrink: 0;
+          transition: transform 150ms ease;
+        }
+        .nav-section-chevron.closed { transform: rotate(-90deg); }
+        .nav-section-items[hidden] { display: none; }
+
+        /* Menu replié (icônes) : un trait sépare les sections */
+        .sidebar.collapsed .nav-section + .nav-section {
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          padding-top: 6px;
+        }
+        @media (max-width: 992px) {
+          .sidebar.collapsed .nav-section + .nav-section { border-top: none; padding-top: 0; }
         }
 
         .nav-link-wrapper {

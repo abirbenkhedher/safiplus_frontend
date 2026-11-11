@@ -400,7 +400,6 @@ const StatutsTab = () => {
           actions={false}
           searchable={true}
           searchPlaceholder="Rechercher un statut..."
-          paginationPerPage={15}
           dense={true}
           emptyMessage="Aucun statut sur cette période"
           selectableRows={true}

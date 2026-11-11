@@ -1,5 +1,9 @@
 import axios from 'axios';
-import { applyBoutiqueHeader, handleBoutiqueError } from '../utils/boutiqueStorage';
+import {
+  applyBoutiqueHeader,
+  handleBoutiqueError,
+  handleGlobalViewRefusal,
+} from '../utils/boutiqueStorage';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
@@ -30,6 +34,9 @@ api.interceptors.response.use(
 
     // ✅ Boutique non autorisée → on réinitialise la sélection
     if (handleBoutiqueError(error)) return Promise.reject(error);
+
+    // ✅ Vue globale = consultation : avertir (et proposer de choisir une boutique)
+    handleGlobalViewRefusal(error);
 
     // 🔴 Déconnexion auto côté serveur (inactivité COMMERCIAL)
     if (status === 401 && code === 'INACTIVITY_TIMEOUT') {

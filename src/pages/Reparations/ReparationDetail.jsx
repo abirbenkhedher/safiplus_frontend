@@ -29,6 +29,7 @@ import { getMarques } from "../../api/marques";
 import { getModeles } from "../../api/modeles";
 import ReparationQRCode from "../../components/reparations/ReparationQRCode";
 import ReparationModal from "../../components/reparations/ReparationModal";
+import RentabiliteCard from "../../components/reparations/RentabiliteCard";
 
 // ============================================================
 // ✅ FIELD LABELS
@@ -1658,6 +1659,9 @@ const ReparationDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* ✅ MODULE ATELIER : coûts, marge, commissions */}
+        <RentabiliteCard reparation={reparation} users={users} onChanged={loadReparation} />
 
         {/* HISTORIQUE */}
         <div className="card-modern" style={{ padding: 0, overflow: "hidden" }}>

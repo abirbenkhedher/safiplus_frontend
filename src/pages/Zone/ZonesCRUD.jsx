@@ -277,7 +277,6 @@ const ZonesCRUD = () => {
         }}
         searchable={false}
         emptyMessage="Aucune zone enregistrée"
-        paginationPerPage={10}
       />
 
       {/* ✅ MODAL PARTAGÉ (création + édition) */}

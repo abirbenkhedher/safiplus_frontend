@@ -1745,7 +1745,6 @@ const ReparationsList = () => {
           paginationTotalRows={totalCount}
           paginationPerPage={perPage}
           paginationDefaultPage={page}
-          paginationRowsPerPageOptions={[10, 20, 50, 100]}
           onChangePage={(newPage) => setPage(newPage)}
           onChangeRowsPerPage={(newPerPage, newPage) => {
             setPerPage(newPerPage);

@@ -21,6 +21,7 @@ import DiagnosticSection from "./DiagnosticSection";
 import PannesMultiSelect from "./PannesMultiSelect";
 import QuickCreateModeleModal from "./QuickCreateModeleModal";
 import QuickCreateMarqueModal from "./QuickCreateMarqueModal";
+import { normalizeStatusLabel, isStatutCloture } from "../../utils/statutReparation";
 
 // ============================================================
 // ✅ Constantes
@@ -54,10 +55,6 @@ const STATUTS_SANS_REPARATEUR_OBLIGATOIRE = [
   "EN COURS", "EN ATTENTE", "NOUVEAU", "NOUVELLE", "ATTENTE",
 ];
 
-// ✅ Liste des statuts de clôture (utilisé pour indice visuel)
-const STATUTS_CLOTURE = [
-  "REPARE", "SAV REPARE", "SORTIE REPARE", "SAV SORTIE REPARE",
-];
 
 const sortByOrdre = (arr = []) =>
   [...arr].sort(
@@ -793,14 +790,14 @@ const ReparationModal = ({
     if (!formData.status) return false;
     const selectedStatus = statuses.find((s) => String(s._id) === String(formData.status));
     if (!selectedStatus) return false;
-    const label = (selectedStatus.label || "").toUpperCase().trim();
+    const label = normalizeStatusLabel(selectedStatus.label);
     return STATUTS_SAV_TERMINES.includes(label);
   }, [formData.status, statuses]);
 
   const statusLabelCurrent = useMemo(() => {
     if (!formData.status) return "";
     const s = statuses.find((st) => String(st._id) === String(formData.status));
-    return (s?.label || "").toUpperCase().trim();
+    return normalizeStatusLabel(s?.label); // ✅ "Sortie réparée" → "SORTIE REPARE"
   }, [formData.status, statuses]);
 
   const reparateurRequis = useMemo(() => {
@@ -820,14 +817,15 @@ const ReparationModal = ({
   }, [isEdit, statusLabelCurrent, piecesActivesCount]);
 
   // ✅ Indication visuelle : réparation clôturée ?
+  // Même règle que le serveur : statut « réparé / sortie réparé » + reste à payer = 0
   const isCloture = useMemo(() => {
-    if (!STATUTS_CLOTURE.includes(statusLabelCurrent)) return false;
+    if (!isStatutCloture(statusLabelCurrent)) return false;
     const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
       .filter((i) => i.accepte === true)
       .reduce((sum, i) => sum + (Number(i.prixSupplementaire) || 0), 0);
     const prixTotal = (Number(formData.prix) || 0) + imprevusAcceptes;
     const acompte = Number(formData.acompte) || 0;
-    return acompte >= prixTotal && prixTotal > 0;
+    return Math.round((prixTotal - acompte) * 1000) <= 0;
   }, [statusLabelCurrent, formData.diagnosticImprevus, formData.prix, formData.acompte]);
 
   if (!show) return null;

@@ -603,7 +603,6 @@ const AppareilsTab = () => {
             actions={false}
             searchable={true}
             searchPlaceholder="Rechercher par famille, catégorie, marque..."
-            paginationPerPage={15}
             dense={true}
             emptyMessage="Aucune donnée pour cette période"
             selectableRows={true}

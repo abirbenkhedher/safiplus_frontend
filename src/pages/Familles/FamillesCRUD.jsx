@@ -207,7 +207,6 @@ const FamillesCRUD = () => {
         onDelete={(row) => { setEditingItem(row); setShowDeleteDialog(true); }}
         searchable={false}
         emptyMessage="Aucune famille enregistrée"
-        paginationPerPage={10}
       />
 
       {/* Modal */}

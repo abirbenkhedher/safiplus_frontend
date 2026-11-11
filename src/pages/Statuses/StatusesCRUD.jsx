@@ -253,7 +253,6 @@ const StatusesCRUD = () => {
         onDelete={(row) => { setEditingItem(row); setShowDeleteDialog(true); }}
         searchable={false}
         emptyMessage="Aucun statut enregistré"
-        paginationPerPage={10}
       />
 
       {/* Modal */}
