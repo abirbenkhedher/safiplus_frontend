@@ -24,9 +24,9 @@ const tone = (n) => ((n || 0) >= 0 ? "#10b981" : "#ef4444");
 
 const COLONNES = [
   { key: "nb_reparations", label: "Nb", money: false },
-  { key: "ca", label: "CA" },
+  { key: "ca", label: "CA HT" },
   { key: "part_ca", label: "Part CA", suffix: " %", money: false },
-  { key: "encaisse", label: "Encaissé" },
+  { key: "encaisse", label: "Encaissé TTC" },
   { key: "reste", label: "Reste" },
   { key: "cout_pieces", label: "Coût pièces" },
   { key: "commissions", label: "Commissions" },
@@ -77,7 +77,7 @@ const BeneficeFamillesTab = () => {
   const toggle = (nom) => setOuvertes((o) => ({ ...o, [nom]: !o[nom] }));
 
   const kpis = [
-    { icon: <FaMoneyBillWave />, label: "CA total", value: t?.ca, sub: `${t?.nb_reparations || 0} réparation(s)`, color: "#4361ee" },
+    { icon: <FaMoneyBillWave />, label: "CA HT", value: t?.ca, sub: `${t?.nb_reparations || 0} réparation(s)`, color: "#4361ee" },
     { icon: <FaCogs />, label: "Coût pièces", value: t?.cout_pieces, sub: "pièces consommées", color: "#f59e0b" },
     { icon: <FaUserTie />, label: "Commissions", value: t?.commissions, sub: "réparateurs", color: "#8b5cf6" },
     { icon: <FaChartLine />, label: "Marge directe", value: t?.marge_directe, sub: `${t?.taux_marge_directe || 0} % du CA`, color: tone(t?.marge_directe) },

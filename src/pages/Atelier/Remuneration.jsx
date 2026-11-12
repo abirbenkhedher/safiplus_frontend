@@ -7,6 +7,7 @@ import {
 } from "../../api/atelier";
 import { getCategories } from "../../api/categories";
 import { getTypeArticles } from "../../api/typeArticles";
+import { getPannes } from "../../api/pannes";
 import { useAuth } from "../../context/AuthContext";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import { ArticleSelect, ReparateurSelect } from "../../components/atelier/pickers";
@@ -24,7 +25,7 @@ const MODES = { salaire: "Salaire fixe", commission: "Commission", mixte: "Mixte
 
 // ✅ Aide de la cible d'une règle (du plus large au plus précis)
 const CIBLE_AIDE = {
-  "": "S'applique à toutes les pièces consommées, sauf si une règle plus précise existe.",
+  "": "S'applique à toutes les pièces consommées, sauf si une règle plus précise existe. Avec la base « Main-d'œuvre » : une fois par réparation.",
   typeArticle: "Toute une famille de pièces, toutes marques et tous modèles confondus (ex. tous les afficheurs).",
   article: "Une seule référence du stock (ex. l'afficheur Samsung A12) : plus précis que le type d'article.",
   categorie: "Les pièces de la catégorie d'appareil choisie (ex. Smartphone).",
@@ -44,7 +45,7 @@ const Remuneration = () => {
   };
   const reparateurs = useReparateurs();
   const articles = useArticles();
-  const [refs, setRefs] = useState({ categories: [], types: [] });
+  const [refs, setRefs] = useState({ categories: [], types: [], pannes: [] });
   const [tab, setTab] = useState("soldes");
   const [range, setRange] = usePeriode();
   const [rep, setRep] = useState("");
@@ -59,9 +60,12 @@ const Remuneration = () => {
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
-    Promise.all([getCategories().catch(() => null), getTypeArticles().catch(() => null)]).then(([c, t]) => {
+    Promise.all([getCategories().catch(() => null), getTypeArticles().catch(() => null), getPannes().catch(() => null)]).then(([c, t, p]) => {
       const pick = (r) => r?.data?.data || r?.data || r || [];
-      setRefs({ categories: Array.isArray(pick(c)) ? pick(c) : [], types: Array.isArray(pick(t)) ? pick(t) : [] });
+      const arr = (r) => (Array.isArray(pick(r)) ? pick(r) : []);
+      // ✅ Pannes : noms uniques (une même panne peut exister dans plusieurs catégories)
+      const noms = [...new Set(arr(p).map((x) => (x.nom || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+      setRefs({ categories: arr(c), types: arr(t), pannes: noms });
     });
   }, []);
 
@@ -127,7 +131,7 @@ const Remuneration = () => {
           </select>
         </Field>
         <Field label="Cible" col="col-12 col-md-6" hint={CIBLE_AIDE[f.cible || ""]}>
-          <select className="form-control-modern" value={f.cible} disabled={!!f._id} onChange={(e) => set("cible", e.target.value)}>
+          <select className="form-control-modern" value={f.cible} disabled={!!f._id} onChange={(e) => setModal({ ...modal, data: { ...f, cible: e.target.value, base: ["", "panne"].includes(e.target.value) || f.base !== "main_oeuvre" ? f.base : "prix_vente" } })}>
             <option value="">Règle générale (toutes les pièces)</option>
             <option value="typeArticle">Type d'article (ex. tous les afficheurs)</option>
             <option value="article">Article précis du stock (ex. afficheur Samsung A12)</option>
@@ -146,7 +150,16 @@ const Remuneration = () => {
             <option value="">—</option>{refs.types.map((c) => <option key={c._id} value={c._id}>{c.nom}</option>)}
           </select></Field>
         )}
-        {f.cible === "panne" && <Field label="Nom de la panne / intervention"><input required className="form-control-modern" value={f.panne || ""} onChange={(e) => set("panne", e.target.value)} /></Field>}
+        {f.cible === "panne" && (
+          <Field label="Panne / intervention">
+            {/* ✅ Liste des pannes du référentiel (une ancienne valeur hors liste reste sélectionnée) */}
+            <select required className="form-control-modern" value={f.panne || ""} onChange={(e) => set("panne", e.target.value)}>
+              <option value="">— Choisir une panne —</option>
+              {f.panne && !refs.pannes.includes(f.panne) && <option value={f.panne}>{f.panne}</option>}
+              {refs.pannes.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Calcul" col="col-12 col-md-6">
           <select className="form-control-modern" value={f.typeCalcul} onChange={(e) => set("typeCalcul", e.target.value)}>
             {Object.entries(CALC).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -155,9 +168,17 @@ const Remuneration = () => {
         {["pourcentage", "palier"].includes(f.typeCalcul) && (
           <Field label="Base de calcul" col="col-12 col-md-6">
             <select className="form-control-modern" value={f.base} onChange={(e) => set("base", e.target.value)}>
-              {Object.entries(BASES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              {Object.entries(BASES)
+                // ✅ La main-d'œuvre se calcule sur la réparation : pas sur un article / catégorie / type
+                .filter(([k]) => k !== "main_oeuvre" || ["", "panne"].includes(f.cible || ""))
+                .map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </Field>
+        )}
+        {["pourcentage", "palier"].includes(f.typeCalcul) && f.base === "main_oeuvre" && (
+          <div className="col-12"><div className="at-alert at-alert-info mb-0">
+            Main-d'œuvre = prix de la réparation HT − prix de vente HT des pièces consommées. Calculée une fois par réparation{f.cible === "panne" ? " ayant cette panne" : ""}.
+          </div></div>
         )}
         {f.typeCalcul === "pourcentage" && <Field label="Taux (%)" col="col-6"><input type="number" step="0.01" min="0" max="100" required className="form-control-modern" value={f.taux} onChange={(e) => set("taux", e.target.value)} /></Field>}
         {["fixe_unite", "forfait_intervention"].includes(f.typeCalcul) && <Field label="Montant (TND)" col="col-6"><input type="number" step="0.001" min="0" required className="form-control-modern" value={f.montantFixe} onChange={(e) => set("montantFixe", e.target.value)} /></Field>}

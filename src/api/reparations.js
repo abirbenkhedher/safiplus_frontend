@@ -5,6 +5,12 @@ export const getReparations = async (params = {}) => {
   return response.data;
 };
 
+// ✅ Alerte retards : liste légère filtrée par le serveur ({ data, total })
+export const getReparationsEnRetard = async (heures = 48) => {
+  const response = await apiClient.get('/reparations/en-retard', { params: { heures } });
+  return response.data;
+};
+
 export const getReparation = async (id) => {
   const response = await apiClient.get(`/reparations/${id}`);
   return response.data;

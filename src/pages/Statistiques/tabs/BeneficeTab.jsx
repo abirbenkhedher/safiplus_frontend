@@ -21,9 +21,10 @@ const BeneficeTab = () => {
 
   const kpis = [
     {
-      icon: <FaMoneyBillWave />, label: "CA Total",
+      icon: <FaMoneyBillWave />, label: "CA HT",
       value: `${fmt(data?.ca_total)} DT`,
       variation: data?.variations?.ca_total,
+      subtitle: `TTC : ${fmt(data?.ca_ttc)} DT · TVA : ${fmt(data?.tva_collectee)} DT`,
       color: "#4361ee", bg: "rgba(67,97,238,0.1)",
     },
     {

@@ -22,7 +22,9 @@ const loadClientsOnce = async () => {
   if (clientsCache) return clientsCache;
   if (clientsPromise) return clientsPromise;
 
-  clientsPromise = getClients({ limit: 10000, page: 1 })
+  // ✅ limit=all : l'API plafonne les limites numériques à 200 (les clients les plus
+  //    anciens n'étaient jamais trouvés)
+  clientsPromise = getClients({ limit: 'all', stats: 0 }) // stats inutiles ici (plus léger)
     .then((res) => {
       clientsCache = res.data || [];
       return clientsCache;
@@ -39,6 +41,22 @@ const loadClientsOnce = async () => {
 export const invalidateClientsCache = () => {
   clientsCache = null;
   clientsPromise = null;
+};
+
+// ✅ Ajoute / remplace des clients dans le cache (résultats d'une recherche serveur)
+const mergeClients = (list, extra) => {
+  const ids = new Set(extra.map((c) => c._id));
+  return [...extra, ...list.filter((c) => !ids.has(c._id))];
+};
+
+// ✅ Pertinence d'un client pour une saisie : n° exact > début du n° > le reste
+const rang = (c, digits) => {
+  if (!digits) return 3;
+  const p1 = (c.phone || '').replace(/[^0-9]/g, '');
+  const p2 = (c.phone2 || '').replace(/[^0-9]/g, '');
+  if (p1 === digits || p2 === digits) return 0;
+  if (p1.startsWith(digits) || p2.startsWith(digits)) return 1;
+  return 2;
 };
 
 const formatPhoneInput = (value) =>
@@ -94,12 +112,13 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
 
   useEffect(() => {
     let mounted = true;
-    if (clientsCache && clientsCache.length > 0) {
-      setClients(clientsCache);
-      return;
-    }
+    // ✅ Affiche le cache tout de suite puis le rafraîchit à chaque ouverture du
+    //    formulaire : les clients créés ailleurs (page Clients, import, autre poste)
+    //    n'étaient visibles qu'après un rechargement complet de la page
+    const hadCache = !!clientsCache;
+    if (hadCache) invalidateClientsCache();
     loadClientsOnce().then((data) => {
-      if (mounted) setClients(data);
+      if (mounted && (data.length > 0 || !hadCache)) setClients(data);
     });
     return () => { mounted = false; };
   }, []);
@@ -108,6 +127,27 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 150);
     return () => clearTimeout(t);
   }, [searchTerm]);
+
+  // ✅ Filet de sécurité : recherche serveur (client créé à l'instant sur un autre poste,
+  //    cache pas encore à jour). Les résultats sont fusionnés dans la liste locale.
+  useEffect(() => {
+    const term = debouncedSearch.trim();
+    const digits = term.replace(/[^0-9]/g, '');
+    if (digits === PASSENGER_PHONE) return undefined;
+    if (digits.length < 3 && term.length < 3) return undefined;
+    let mounted = true;
+    const t = setTimeout(() => {
+      getClients({ search: digits.length >= 3 ? digits : term, limit: 20 })
+        .then((res) => {
+          const extra = res.data || [];
+          if (!mounted || extra.length === 0) return;
+          clientsCache = mergeClients(clientsCache || [], extra);
+          setClients((prev) => mergeClients(prev, extra));
+        })
+        .catch(() => {});
+    }, 250);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (value && localSelectionRef.current === value) {
@@ -209,7 +249,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         if (cCode && cCode.includes(cleanDigits)) return true;
       }
       return false;
-    });
+    }).sort((a, b) => rang(a, cleanDigits) - rang(b, cleanDigits));
   }, [debouncedSearch, clients]);
 
   const exactMatchClient = useMemo(() => {

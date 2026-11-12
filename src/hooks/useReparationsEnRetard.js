@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getReparations } from "../api/reparations";
+import { getReparationsEnRetard } from "../api/reparations";
 
 const DELAI_ALERTE_HEURES = 48;
 
@@ -11,11 +11,15 @@ const DELAI_ALERTE_HEURES = 48;
 export const useReparationsEnRetard = () => {
   const [reparationsEnRetard, setReparationsEnRetard] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   const checkRetards = useCallback(async () => {
     try {
-      const response = await getReparations({ limit: 500 });
+      // ✅ Route légère filtrée par le serveur (statut « en cours » + reçue depuis plus de
+      //    48 h) : avant, toutes les réparations en cours étaient chargées en entier
+      const response = await getReparationsEnRetard(DELAI_ALERTE_HEURES);
       const all = response.data || [];
+      setTotal(response.total ?? all.length);
 
       const maintenant = new Date();
       const enRetard = [];
@@ -87,7 +91,7 @@ export const useReparationsEnRetard = () => {
 
   return {
     reparationsEnRetard,
-    count: reparationsEnRetard.length,
+    count: Math.max(total, reparationsEnRetard.length), // total serveur (liste limitée à 500)
     loading,
     refresh: checkRetards,
   };
