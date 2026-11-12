@@ -7,7 +7,7 @@ import DataTable from "../../../components/common/DataTable";
 import ExportButton from "../../../components/common/ExportButton";
 import { exportFamilles } from "../../../api/export";
 import { Treemap, Tooltip, ResponsiveContainer } from "recharts";
-
+import { informer } from "../../../utils/dialog";
 const FamillesTab = () => {
   const { data, loading, error, refetch } = useStatistiques("familles");
   const [exporting, setExporting] = useState(false);
@@ -55,11 +55,11 @@ const FamillesTab = () => {
     try {
       setExporting(true);
       const dataToExport = selectedRows.length > 0 ? selectedRows : (data?.table || []);
-      if (dataToExport.length === 0) return alert("Aucune donnée à exporter");
+      if (dataToExport.length === 0) return informer({ title: "Export", message: "Aucune donnée à exporter", variant: "info" });
       await exportFamilles({ familles: dataToExport });
     } catch (err) {
       console.error("Erreur export:", err);
-      alert("Erreur lors de l'export");
+      informer({ title: "Erreur", message: "Erreur lors de l'export", variant: "danger" });
     } finally {
       setExporting(false);
     }

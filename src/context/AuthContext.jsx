@@ -158,6 +158,8 @@ export const AuthProvider = ({ children }) => {
   ];
   const homePath = () => {
     if (isSuperAdmin() && !activeBoutique) return '/organisations';
+    // ✅ Employés (réparateur / commercial) : leur tableau de bord personnel
+    if (!isAdmin() && hasPermission('mon_dashboard')) return '/mon-tableau-de-bord';
     const found = HOME_PAGES.find(([mods]) => mods.some((m) => hasPermission(m)));
     return found ? found[1] : '/reparations';
   };

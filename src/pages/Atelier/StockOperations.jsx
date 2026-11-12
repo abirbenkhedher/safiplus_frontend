@@ -6,7 +6,7 @@ import { ArticleSelect } from "../../components/atelier/pickers";
 import { useArticles } from "../../hooks/useAtelierRefs";
 import { Page, PageHeader, Card, Alert, Table, Field } from "../../components/atelier/ui";
 import { tnd, errMsg, articleLabel } from "../../utils/atelier";
-
+import { confirmer } from "../../utils/dialog";
 /** Stock détaillé : transferts entre boutiques et inventaire. */
 const StockOperations = () => {
   const { boutiques, activeBoutique } = useAuth();
@@ -30,7 +30,7 @@ const StockOperations = () => {
   const inventaire = async () => {
     const lignes = Object.entries(counts).filter(([, v]) => v !== "").map(([stockId, v]) => ({ stockId, quantiteComptee: Number(v) }));
     if (!lignes.length) { setMsg({ text: "Saisissez au moins une quantité comptée" }); return; }
-    if (!window.confirm(`Enregistrer l'inventaire de ${lignes.length} article(s) ? Les écarts seront ajustés et tracés.`)) return;
+    if (!(await confirmer({ title: "Inventaire", message: `Enregistrer l'inventaire de ${lignes.length} article(s) ? Les écarts seront ajustés et tracés.`, confirmText: "Enregistrer" }))) return;
     try {
       const r = await inventaireStock({ lignes, motif: "Inventaire" });
       setCounts({});

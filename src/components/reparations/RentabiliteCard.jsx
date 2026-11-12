@@ -81,7 +81,6 @@ const RentabiliteCard = ({ reparation, users = [], onChanged }) => {
             { label: "Pièce", render: (l) => l.designation || "—" }, { key: "quantite", label: "Qté", right: true },
             { label: "Coût unitaire", right: true, render: (l) => tnd(l.coutUnitaire) }, { label: "Coût", right: true, render: (l) => <b>{tnd(l.coutTotal)}</b> },
             { label: "Valorisation", render: (l) => <span className={`badge-modern badge-modern-${l.sourceCout === "ESTIME" ? "warning" : "gray"}`}>{l.sourceCout === "ESTIME" ? "Estimé" : l.sourceCout}</span> },
-            { label: "Saisie", render: (l) => (l.source === "declaration" ? "Déclaration" : "Dossier") },
           ]} />
         )}
         {data && data.detailCommissions.length > 0 && (

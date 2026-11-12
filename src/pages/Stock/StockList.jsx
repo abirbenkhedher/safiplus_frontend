@@ -17,7 +17,7 @@ import MultiSelect from "../../components/common/MultiSelect";
 import StockForm from "./StockForm";
 import StockHistory from "./StockHistory";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
-
+import { informer } from "../../utils/dialog";
 // ============================================================
 // ✅ Filtres par défaut (tous des tableaux)
 // ============================================================
@@ -118,7 +118,7 @@ const StockList = () => {
       await incrementStock(id, delta);
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || "Erreur");
+      informer({ title: "Erreur", message: err?.response?.data?.message || "Erreur", variant: "danger" });
     } finally {
       setBusyId(null);
     }
@@ -137,7 +137,7 @@ const StockList = () => {
       });
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || "Erreur");
+      informer({ title: "Erreur", message: err?.response?.data?.message || "Erreur", variant: "danger" });
     } finally {
       setBusyId(null);
     }
@@ -151,7 +151,7 @@ const StockList = () => {
       setToDelete(null);
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || "Erreur");
+      informer({ title: "Erreur", message: err?.response?.data?.message || "Erreur", variant: "danger" });
     }
   };
 
@@ -166,7 +166,7 @@ const StockList = () => {
       clearSelection();
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || "Erreur");
+      informer({ title: "Erreur", message: err?.response?.data?.message || "Erreur", variant: "danger" });
     } finally {
       setDeletingMany(false);
     }

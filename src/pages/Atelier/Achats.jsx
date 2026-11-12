@@ -8,9 +8,10 @@ import { getFournisseurs, validerDepense, annulerDepense, uploadPieceJointe, ope
 import { useAuth } from "../../context/AuthContext";
 import { ArticleSelect } from "../../components/atelier/pickers";
 import { useArticles } from "../../hooks/useAtelierRefs";
+import { useFamilles } from "../../hooks/useFamilles";
 import { Page, PageHeader, Alert, Table, FormModal, Field, StatutBadge, PeriodeFilter, IconBtn, Kpi } from "../../components/atelier/ui";
 import { usePeriode, tnd, dateFr, errMsg, askMotif, isoDay } from "../../utils/atelier";
-
+import { confirmer } from "../../utils/dialog";
 const LIGNE = { stock: "", designation: "", quantite: 1, prixUnitaire: 0, remise: 0, fraisImputables: 0 };
 const r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
 const montantLigne = (l) => r3(Number(l.quantite) * Number(l.prixUnitaire) - Number(l.remise || 0) + Number(l.fraisImputables || 0));
@@ -22,6 +23,7 @@ const Achats = () => {
   const canCancel = hasPermission("operations_annuler");
   const articles = useArticles();
   const [fournisseurs, setFournisseurs] = useState([]);
+  const familles = useFamilles();
   const [range, setRange] = usePeriode();
   const [statut, setStatut] = useState("");
   const [rows, setRows] = useState([]);
@@ -38,7 +40,7 @@ const Achats = () => {
   useEffect(() => { load(); }, [range, statut]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { getFournisseurs({ actifs: "true" }).then((r) => setFournisseurs(r.data.data)).catch(() => {}); }, []);
 
-  const openNew = () => setEdit({ fournisseurRef: "", factureNumero: "", dateDepense: isoDay(), modePaiement: "ESPECES", observation: "", lignes: [{ ...LIGNE }] });
+  const openNew = () => setEdit({ famille: "", fournisseurRef: "", factureNumero: "", dateDepense: isoDay(), modePaiement: "ESPECES", observation: "", lignes: [{ ...LIGNE }] });
   const setLigne = (i, k, v) => setEdit((e) => ({ ...e, lignes: e.lignes.map((l, j) => (j === i ? { ...l, [k]: v } : l)) }));
 
   const save = async () => {
@@ -46,7 +48,7 @@ const Achats = () => {
     try {
       const f = fournisseurs.find((x) => x._id === edit.fournisseurRef);
       const body = {
-        type: "ACHAT", fournisseurRef: edit.fournisseurRef || null, fournisseur: f?.nom || edit.fournisseur || "",
+        type: "ACHAT", famille: edit.famille || null, fournisseurRef: edit.fournisseurRef || null, fournisseur: f?.nom || edit.fournisseur || "",
         factureNumero: edit.factureNumero, dateDepense: edit.dateDepense, modePaiement: edit.modePaiement,
         observation: edit.observation,
         lignes: edit.lignes.map((l) => ({ ...l, stock: l.stock || null })),
@@ -107,17 +109,17 @@ const Achats = () => {
               <div className="at-actions">
                 <IconBtn title="Détail" onClick={() => setView(r)}><FaEye /></IconBtn>
                 {r.statut === "brouillon" && (
-                  <IconBtn title="Modifier" onClick={() => setEdit({ ...r, fournisseurRef: r.fournisseurRef?._id || "", dateDepense: isoDay(new Date(r.dateDepense)), lignes: r.lignes.map((l) => ({ ...l, stock: l.stock || "" })) })}>
+                  <IconBtn title="Modifier" onClick={() => setEdit({ ...r, famille: r.famille?._id || r.famille || "", fournisseurRef: r.fournisseurRef?._id || "", dateDepense: isoDay(new Date(r.dateDepense)), lignes: r.lignes.map((l) => ({ ...l, stock: l.stock || "" })) })}>
                     <FaEdit />
                   </IconBtn>
                 )}
                 {r.statut === "brouillon" && canValidate && (
-                  <IconBtn title="Valider" tone="success" onClick={() => window.confirm(`Valider ${r.numero} ? Le stock et les coûts seront mis à jour.`) && act(() => validerDepense(r._id), "Facture validée")}>
+                  <IconBtn title="Valider" tone="success" onClick={async () => (await confirmer({ message: `Valider ${r.numero} ? Le stock et les coûts seront mis à jour.` })) && act(() => validerDepense(r._id), "Facture validée")}>
                     <FaCheck />
                   </IconBtn>
                 )}
                 {r.statut === "validee" && canCancel && (
-                  <IconBtn title="Annuler (contre-écriture)" tone="danger" onClick={() => { const m = askMotif("Motif d'annulation :"); if (m) act(() => annulerDepense(r._id, m), "Facture annulée"); }}>
+                  <IconBtn title="Annuler (contre-écriture)" tone="danger" onClick={async () => { const m = await askMotif("Motif d'annulation :"); if (m) act(() => annulerDepense(r._id, m), "Facture annulée"); }}>
                     <FaBan />
                   </IconBtn>
                 )}
@@ -160,10 +162,14 @@ const Achats = () => {
                     <ArticleSelect articles={articles} value={l.stock} onChange={(v) => setLigne(i, "stock", v)} />
                     {!l.stock && <input className="form-control-modern mt-2" placeholder="Désignation (ligne libre)" value={l.designation} onChange={(e) => setLigne(i, "designation", e.target.value)} />}
                   </div>
-                  {["quantite", "prixUnitaire", "remise", "fraisImputables"].map((k) => (
-                    <input key={k} type="number" step="0.001" min="0" className="form-control-modern" aria-label={k} value={l[k]} onChange={(e) => setLigne(i, k, e.target.value)} />
+                  {[["quantite", "Quantité"], ["prixUnitaire", "Prix unitaire"], ["remise", "Remise"], ["fraisImputables", "Frais"]].map(([k, lib]) => (
+                    <div key={k}>
+                      {/* ✅ Libellé visible sur téléphone (l'en-tête des colonnes y est masqué) */}
+                      <label className="at-mini-label d-lg-none">{lib}</label>
+                      <input type="number" step="0.001" min="0" className="form-control-modern" aria-label={lib} value={l[k]} onChange={(e) => setLigne(i, k, e.target.value)} />
+                    </div>
                   ))}
-                  <div className="at-num" style={{ textAlign: "right", fontWeight: 600, paddingTop: 11 }}>{tnd(montantLigne(l))}</div>
+                  <div className="at-num" style={{ textAlign: "right", fontWeight: 600, paddingTop: 11 }}><span className="at-mini-label d-lg-none">Montant </span>{tnd(montantLigne(l))}</div>
                   <div style={{ paddingTop: 5 }}>
                     {edit.lignes.length > 1 && <IconBtn title="Supprimer la ligne" tone="danger" onClick={() => setEdit({ ...edit, lignes: edit.lignes.filter((_, j) => j !== i) })}><FaTrash /></IconBtn>}
                   </div>
@@ -174,6 +180,12 @@ const Achats = () => {
               <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => setEdit({ ...edit, lignes: [...edit.lignes, { ...LIGNE }] })}><FaPlus /> Ajouter une ligne</button>
               <span className="at-total">Total : {tnd(total)}</span>
             </div>
+            <Field label="Famille (lignes hors stock, statistiques Bénéfice)">
+              <select className="form-control-modern" value={edit.famille || ""} onChange={(e) => setEdit({ ...edit, famille: e.target.value })}>
+                <option value="">Générale — répartie sur toutes les familles</option>
+                {familles.map((f) => <option key={f._id} value={f._id}>{f.nom}</option>)}
+              </select>
+            </Field>
             <Field label="Observation"><input className="form-control-modern" value={edit.observation || ""} onChange={(e) => setEdit({ ...edit, observation: e.target.value })} /></Field>
           </>
         )}

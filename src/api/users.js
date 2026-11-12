@@ -1,5 +1,11 @@
 import apiClient from './client';
 
+// ✅ Annuaire (nom, rôle) : accessible avec la permission Réparations
+export const getAnnuaire = async () => {
+  const response = await apiClient.get('/users/annuaire');
+  return response.data;
+};
+
 export const getUsers = async (params = {}) => {
   const response = await apiClient.get('/users', { params });
   return response.data;

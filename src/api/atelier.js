@@ -38,13 +38,6 @@ export const getCoutArticle = (id) => apiClient.get(`/stock/${id}/cout`);
 export const transfertStock = (data) => apiClient.post("/stock/transfert", data, idem());
 export const inventaireStock = (data) => apiClient.post("/stock/inventaire", data, idem());
 
-// Déclarations journalières
-export const getDeclarations = (params) => apiClient.get("/declarations", { params });
-export const createDeclaration = (data) => apiClient.post("/declarations", data);
-export const updateDeclaration = (id, data) => apiClient.put(`/declarations/${id}`, data);
-export const validerDeclaration = (id) => apiClient.post(`/declarations/${id}/validate`, {}, idem());
-export const annulerDeclaration = (id, motif) => apiClient.post(`/declarations/${id}/annuler`, { motif }, idem());
-
 // Rémunération
 export const getMaRemuneration = (params) => apiClient.get("/remuneration/me", { params });
 export const getReparateurs = () => apiClient.get("/remuneration/reparateurs");

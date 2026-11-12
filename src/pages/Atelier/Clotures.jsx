@@ -4,7 +4,7 @@ import { getClotures, cloturerJour, cloturerMois, rouvrirCloture } from "../../a
 import { useAuth } from "../../context/AuthContext";
 import { Page, PageHeader, Card, Alert, Table, FormModal, StatutBadge, IconBtn } from "../../components/atelier/ui";
 import { tnd, dateFr, userName, errMsg, askMotif, isoDay, isoMonth } from "../../utils/atelier";
-
+import { confirmer } from "../../utils/dialog";
 const Clotures = () => {
   const { hasPermission } = useAuth();
   const canClose = hasPermission("clotures");
@@ -42,7 +42,7 @@ const Clotures = () => {
                   <input type="date" className="form-control-modern" value={jour} onChange={(e) => setJour(e.target.value)} />
                 </div>
                 <button className="btn-modern btn-modern-primary" disabled={busy}
-                  onClick={() => window.confirm(`Clôturer le ${jour} ?`) && run(() => cloturerJour(jour))}>
+                  onClick={async () => (await confirmer({ message: `Clôturer le ${jour} ?` })) && run(() => cloturerJour(jour))}>
                   <FaLock /> Clôturer
                 </button>
               </div>
@@ -57,7 +57,7 @@ const Clotures = () => {
                   <input type="month" className="form-control-modern" value={mois} onChange={(e) => setMois(e.target.value)} />
                 </div>
                 <button className="btn-modern btn-modern-primary" disabled={busy}
-                  onClick={() => window.confirm(`Clôturer ${mois} ?`) && run(() => cloturerMois(mois))}>
+                  onClick={async () => (await confirmer({ message: `Clôturer ${mois} ?` })) && run(() => cloturerMois(mois))}>
                   <FaLock /> Clôturer
                 </button>
               </div>
@@ -81,7 +81,7 @@ const Clotures = () => {
               <div className="at-actions">
                 <IconBtn title="Voir le journal" onClick={() => setView(r)}><FaEye /></IconBtn>
                 {r.statut === "cloturee" && canReopen && (
-                  <IconBtn title="Rouvrir" tone="danger" onClick={() => { const m = askMotif("Motif de réouverture :"); if (m) run(() => rouvrirCloture(r._id, m)); }}>
+                  <IconBtn title="Rouvrir" tone="danger" onClick={async () => { const m = await askMotif("Motif de réouverture :"); if (m) run(() => rouvrirCloture(r._id, m)); }}>
                     <FaLockOpen />
                   </IconBtn>
                 )}

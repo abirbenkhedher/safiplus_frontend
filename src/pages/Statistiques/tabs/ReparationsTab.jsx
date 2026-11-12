@@ -67,7 +67,7 @@ const ReparationsTab = () => {
       {/* Ligne 2 : 4 Top (Catégories, Objets, Marques, Modèles) */}
       <div style={{ 
         display: "grid", 
-        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", 
         gap: "16px",
         marginBottom: "20px"
       }}>
@@ -78,7 +78,7 @@ const ReparationsTab = () => {
       </div>
 
       {/* Ligne 3 : 2 graphiques (type + jour) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "20px" }}>
         
         {/* Camembert par type */}
         <ChartCard 

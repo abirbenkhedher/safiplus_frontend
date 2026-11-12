@@ -7,7 +7,7 @@ import MultiSelect from "../../../components/common/MultiSelect";
 import ExportButton from "../../../components/common/ExportButton";
 import { exportAppareils } from "../../../api/export";
 import { FaFilter } from "react-icons/fa";
-
+import { informer } from "../../../utils/dialog";
 const AppareilsTab = () => {
   // ============================================================
   // ✅ HOOKS EN PREMIER
@@ -365,7 +365,7 @@ const AppareilsTab = () => {
       const dataToExport =
         selectedRows.length > 0 ? selectedRows : filteredTable;
       if (dataToExport.length === 0) {
-        alert("Aucune donnée à exporter");
+        informer({ title: "Export", message: "Aucune donnée à exporter", variant: "info" });
         return;
       }
       await exportAppareils({
@@ -380,7 +380,7 @@ const AppareilsTab = () => {
       });
     } catch (err) {
       console.error("Erreur export:", err);
-      alert("Erreur lors de l'export");
+      informer({ title: "Erreur", message: "Erreur lors de l'export", variant: "danger" });
     } finally {
       setExporting(false);
     }
@@ -516,7 +516,7 @@ const AppareilsTab = () => {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
             gap: "12px",
             marginBottom: "20px",
             paddingBottom: "16px",

@@ -11,7 +11,7 @@ import {
   getReparations, deleteReparation, deleteManyReparations, updateReparation,
 } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
-import { getUsers } from "../../api/users";
+import { getAnnuaire } from "../../api/users";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import DataTable from "../../components/common/DataTable";
 import ExportButton from "../../components/common/ExportButton";
@@ -219,7 +219,7 @@ const ReparationsList = () => {
     try {
       const [statusesRes, usersRes] = await Promise.all([
         getStatuses(),
-        getUsers(),
+        getAnnuaire(),
       ]);
       setStatuses(statusesRes.data);
       setUsers(usersRes.data);

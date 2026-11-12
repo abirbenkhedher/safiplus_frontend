@@ -5,7 +5,7 @@ import { getMarques } from '../api/marques';
 import { getModeles } from '../api/modeles';
 import { getPannes } from '../api/pannes';
 import { getStatuses } from '../api/statuses';
-import { getUsers } from '../api/users';
+import { getAnnuaire } from '../api/users';
 import { getFamilles } from '../api/familles';
 import { getZones } from '../api/zones';
 import { REF_CACHE_KEY, REF_CACHE_TTL } from '../constants/reparations';
@@ -130,7 +130,7 @@ export const useReparationData = () => {
         getModeles(),
         getPannes(),
         getStatuses(),
-        getUsers(),
+        getAnnuaire(),
         getFamilles(),
         getZones(),
       ]);

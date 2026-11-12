@@ -412,7 +412,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
             className="stock-form-2col"
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))",
               gap: "24px",
               alignItems: "start",
             }}
@@ -614,7 +614,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
 
               <div
                 className="stock-form-2col-sub"
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "14px", marginBottom: "16px" }}
               >
                 <div>
                   <FieldLabel>Seuil d'alerte</FieldLabel>
@@ -659,7 +659,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               </div>
 
               {/* ✅ Fiche article : code, unité, coûts, commission */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: "12px", marginBottom: "16px" }}>
                 <div>
                   <FieldLabel>Code article</FieldLabel>
                   <input value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} style={inputStyle} placeholder="ex : AFF-IP11" />

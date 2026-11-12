@@ -8,7 +8,7 @@ import {
   FaClock, FaTrash, FaChartBar 
 } from 'react-icons/fa';
 import { getHistory, getHistoryEntry, getHistoryStats } from '../../api/history';
-import { getUsers } from '../../api/users';
+import { getAnnuaire } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 
 const HistoryView = () => {
@@ -72,7 +72,7 @@ const HistoryView = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await getUsers();
+      const response = await getAnnuaire();
       setUsers(response.data);
     } catch (err) {
       console.error('Erreur users:', err);

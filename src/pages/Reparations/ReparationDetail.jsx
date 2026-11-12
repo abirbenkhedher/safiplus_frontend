@@ -22,7 +22,7 @@ import {
 } from "react-icons/fa";
 import { getReparation } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
-import { getUsers } from "../../api/users";
+import { getAnnuaire } from "../../api/users";
 import { getCategories } from "../../api/categories";
 import { getObjets } from "../../api/objets";
 import { getMarques } from "../../api/marques";
@@ -82,7 +82,7 @@ const ReparationDetail = () => {
     try {
       const [s, u, c, o, mq, md] = await Promise.all([
         getStatuses(),
-        getUsers(),
+        getAnnuaire(),
         getCategories(),
         getObjets(),
         getMarques(),
@@ -509,9 +509,9 @@ const ReparationDetail = () => {
       style: {
         minHeight: "60px",
         fontSize: "13px",
-        "&:not(:last-of-type)": { borderBottom: "1px solid var(--gray-100)" },
-        "&:hover": { backgroundColor: "var(--gray-50)" },
+        borderBottom: "1px solid var(--gray-100)",
       },
+      highlightOnHoverStyle: { backgroundColor: "var(--gray-50)" },
     },
     cells: { style: { paddingLeft: "16px", paddingRight: "16px" } },
   };

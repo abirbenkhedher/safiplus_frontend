@@ -15,7 +15,7 @@ import {
   deleteTeamMessage,
 } from '../../api/teamMessages';
 import { useAuth } from '../../context/AuthContext';
-
+import { confirmer, informer } from "../../utils/dialog";
 // ✅ Temps relatif
 const timeAgo = (date) => {
   const diff = (Date.now() - new Date(date)) / 1000;
@@ -114,12 +114,12 @@ const TeamMessages = () => {
 
   // ✅ Supprimer son propre message
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce message ?')) return;
+    if (!(await confirmer({ message: 'Supprimer ce message ?', variant: 'danger', confirmText: 'Supprimer' }))) return;
     try {
       await deleteTeamMessage(id);
       setMessages((prev) => prev.filter((m) => m._id !== id));
     } catch (err) {
-      alert('Erreur lors de la suppression');
+      informer({ title: 'Erreur', message: 'Erreur lors de la suppression', variant: 'danger' });
     }
   };
 

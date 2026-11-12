@@ -4,7 +4,7 @@ import { getFournisseurs, createFournisseur, updateFournisseur, deleteFournisseu
 import { useAuth } from "../../context/AuthContext";
 import { Page, PageHeader, Alert, Table, FormModal, Field, IconBtn } from "../../components/atelier/ui";
 import { errMsg } from "../../utils/atelier";
-
+import { confirmer } from "../../utils/dialog";
 const EMPTY = { nom: "", telephone: "", email: "", adresse: "", matriculeFiscal: "", observation: "" };
 const FIELDS = [["nom", "Nom *"], ["telephone", "Téléphone"], ["email", "Email"], ["matriculeFiscal", "Matricule fiscal"], ["adresse", "Adresse"], ["observation", "Observation"]];
 
@@ -57,7 +57,7 @@ const Fournisseurs = () => {
               <div className="at-actions">
                 <IconBtn title="Modifier" onClick={() => setEdit(r)}><FaEdit /></IconBtn>
                 {r.isActive && (
-                  <IconBtn title="Désactiver" tone="danger" onClick={async () => { if (window.confirm("Désactiver ce fournisseur ?")) { await deleteFournisseur(r._id); load(); } }}>
+                  <IconBtn title="Désactiver" tone="danger" onClick={async () => { if (await confirmer({ message: "Désactiver ce fournisseur ?", variant: "danger", confirmText: "Désactiver" })) { await deleteFournisseur(r._id); load(); } }}>
                     <FaBan />
                   </IconBtn>
                 )}

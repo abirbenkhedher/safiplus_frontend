@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { createDepense, updateDepense } from "../../api/depenses";
 import { useAuth } from "../../context/AuthContext";
+import { useFamilles } from "../../hooks/useFamilles";
 
 const CATEGORIES_DIVERSE = ["Transport", "Nettoyage", "Fourniture", "Loyer", "Salaire", "Autre"];
 const MODES_PAIEMENT = [
@@ -16,6 +17,7 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
   // ✅ Vue globale = consultation : on n'y saisit que des dépenses ADMINISTRATIVES
   // (les dépenses d'une boutique se saisissent dans la boutique)
   const { isAllBoutiques } = useAuth();
+  const familles = useFamilles();
 
   const [form, setForm] = useState({
     type: depense?.type || "REPARATION",
@@ -29,6 +31,8 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
       : new Date().toISOString().slice(0, 10),
     modePaiement: depense?.modePaiement || "ESPECES",
     observation: depense?.observation || "",
+    // ✅ Famille concernée ("" = générale, répartie sur toutes les familles)
+    famille: depense?.famille?._id || depense?.famille || "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -136,6 +140,19 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
               style={inputStyle}
               placeholder="4000"
             />
+          </Field>
+
+          <Field label="Famille (statistiques Bénéfice)">
+            <select
+              value={form.famille}
+              onChange={(e) => set("famille", e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Générale — répartie sur toutes les familles</option>
+              {familles.map((f) => (
+                <option key={f._id} value={f._id}>{f.nom}</option>
+              ))}
+            </select>
           </Field>
 
           {form.type === "DIVERSE" && (

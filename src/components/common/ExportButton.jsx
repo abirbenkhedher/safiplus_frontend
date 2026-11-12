@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaFileExcel } from 'react-icons/fa';
-
+import { informer } from "../../utils/dialog";
 const ExportButton = ({ 
   onExport, 
   label = 'Exporter Excel', 
@@ -16,7 +16,7 @@ const ExportButton = ({
       await onExport();
     } catch (error) {
       console.error('Erreur export:', error);
-      alert('Erreur lors de l\'export');
+      informer({ title: "Erreur", message: 'Erreur lors de l\'export', variant: "danger" });
     } finally {
       setLoading(false);
     }

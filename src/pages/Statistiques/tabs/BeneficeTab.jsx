@@ -1,4 +1,3 @@
-import React from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
 import ChartCard from "../../../components/statistiques/ChartCard";
@@ -8,7 +7,7 @@ import {
 } from "recharts";
 import {
   FaMoneyBillWave, FaTools, FaTruck, FaCoins, FaChartLine, FaPercent,
-  FaFileInvoice,
+  FaFileInvoice, FaCogs, FaUserTie,
 } from "react-icons/fa";
 
 const fmt = (n) =>
@@ -28,6 +27,20 @@ const BeneficeTab = () => {
       color: "#4361ee", bg: "rgba(67,97,238,0.1)",
     },
     {
+      // ✅ Pièces achetées pour le stock : comptées à leur coût d'achat quand elles
+      //    sont consommées dans un dossier de réparation (pas à l'achat)
+      icon: <FaCogs />, label: "Coût des pièces",
+      value: `${fmt(data?.cout_pieces)} DT`,
+      subtitle: `achats stock de la période : ${fmt(data?.achats_stock_periode)} DT`,
+      color: "#f97316", bg: "rgba(249,115,22,0.1)",
+    },
+    {
+      icon: <FaUserTie />, label: "Commissions",
+      value: `${fmt(data?.commissions)} DT`,
+      subtitle: "réparateurs",
+      color: "#8b5cf6", bg: "rgba(139,92,246,0.1)",
+    },
+    {
       icon: <FaTools />, label: "Dép. Réparation",
       value: `${fmt(data?.depenses_reparation)} DT`,
       subtitle: `${data?.nb_dep_reparation || 0} facture(s)`,
@@ -38,6 +51,12 @@ const BeneficeTab = () => {
       value: `${fmt(data?.depenses_diverse)} DT`,
       subtitle: `${data?.nb_dep_diverse || 0} dépense(s)`,
       color: "#ef4444", bg: "rgba(239,68,68,0.1)",
+    },
+    {
+      icon: <FaFileInvoice />, label: "Achats hors stock",
+      value: `${fmt(data?.achats_hors_stock)} DT`,
+      subtitle: "lignes libres des factures d'achat",
+      color: "#e11d48", bg: "rgba(225,29,72,0.1)",
     },
     {
       icon: <FaCoins />, label: "Bénéfice Net",
@@ -60,8 +79,10 @@ const BeneficeTab = () => {
 
   const pieData = data
     ? [
+        { name: "Pièces", value: data.cout_pieces },
+        { name: "Commissions", value: data.commissions },
         { name: "Dép. Réparation", value: data.depenses_reparation },
-        { name: "Dép. Diverse", value: data.depenses_diverse },
+        { name: "Dép. Diverse", value: data.depenses_diverse + (data.achats_hors_stock || 0) },
         { name: "Bénéfice Net", value: Math.max(data.benefice_net, 0) },
       ]
     : [];
@@ -115,7 +136,7 @@ const BeneficeTab = () => {
       </div>
 
       {/* Répartition + Top 5 Dépenses */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: "20px", marginBottom: "24px" }}>
         <ChartCard
           title="🧩 Répartition CA / Dépenses / Bénéfice"
           loading={loading} error={error}
@@ -206,6 +227,9 @@ const BeneficeTab = () => {
                         }}>
                           {isRepa ? "Répa" : "Diverse"}
                         </span>
+                        <span style={{ fontWeight: "600", color: "var(--gray-600)" }}>
+                          {d.famille || "Générale"}
+                        </span>
                         <span>
                           {new Date(d.dateDepense).toLocaleDateString("fr-FR")}
                         </span>
@@ -250,6 +274,48 @@ const BeneficeTab = () => {
             </div>
           ) : null}
         </ChartCard>
+      </div>
+
+      {/* ✅ Dépenses par famille (réparation + diverses + achats hors stock) */}
+      <div className="card-modern" style={{ padding: "20px", marginBottom: "24px" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: "700", marginBottom: "4px" }}>
+          🗂️ Dépenses par famille
+        </h3>
+        <p style={{ fontSize: "12px", color: "var(--gray-500)", margin: "0 0 12px" }}>
+          « Générale » = dépense sans famille, répartie au prorata du CA dans « Bénéfice détaillé ».
+        </p>
+        {!data?.depenses_par_famille?.length ? (
+          <div style={{ textAlign: "center", padding: "16px", color: "var(--gray-500)", fontSize: "13px" }}>
+            Aucune dépense sur la période
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table" style={{ fontSize: "13px", marginBottom: 0, minWidth: "520px" }}>
+              <thead>
+                <tr>
+                  <th>Famille</th>
+                  <th style={{ textAlign: "right" }}>Réparation</th>
+                  <th style={{ textAlign: "right" }}>Diverses</th>
+                  <th style={{ textAlign: "right" }}>Achats hors stock</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.depenses_par_famille.map((f) => (
+                  <tr key={f.famille}>
+                    <td style={{ fontWeight: 600, wordBreak: "break-word" }}>
+                      <span className={`badge-modern ${f.generale ? "badge-modern-gray" : "badge-modern-primary"}`}>{f.famille}</span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>{fmt(f.reparation)} DT</td>
+                    <td style={{ textAlign: "right" }}>{fmt(f.diverse)} DT</td>
+                    <td style={{ textAlign: "right" }}>{fmt(f.achats_hors_stock)} DT</td>
+                    <td style={{ textAlign: "right", fontWeight: 700 }}>{fmt(f.total)} DT</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Top réparations rentables */}

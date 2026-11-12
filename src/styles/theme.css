@@ -50,6 +50,17 @@
   --header-height: 70px;
 }
 
+/* ✅ Téléphones : header sur deux lignes (actions / boutique) → hauteur réservée en conséquence */
+@media (max-width: 576px) {
+  :root { --header-height: 112px; }
+}
+
+/* ✅ Graphiques : légendes sur plusieurs lignes, jamais plus larges que le graphique */
+.recharts-legend-wrapper { max-width: 100%; }
+.recharts-default-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; }
+.recharts-default-legend .recharts-legend-item { margin-right: 0 !important; white-space: normal; }
+.recharts-responsive-container { min-width: 0; }
+
 /* ============================================
    BASE
    ============================================ */

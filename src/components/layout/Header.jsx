@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import AlertesRetard from "./AlertesRetard";
+import AlertesStock from "./AlertesStock";
 import TeamMessages from "./TeamMessages";
 import BoutiqueSelector from "./BoutiqueSelector";
 import GlobalViewNotice from "./GlobalViewNotice";
@@ -208,11 +209,13 @@ const Header = ({ onToggleSidebar }) => {
         
         {/* ✅ ALERTES DE DÉLAI (+48h) — Cloche clignotante */}
         {(!isSuperAdmin() || activeBoutique) && <AlertesRetard />}
+        {/* ✅ Alertes de stock (rupture / sous le seuil), à côté des retards */}
+        {(!isSuperAdmin() || activeBoutique) && <AlertesStock />}
         {/* ✅ Messages d'équipe */}
         {(!isSuperAdmin() || activeBoutique) && <TeamMessages />}
 
         {/* Raccourcis clavier */}
-        <div ref={shortcutsRef} style={{ position: 'relative' }}>
+        <div ref={shortcutsRef} style={{ position: 'relative' }} className="d-none d-md-block">
           <button 
             className={`header-icon-btn ${showShortcutsMenu ? 'active' : ''}`}
             onClick={() => {
@@ -690,6 +693,30 @@ const Header = ({ onToggleSidebar }) => {
         @media (max-width: 576px) {
           .header-divider {
             display: none;
+          }
+
+          /* ✅ Deux lignes : ☰ + actions, puis la boutique sur toute la largeur */
+          .app-header {
+            height: var(--header-height);
+            flex-wrap: wrap;
+            align-content: center;
+            gap: 8px;
+            row-gap: 8px;
+            padding: 8px 12px;
+          }
+          .header-actions {
+            gap: 4px;
+            min-width: 0;
+          }
+          .header-icon-btn {
+            width: 36px;
+            height: 36px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .app-header {
+            padding: 8px 8px;
           }
         }
       `}</style>

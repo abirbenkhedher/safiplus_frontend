@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Cell, LabelList
 } from "recharts";
-
+import { informer } from "../../../utils/dialog";
 const ReparateursTab = () => {
   const { data, loading, error, refetch } = useStatistiques("reparateurs");
   const [exporting, setExporting] = useState(false);
@@ -185,7 +185,7 @@ const ReparateursTab = () => {
       });
     } catch (err) {
       console.error("Erreur export réparateurs:", err);
-      alert("Erreur lors de l'export Excel");
+      informer({ title: "Erreur", message: "Erreur lors de l'export Excel", variant: "danger" });
     } finally {
       setExporting(false);
     }

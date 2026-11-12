@@ -11,7 +11,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
 } from "recharts";
-
+import { informer } from "../../../utils/dialog";
 // ✅ Couleurs par groupe métier
 const GROUP_COLORS = {
   en_cours: "#0D6EFD",
@@ -170,7 +170,7 @@ const StatutsTab = () => {
       setExporting(true);
       const dataToExport = selectedRows.length > 0 ? selectedRows : table;
       if (dataToExport.length === 0) {
-        alert("Aucune donnée à exporter");
+        informer({ title: "Export", message: "Aucune donnée à exporter", variant: "info" });
         return;
       }
       await exportStatuts({
@@ -179,7 +179,7 @@ const StatutsTab = () => {
       });
     } catch (err) {
       console.error("Erreur export:", err);
-      alert("Erreur lors de l'export");
+      informer({ title: "Erreur", message: "Erreur lors de l'export", variant: "danger" });
     } finally {
       setExporting(false);
     }
@@ -238,7 +238,7 @@ const StatutsTab = () => {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))",
           gap: "20px",
           marginBottom: "20px",
         }}

@@ -113,7 +113,7 @@ const OverviewTab = () => {
       </div>
 
       {/* Ligne 3 : Camembert + Top Pannes */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: "20px" }}>
         
         {/* ✅ Camembert avec légende personnalisée */}
         <ChartCard 

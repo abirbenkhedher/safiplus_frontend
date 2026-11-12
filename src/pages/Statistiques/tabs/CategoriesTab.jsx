@@ -7,7 +7,7 @@ import DataTable from "../../../components/common/DataTable";
 import ExportButton from "../../../components/common/ExportButton";
 import { exportCategories } from "../../../api/export";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+import { informer } from "../../../utils/dialog";
 const CategoriesTab = () => {
   const { data, loading, error, refetch } = useStatistiques("categories");
   const [exporting, setExporting] = useState(false);
@@ -56,11 +56,11 @@ const CategoriesTab = () => {
     try {
       setExporting(true);
       const dataToExport = selectedRows.length > 0 ? selectedRows : (data?.table || []);
-      if (dataToExport.length === 0) return alert("Aucune donnée à exporter");
+      if (dataToExport.length === 0) return informer({ title: "Export", message: "Aucune donnée à exporter", variant: "info" });
       await exportCategories({ categories: dataToExport });
     } catch (err) {
       console.error("Erreur export:", err);
-      alert("Erreur lors de l'export");
+      informer({ title: "Erreur", message: "Erreur lors de l'export", variant: "danger" });
     } finally {
       setExporting(false);
     }

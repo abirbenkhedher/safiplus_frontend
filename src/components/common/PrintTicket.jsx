@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FaPrint, FaFilePdf } from 'react-icons/fa';
 import { downloadPDF } from '../../api/reparations';
-
+import { informer } from "../../utils/dialog";
 const PrintTicket = ({ reparationId, numero }) => {
   const [printing, setPrinting] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -34,7 +34,7 @@ const PrintTicket = ({ reparationId, numero }) => {
       const printWindow = window.open('', '_blank', 'width=400,height=700');
 
       if (!printWindow) {
-        alert('Veuillez autoriser les popups pour imprimer le ticket');
+        informer({ title: "Impression", message: 'Veuillez autoriser les popups pour imprimer le ticket', variant: "warning" });
         setPrinting(false);
         return;
       }
@@ -58,7 +58,7 @@ const PrintTicket = ({ reparationId, numero }) => {
       }
     } catch (error) {
       console.error('Erreur impression:', error);
-      alert("Erreur lors de l'impression");
+      informer({ title: "Erreur", message: "Erreur lors de l'impression", variant: "danger" });
     } finally {
       // ✅ Petit délai pour laisser le temps à l'impression de se lancer
       setTimeout(() => setPrinting(false), 1000);
@@ -84,7 +84,7 @@ const PrintTicket = ({ reparationId, numero }) => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Erreur téléchargement PDF:', error);
-      alert('Erreur lors du téléchargement du PDF');
+      informer({ title: "Erreur", message: 'Erreur lors du téléchargement du PDF', variant: "danger" });
     } finally {
       setDownloading(false);
     }

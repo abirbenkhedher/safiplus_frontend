@@ -138,8 +138,8 @@ const styles = `
   [data-theme="dark"] .boutique-selector-select option,
   [data-theme="dark"] .boutique-selector-select optgroup { background: #1a1d27; color: #e5e7eb; }
   @media (max-width: 576px) {
-    .boutique-selector { max-width: 160px; padding: 4px 8px; }
-    .boutique-selector-select { max-width: 120px; font-size: 13px; }
+    .boutique-selector { order: 10; flex: 1 0 100%; max-width: none; margin-right: 0; padding: 4px 10px; }
+    .boutique-selector-select { max-width: none; width: 100%; font-size: 13px; }
   }
 `;
 

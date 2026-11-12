@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FaHome, FaUsers, FaTools, FaMoneyBillWave,
+  FaHome, FaUserClock, FaUsers, FaTools, FaMoneyBillWave,
   FaTags, FaBoxes, FaCog, FaUserCog, FaHistory,
   FaClipboardList, FaChevronLeft, FaChevronRight, FaChevronDown,
   FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
   FaChartLine, FaMapMarkerAlt,
   FaWarehouse, FaReceipt,
   FaStore, FaBuilding,
-  FaFileInvoice, FaTruck, FaClipboardCheck, FaExchangeAlt, FaWallet, FaLock, FaChartPie, FaSlidersH,
+  FaFileInvoice, FaTruck, FaExchangeAlt, FaWallet, FaLock, FaChartPie, FaSlidersH,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
@@ -18,7 +18,7 @@ import logo from '../../assets/logo.png';
 const SECTIONS_KEY = 'sidebarSectionsFermees';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
-  const { user, hasPermission, hasAnyRole, isSuperAdmin, isOwner, activeBoutique } = useAuth();
+  const { user, hasPermission, hasAnyRole, isSuperAdmin, isOwner, isAdmin, activeBoutique } = useAuth();
   const { openNewReparation } = useReparationModal();
   const location = useLocation();
 
@@ -32,6 +32,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       id: 'accueil',
       items: [
         { path: '/dashboard', icon: <FaHome />, label: 'Tableau de bord', module: 'dashboard' },
+        { path: '/mon-tableau-de-bord', icon: <FaUserClock />, label: 'Mon tableau de bord', module: 'mon_dashboard', employeOnly: true },
       ]
     },
     {
@@ -53,7 +54,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           },
         },
         { path: '/clients', icon: <FaUsers />, label: 'Clients', module: 'clients' },
-        { path: '/declarations', icon: <FaClipboardCheck />, label: 'Déclarations', anyModule: ['declarations', 'consommations_valider'] },
       ]
     },
     {
@@ -74,7 +74,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       items: [
         { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', module: 'depenses' },
         { path: '/remuneration', icon: <FaMoneyBillWave />, label: 'Rémunérations', anyModule: ['remuneration', 'remuneration_autrui', 'remuneration_regles', 'commissions_valider', 'paiements_reparateurs'] },
-        { path: '/ma-remuneration', icon: <FaWallet />, label: 'Ma rémunération', roles: ['REPARATEUR'] },
+        { path: '/ma-remuneration', icon: <FaWallet />, label: 'Ma rémunération', roles: ['REPARATEUR', 'COMMERCIAL'] },
         { path: '/clotures', icon: <FaLock />, label: 'Clôtures', anyModule: ['clotures', 'clotures_rouvrir'] },
       ]
     },
@@ -143,6 +143,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
 
   // ✅ Filtre de visibilité : rôle OU permission (rien = tous)
   const isVisible = (item) => {
+    // ✅ Réservé aux employés (réparateur / commercial) : l'admin a le tableau de bord normal
+    if (item.employeOnly && isAdmin()) return false;
     // ✅ MULTI-TENANT : le super admin ne voit que la gestion de la plateforme
     // (hors boutique) ; une fois entré dans une boutique, il voit tout
     if (isSuperAdmin()) return !!item.superAdmin || !!activeBoutique;

@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fa';
 import { getCategories, createCategorie, updateCategorie, deleteCategorie } from '../../api/categories';
 import { getFamilles } from '../../api/familles';
-import { getUsers } from '../../api/users';   // ✅ AJOUT
+import { getAnnuaire } from '../../api/users';   // ✅ AJOUT
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
 import { invalidateRefCache } from '../../utils/refCache';
@@ -44,7 +44,7 @@ const CategoriesCRUD = () => {
       const [categoriesRes, famillesRes, usersRes] = await Promise.all([
         getCategories(),
         getFamilles(),
-        getUsers(),   // ✅ AJOUT
+        getAnnuaire(),   // ✅ AJOUT
       ]);
 
       const sorted = [...categoriesRes.data].sort(

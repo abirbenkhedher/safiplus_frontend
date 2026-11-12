@@ -256,7 +256,8 @@
 
 /* ---------- En-tête de page ---------- */
 .at-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
-.at-header-main { display: flex; gap: 14px; align-items: center; }
+.at-header-main { display: flex; gap: 14px; align-items: center; min-width: 0; flex: 1 1 260px; }
+.at-header-main > div { min-width: 0; }
 .at-header-icon {
   width: 46px; height: 46px; border-radius: 12px;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -271,6 +272,12 @@
 .at-lines { border: 1px solid var(--at-border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 12px; }
 .at-line { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--gray-100); align-items: start; }
 .at-line:last-child { border-bottom: none; }
+.at-mini-label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-500); margin-bottom: 3px; }
+/* ✅ Lignes de facture : 2 colonnes sur tablette / téléphone (la désignation sur toute la largeur) */
+@media (max-width: 991.98px) {
+  .at-line { grid-template-columns: 1fr 1fr !important; }
+  .at-line > :first-child { grid-column: 1 / -1; }
+}
 .at-line:nth-child(even) { background: var(--gray-50); }
 .at-total { font-size: 15px; font-weight: 700; color: var(--gray-900); }
 

@@ -38,7 +38,9 @@ const MaRemuneration = () => {
         empty="Aucune commission sur cette période"
         cols={[
           { label: "Date", render: (r) => dateFr(r.dateSource) },
-          { label: "Dossier", render: (r) => (r.reparation?.numero ? <b>{r.reparation.numero}</b> : "Déclaration") },
+          { label: "Dossier", render: (r) => (r.reparation?.numero ? <b>{r.reparation.numero}</b> : "—") },
+          // ✅ Commissions de toutes les boutiques de la société
+          { label: "Boutique", render: (r) => r.boutique?.nom || "—" },
           { label: "Calcul", render: (r) => `${CALC[r.regleSnapshot?.typeCalcul] || "—"}${r.regleSnapshot?.typeCalcul === "pourcentage" ? ` ${r.regleSnapshot.taux} %` : ""}` },
           { label: "Montant", right: true, render: (r) => <b style={{ color: r.montant < 0 ? "var(--danger)" : undefined }}>{tnd(r.montant)}</b> },
           { label: "Statut", render: (r) => <StatutBadge statut={r.statut} /> },

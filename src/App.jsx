@@ -6,6 +6,7 @@ import {
 import { AuthProvider } from "./context/AuthContext";
 import { ReparationModalProvider } from "./context/ReparationModalContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import DialogHost from "./components/common/DialogHost";
 import HomeRedirect from "./components/common/HomeRedirect";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login/Login";
@@ -41,9 +42,9 @@ import ChoixBoutique from "./pages/ChoixBoutique/ChoixBoutique";
 import ParametresAtelier from "./pages/Atelier/ParametresAtelier";
 import Fournisseurs from "./pages/Atelier/Fournisseurs";
 import Achats from "./pages/Atelier/Achats";
-import Declarations from "./pages/Atelier/Declarations";
 import Remuneration from "./pages/Atelier/Remuneration";
 import MaRemuneration from "./pages/Atelier/MaRemuneration";
+import MonDashboard from "./pages/MonDashboard/MonDashboard";
 import Clotures from "./pages/Atelier/Clotures";
 import Rapports from "./pages/Atelier/Rapports";
 import StockOperations from "./pages/Atelier/StockOperations";
@@ -258,10 +259,11 @@ function App() {
               <Route path="parametres-atelier" element={<ProtectedRoute permission="parametres_atelier"><ParametresAtelier /></ProtectedRoute>} />
               <Route path="fournisseurs" element={<ProtectedRoute anyPermission={["fournisseurs", "achats"]}><Fournisseurs /></ProtectedRoute>} />
               <Route path="achats" element={<ProtectedRoute anyPermission={["achats", "depenses"]}><Achats /></ProtectedRoute>} />
-              <Route path="declarations" element={<ProtectedRoute anyPermission={["declarations", "consommations_valider"]}><Declarations /></ProtectedRoute>} />
               <Route path="stock-operations" element={<ProtectedRoute permission="stock"><StockOperations /></ProtectedRoute>} />
               <Route path="remuneration" element={<ProtectedRoute anyPermission={["remuneration", "remuneration_autrui", "remuneration_regles", "commissions_valider", "paiements_reparateurs"]}><Remuneration /></ProtectedRoute>} />
               <Route path="ma-remuneration" element={<ProtectedRoute><MaRemuneration /></ProtectedRoute>} />
+              {/* ✅ Tableau de bord personnel (réparateur / commercial ; l'admin choisit l'employé) */}
+              <Route path="mon-tableau-de-bord" element={<ProtectedRoute permission="mon_dashboard"><MonDashboard /></ProtectedRoute>} />
               <Route path="clotures" element={<ProtectedRoute anyPermission={["clotures", "clotures_rouvrir"]}><Clotures /></ProtectedRoute>} />
               <Route path="rapports" element={<ProtectedRoute permission="rapports"><Rapports /></ProtectedRoute>} />
 
@@ -278,6 +280,8 @@ function App() {
             {/* ✅ Fallback */}
             <Route path="*" element={<HomeRedirect />} />
           </Routes>
+          {/* ✅ Boîtes de confirmation / saisie / information (design ConfirmDialog) */}
+          <DialogHost />
         </ReparationModalProvider>
       </Router>
     </AuthProvider>

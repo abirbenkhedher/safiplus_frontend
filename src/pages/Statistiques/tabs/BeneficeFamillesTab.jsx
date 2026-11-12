@@ -31,8 +31,8 @@ const COLONNES = [
   { key: "cout_pieces", label: "Coût pièces" },
   { key: "commissions", label: "Commissions" },
   { key: "marge_directe", label: "Marge directe", signed: true },
-  { key: "depenses_reparation", label: "Dép. répa (qp)" },
-  { key: "depenses_diverse", label: "Dép. diverses (qp)" },
+  { key: "depenses_directes", label: "Dép. de la famille" },
+  { key: "depenses_generales", label: "Dép. générales (qp)" },
   { key: "benefice", label: "Bénéfice", signed: true, strong: true },
   { key: "taux_benefice", label: "Taux", suffix: " %", money: false, signed: true },
 ];
@@ -81,7 +81,7 @@ const BeneficeFamillesTab = () => {
     { icon: <FaCogs />, label: "Coût pièces", value: t?.cout_pieces, sub: "pièces consommées", color: "#f59e0b" },
     { icon: <FaUserTie />, label: "Commissions", value: t?.commissions, sub: "réparateurs", color: "#8b5cf6" },
     { icon: <FaChartLine />, label: "Marge directe", value: t?.marge_directe, sub: `${t?.taux_marge_directe || 0} % du CA`, color: tone(t?.marge_directe) },
-    { icon: <FaReceipt />, label: "Dépenses réparties", value: t?.depenses_total, sub: "réparation + diverses", color: "#ef4444" },
+    { icon: <FaReceipt />, label: "Dépenses", value: t?.depenses_total, sub: `famille : ${fmt(t?.depenses_directes)} · générales : ${fmt(t?.depenses_generales)}`, color: "#ef4444" },
     { icon: <FaCoins />, label: "Bénéfice net", value: t?.benefice, sub: `${t?.taux_benefice || 0} % du CA`, color: tone(t?.benefice) },
   ];
 

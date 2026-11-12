@@ -4,11 +4,9 @@ import { getParametresAtelier, updateParametresAtelier } from "../../api/atelier
 import { useAuth } from "../../context/AuthContext";
 import { Page, PageHeader, Card, Alert, Field } from "../../components/atelier/ui";
 import { errMsg, dateFr } from "../../utils/atelier";
-
+import { confirmer, demander } from "../../utils/dialog";
 const LABELS = {
   modeStock: { desactive: "Désactivé — dépenses et coûts déclarés", simplifie: "Simplifié — entrées / consommations, solde théorique", detaille: "Détaillé — mouvements, transferts, inventaires" },
-  modeSaisieConsommation: { reparation: "Dans le dossier de réparation", journaliere: "Par déclaration journalière", les_deux: "Les deux" },
-  lienDeclarationReparation: { obligatoire: "Obligatoire", facultatif: "Facultatif", desactive: "Désactivé" },
   methodeValorisation: { CMP: "Coût moyen pondéré (recommandé)", FIFO: "FIFO — premier entré, premier sorti", MANUEL: "Coût manuel" },
 };
 
@@ -49,19 +47,20 @@ const ParametresAtelier = () => {
   const save = async () => {
     const body = { ...form };
     if (form.modeStock !== initialMode) {
-      const motif = window.prompt(
-        `Changer le mode de stock de « ${initialMode} » vers « ${form.modeStock} » ?\nLes historiques sont conservés. Motif :`
-      );
+      const motif = await demander({
+        title: "Changer le mode de stock",
+        message: `De « ${initialMode} » vers « ${form.modeStock} ». Les historiques sont conservés.`,
+        label: "Motif", required: false, confirmText: "Changer",
+      });
       if (motif === null) return;
       body.confirmationModeStock = true;
       body.motifModeStock = motif;
     }
     if (cibles.length > 0) {
       const noms = autres.filter((b) => cibles.includes(b._id)).map((b) => b.nom).join(", ");
-      const ok = window.confirm(
+      const ok = await confirmer({ title: "Appliquer à d'autres boutiques", confirmText: "Appliquer", message:
         `Appliquer aussi ces paramètres à : ${noms} ?` +
-        (avecModeStock ? `\n⚠️ Le mode de stock « ${form.modeStock} » sera aussi appliqué.` : "\n(Le mode de stock de ces boutiques ne change pas.)")
-      );
+        (avecModeStock ? `\n⚠️ Le mode de stock « ${form.modeStock} » sera aussi appliqué.` : "\n(Le mode de stock de ces boutiques ne change pas.)") });
       if (!ok) return;
       body.appliquerA = cibles;
       body.appliquerModeStock = avecModeStock;
@@ -105,8 +104,6 @@ const ParametresAtelier = () => {
             <Card title="Stock et consommations" icon={<FaBoxes />} className="h-100">
               <div className="row g-3">
                 <Field label="Gestion du stock" hint={form.modeStock !== initialMode ? "Le changement de mode sera confirmé à l'enregistrement." : undefined}>{sel("modeStock")}</Field>
-                <Field label="Saisie des consommations">{sel("modeSaisieConsommation")}</Field>
-                <Field label="Lien déclaration ↔ réparation">{sel("lienDeclarationReparation")}</Field>
                 <Field label="Valorisation des pièces">{sel("methodeValorisation")}</Field>
               </div>
             </Card>

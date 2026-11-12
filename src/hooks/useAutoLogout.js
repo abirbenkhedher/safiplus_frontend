@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-
+import { confirmer } from "../utils/dialog";
 // ============================================================
 // ✅ CONFIGURATION
 // ============================================================
@@ -56,11 +56,13 @@ const useAutoLogout = () => {
     clearTimers();
 
     // ⚠️ Avertissement avant
-    warningTimeoutRef.current = setTimeout(() => {
-      const stay = window.confirm(
-        '⏱️ Vous serez déconnecté dans quelques secondes pour inactivité.\n\n' +
-        'Cliquez sur OK pour rester connecté.'
-      );
+    warningTimeoutRef.current = setTimeout(async () => {
+      const stay = await confirmer({
+        title: 'Inactivité',
+        message: 'Vous serez déconnecté dans quelques secondes pour inactivité.',
+        confirmText: 'Rester connecté', cancelText: 'Me déconnecter', variant: 'warning',
+        timeoutMs: WARNING_BEFORE, // se ferme seule au moment de la déconnexion
+      });
 
       if (stay) {
         resetTimers();

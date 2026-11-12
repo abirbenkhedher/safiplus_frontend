@@ -166,6 +166,12 @@ const DepensesList = () => {
         minWidth: "220px",
         cell: (row) => (
           <div style={{ fontSize: "12px", color: "var(--gray-600)" }}>
+            {/* ✅ Famille de la dépense (statistiques Bénéfice) */}
+            <div style={{ marginBottom: "2px" }}>
+              <span className={`badge-modern ${row.famille?.nom ? "badge-modern-primary" : "badge-modern-gray"}`} style={{ fontSize: "10.5px" }}>
+                {row.famille?.nom || "Générale"}
+              </span>
+            </div>
             {row.type === "DIVERSE" && row.categorieDiverse && (
               <div style={{ fontWeight: "600", color: "var(--gray-700)" }}>
                 {row.categorieDiverse}

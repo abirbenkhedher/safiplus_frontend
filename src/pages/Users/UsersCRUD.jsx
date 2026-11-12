@@ -23,6 +23,7 @@ import {
   FaEyeSlash,
   FaClock,
   FaTools,
+  FaChartBar,
 } from "react-icons/fa";
 import {
   getUsers,
@@ -34,6 +35,7 @@ import {
 } from "../../api/users";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import DataTable from "../../components/common/DataTable";
 
 const UsersCRUD = () => {
@@ -54,7 +56,8 @@ const UsersCRUD = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   // ✅ MULTI-TENANT : boutiques gérables par l'utilisateur connecté
-  const { user: currentUser, orgBoutiques: myBoutiques, isOwner } = useAuth();
+  const { user: currentUser, orgBoutiques: myBoutiques, isOwner, isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     boutiques: [],
@@ -79,6 +82,7 @@ const UsersCRUD = () => {
   const MODULE_CONFIG = {
     // Principal
     dashboard: { label: "Tableau de bord", icon: "📊", category: "principal" },
+    mon_dashboard: { label: "Mon tableau de bord (personnel)", icon: "🙋", category: "principal" },
 
     // Gestion
     clients: { label: "Clients", icon: "👥", category: "gestion" },
@@ -170,8 +174,6 @@ const UsersCRUD = () => {
     parametres_atelier: { label: "Paramètres de l'atelier", icon: "⚙️", category: "atelier" },
     fournisseurs: { label: "Fournisseurs", icon: "🚚", category: "atelier" },
     achats: { label: "Factures d'achat (saisie + validation)", icon: "🧾", category: "atelier" },
-    declarations: { label: "Déclarations journalières (saisie)", icon: "📋", category: "atelier" },
-    consommations_valider: { label: "Contrôler / valider les consommations", icon: "✔️", category: "atelier" },
     remuneration: { label: "Journal des rémunérations (lecture)", icon: "💵", category: "atelier" },
     remuneration_autrui: { label: "Voir les rémunérations d'autrui", icon: "👁️", category: "atelier" },
     remuneration_regles: { label: "Modifier taux, règles et contrats", icon: "📐", category: "atelier" },
@@ -660,9 +662,19 @@ const UsersCRUD = () => {
     {
       name: "Actions",
       center: true,
-      width: "140px",
+      width: "170px",
       cell: (row) => (
         <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+          {/* ✅ Admin : tableau de bord personnel de l'employé */}
+          {isAdmin() && ["REPARATEUR", "COMMERCIAL"].includes(row.role) && (
+            <button
+              className="btn-icon"
+              onClick={() => navigate(`/mon-tableau-de-bord?user=${row._id}`)}
+              title="Voir son tableau de bord"
+            >
+              <FaChartBar size={12} />
+            </button>
+          )}
           <button
             className="btn-icon"
             onClick={() => handleOpenModal(row)}

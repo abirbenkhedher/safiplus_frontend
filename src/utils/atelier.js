@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import { demander } from "./dialog";
 // ✅ Helpers du module atelier (formatage, dates, période)
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -29,10 +29,10 @@ export const usePeriode = () => {
   return [range, setRange];
 };
 
-/** Demande un motif (annulation, réouverture). Renvoie null si annulé. */
-export const askMotif = (question = "Motif (obligatoire) :") => {
-  const m = window.prompt(question);
-  return m && m.trim() ? m.trim() : null;
+/** Demande un motif (annulation, réouverture) dans la boîte ConfirmDialog. Renvoie null si annulé. */
+export const askMotif = async (question = "Motif (obligatoire) :") => {
+  const m = await demander({ title: "Motif obligatoire", label: question.replace(/\s*:\s*$/, ""), required: true, variant: "warning" });
+  return m && String(m).trim() ? String(m).trim() : null;
 };
 
 /** Libellé lisible d'une ligne de stock (article). */

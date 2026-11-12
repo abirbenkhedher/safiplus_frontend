@@ -81,6 +81,9 @@ const Layout = () => {
           margin-top: var(--header-height);
           padding: 24px;
           flex: 1;
+          min-width: 0;
+          /* ✅ Mots très longs (sans espace) : retour à la ligne au lieu de déborder */
+          overflow-wrap: anywhere;
         }
 
         /* ✅ Mode sombre */
@@ -102,6 +105,12 @@ const Layout = () => {
 
           .app-content {
             padding: 16px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .app-content {
+            padding: 12px;
           }
         }
       `}</style>
