@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FaSlidersH, FaBoxes, FaPercent, FaHistory, FaSave, FaClone } from "react-icons/fa";
+import { FaSlidersH, FaBoxes, FaPercent, FaHistory, FaSave, FaClone, FaFileInvoiceDollar } from "react-icons/fa";
 import { getParametresAtelier, updateParametresAtelier } from "../../api/atelier";
 import { useAuth } from "../../context/AuthContext";
 import { Page, PageHeader, Card, Alert, Field } from "../../components/atelier/ui";
@@ -19,7 +19,7 @@ const Toggle = ({ id, label, hint, checked, disabled, onChange }) => (
 );
 
 const ParametresAtelier = () => {
-  const { hasPermission, currentBoutique, boutiques, isAdmin } = useAuth();
+  const { hasPermission, currentBoutique, boutiques, isAdmin, hasModule } = useAuth();
   const canEdit = hasPermission("parametres_atelier");
   // ✅ Admin : appliquer aussi ces paramètres à d'autres boutiques (copie ponctuelle)
   const autres = (boutiques || []).filter((b) => b._id !== currentBoutique?._id);
@@ -124,6 +124,45 @@ const ParametresAtelier = () => {
               </div>
             </Card>
           </div>
+          {hasModule("commercial") && <div className="col-12">
+            <Card title="Documents de vente (devis, factures, avoirs)" icon={<FaFileInvoiceDollar />}>
+              <p className="at-hint" style={{ fontStyle: "normal", marginTop: 0 }}>
+                En-tête imprimé sur les documents de cette boutique. Les documents déjà validés gardent l'en-tête de leur date de validation.
+              </p>
+              <div className="row g-3">
+                {[
+                  ["raisonSociale", "Raison sociale", "col-12 col-md-6"],
+                  ["matriculeFiscal", "Matricule fiscal", "col-12 col-md-3"],
+                  ["registreCommerce", "Registre de commerce", "col-12 col-md-3"],
+                  ["adresse", "Adresse", "col-12 col-md-6"],
+                  ["telephone", "Téléphone", "col-6 col-md-3"],
+                  ["email", "Email", "col-6 col-md-3"],
+                  ["rib", "RIB (affiché sur les factures)", "col-12 col-md-6"],
+                  ["piedPage", "Pied de page / mentions", "col-12 col-md-6"],
+                ].map(([k, label, col]) => (
+                  <Field key={k} label={label} col={col}>
+                    <input className="form-control-modern" value={form.commerce?.[k] ?? ""} disabled={!canEdit}
+                      onChange={(e) => set("commerce", { ...(form.commerce || {}), [k]: e.target.value })} />
+                  </Field>
+                ))}
+                <div className="col-12">
+                  <Toggle id="caisse-obl" label="Caisse obligatoire : refuser les paiements en espèces tant que la caisse n'est pas ouverte"
+                    checked={form.commerce?.caisseObligatoire} disabled={!canEdit}
+                    onChange={(v) => set("commerce", { ...(form.commerce || {}), caisseObligatoire: v })} />
+                </div>
+                {[
+                  ["timbreFiscal", "Timbre fiscal (TND, factures)", "0.001"],
+                  ["validiteDevisJours", "Validité des devis (jours)", "1"],
+                  ["delaiPaiementJours", "Délai de paiement (jours)", "1"],
+                ].map(([k, label, step]) => (
+                  <Field key={k} label={label} col="col-12 col-md-4">
+                    <input type="number" min="0" step={step} className="form-control-modern" value={form.commerce?.[k] ?? 0} disabled={!canEdit}
+                      onChange={(e) => set("commerce", { ...(form.commerce || {}), [k]: e.target.value })} />
+                  </Field>
+                ))}
+              </div>
+            </Card>
+          </div>}
           {canPropager && (
             <div className="col-12">
               <Card title="Appliquer aussi à d'autres boutiques" icon={<FaClone />}>

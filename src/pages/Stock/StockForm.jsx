@@ -5,11 +5,13 @@ import {
 import { createStock, updateStock } from "../../api/stock";
 import { createTypeArticle } from "../../api/typeArticles";
 import SearchSelect from "../../components/reparations/SearchSelect";
+import { useAuth } from "../../context/AuthContext";
 
 const getDraftKey = (stockId) =>
   stockId ? `stock_draft_edit_${stockId}` : "stock_draft_new";
 
 const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
+  const { espaceActif } = useAuth();
   const isEdit = !!stock;
   const draftKey = getDraftKey(stock?._id);
 
@@ -29,6 +31,8 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
     coutManuel: stock?.coutManuel ?? "",
     coutUnitaire: "",
     commissionActive: stock?.commissionActive !== false,
+    // ✅ Usage : nouvel article = selon l'espace (Commerce → produit de vente)
+    usage: stock?.usage || (espaceActif === "commerce" ? "vente" : "reparation"),
   });
 
   const [typesArticle, setTypesArticle] = useState(referentiels.typesArticle || []);
@@ -203,6 +207,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
         unite: form.unite || "pièce",
         coutManuel: form.coutManuel === "" ? null : Number(form.coutManuel),
         commissionActive: !!form.commissionActive,
+        usage: form.usage || "reparation",
         ...(!isEdit && form.coutUnitaire !== "" ? { coutUnitaire: Number(form.coutUnitaire) } : {}),
       };
 
@@ -365,6 +370,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                     modele: "", quantite: 0, seuilAlerte: 2,
                     prixIndicatif: 0, observation: "",
                     code: "", unite: "pièce", coutManuel: "", coutUnitaire: "", commissionActive: true,
+                    usage: espaceActif === "commerce" ? "vente" : "reparation",
                   });
                 }}
                 style={{
@@ -631,7 +637,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                 </div>
 
                 <div>
-                  <FieldLabel>Prix de réparation</FieldLabel>
+                  <FieldLabel>{form.usage === "reparation" ? "Prix de réparation" : form.usage === "vente" ? "Prix de vente" : "Prix de vente / réparation"}</FieldLabel>
                   <div style={{ position: "relative" }}>
                     <input
                       type="number"
@@ -654,7 +660,38 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                       DT
                     </span>
                   </div>
-                  <div style={hintStyle}>Prix de réparation estimé (sert de prix de vente pour les commissions)</div>
+                  <div style={hintStyle}>
+                    {form.usage === "reparation"
+                      ? "Prix de réparation estimé (sert de prix de vente pour les commissions)"
+                      : "Prix proposé au comptoir et dans les devis / factures (modifiable à la vente). TTC ou HT selon les paramètres de l'atelier."}
+                  </div>
+                </div>
+              </div>
+
+              {/* ✅ Usage de l'article : réparation / vente / les deux */}
+              <div style={{ marginBottom: "16px" }}>
+                <FieldLabel>Usage de l'article</FieldLabel>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {[
+                    ["reparation", "🔧 Pièce de réparation", "Montée dans les réparations, jamais vendue seule"],
+                    ["vente", "🛒 Produit de vente", "Revendu tel quel (comptoir, factures)"],
+                    ["mixte", "🔁 Les deux", "Vendu seul ou utilisé en réparation"],
+                  ].map(([v, l, h]) => (
+                    <button key={v} type="button" title={h} onClick={() => set("usage", v)}
+                      style={{
+                        ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 600,
+                        borderColor: form.usage === v ? "var(--primary)" : undefined,
+                        background: form.usage === v ? "rgba(67, 97, 238, 0.1)" : undefined,
+                        color: form.usage === v ? "var(--primary)" : undefined,
+                      }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <div style={hintStyle}>
+                  {form.usage === "vente" ? "Proposé au comptoir et dans les devis / factures, pas dans les réparations."
+                    : form.usage === "mixte" ? "Proposé partout : réparations, comptoir, devis et factures."
+                    : "Proposé uniquement dans les réparations, pas à la vente seule."}
                 </div>
               </div>
 

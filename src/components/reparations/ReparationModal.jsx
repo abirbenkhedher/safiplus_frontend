@@ -252,7 +252,8 @@ const ReparationModal = ({
     if (!show) return;
     (async () => {
       try {
-        const res = await getStock({});
+        // ✅ Seules les pièces de réparation (et articles « les deux ») sont proposées
+        const res = await getStock({ usage: "reparation" });
         setStocksDispo(res.data.data || []);
       } catch (err) {
         console.error("Erreur chargement stocks:", err);

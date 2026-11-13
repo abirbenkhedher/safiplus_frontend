@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { StatistiquesProvider } from "../../context/StatistiquesContext";
+import Rapports from "../Atelier/Rapports";
 import PeriodSelector from "../../components/statistiques/PeriodSelector";
 import OverviewTab from "./tabs/OverviewTab";
 import ReparationsTab from "./tabs/ReparationsTab";
@@ -22,11 +25,18 @@ const TABS = [
   { id: "statuts", label: "Statuts", icon: "📊" }, // ✅ NOUVEAU
     { id: "benefice", label: "Bénéfices", icon: "💰" }, // ✅ NOUVEAU
     { id: "beneficeFamilles", label: "Bénéfice détaillé", icon: "🧮" },
-
+  // ✅ Ancienne page « Rapports atelier » (coûts, marges, commissions)
+  { id: "rapports", label: "Rapports atelier", icon: "📑", permission: "rapports" },
 ];
 
 const Statistiques = () => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const { hasPermission } = useAuth();
+  const [sp, setSp] = useSearchParams();
+  // Onglets selon les permissions : statistiques et/ou rapports
+  const tabs = TABS.filter((t) => hasPermission(t.permission || "statistiques"));
+  const initial = tabs.some((t) => t.id === sp.get("tab")) ? sp.get("tab") : tabs[0]?.id;
+  const [activeTab, setActiveTabRaw] = useState(initial);
+  const setActiveTab = (id) => { setActiveTabRaw(id); setSp(id === tabs[0]?.id ? {} : { tab: id }, { replace: true }); };
 
   return (
     <StatistiquesProvider>
@@ -43,17 +53,19 @@ const Statistiques = () => {
               color: "var(--gray-900)",
             }}
           >
-            Statistiques
+            Statistiques atelier
           </h1>
           <p style={{ fontSize: "13.5px", color: "var(--gray-500)" }}>
-            Analyse détaillée de l'activité de l'atelier
+            Analyse détaillée de l'activité de l'atelier et rapports (coûts, marges, commissions)
           </p>
         </div>
 
-        {/* Barre de période */}
-        <div style={{ marginBottom: "20px" }}>
-          <PeriodSelector />
-        </div>
+        {/* Barre de période (l'onglet Rapports a sa propre période) */}
+        {activeTab !== "rapports" && (
+          <div style={{ marginBottom: "20px" }}>
+            <PeriodSelector />
+          </div>
+        )}
 
         {/* Navigation des Onglets */}
         <div
@@ -66,7 +78,7 @@ const Statistiques = () => {
             WebkitOverflowScrolling: "touch",
           }}
         >
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -103,6 +115,7 @@ const Statistiques = () => {
           {activeTab === "statuts" && <StatutsTab />} 
           {activeTab === "benefice" && <BeneficeTab />}
           {activeTab === "beneficeFamilles" && <BeneficeFamillesTab />}
+          {activeTab === "rapports" && <Rapports integre />}
 
         </div>
       </div>

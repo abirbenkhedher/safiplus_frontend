@@ -19,7 +19,8 @@ const RAPPORTS = {
 const TOTAUX = { total: "Total", nombre: "Nombre", cout: "Coût", caHT: "CA HT", resultat: "Résultat", validees: "Validées", enAttente: "En attente", soldeDu: "Solde dû", gains: "Gains bruts" };
 const MONEY_TOTALS = ["total", "cout", "caHT", "resultat", "validees", "enAttente", "soldeDu", "gains"];
 
-const Rapports = () => {
+// integre = affiché comme onglet de « Statistiques atelier » (sans en-tête de page)
+const Rapports = ({ integre = false }) => {
   const [range, setRange] = usePeriode();
   const [dash, setDash] = useState(null);
   const [nom, setNom] = useState("rentabilite-reparations");
@@ -41,9 +42,16 @@ const Rapports = () => {
 
   return (
     <Page>
-      <PageHeader icon={<FaChartPie />} title="Tableau de bord atelier" subtitle="Coûts directs et charges générales distingués — aucune charge répartie artificiellement sur les dossiers">
-        <button className="btn-modern btn-modern-outline" onClick={() => window.print()}><FaPrint /> Imprimer</button>
-      </PageHeader>
+      {integre ? (
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <span className="at-muted">Coûts directs et charges générales distingués — aucune charge répartie artificiellement sur les dossiers</span>
+          <button className="btn-modern btn-modern-outline" onClick={() => window.print()}><FaPrint /> Imprimer</button>
+        </div>
+      ) : (
+        <PageHeader icon={<FaChartPie />} title="Tableau de bord atelier" subtitle="Coûts directs et charges générales distingués — aucune charge répartie artificiellement sur les dossiers">
+          <button className="btn-modern btn-modern-outline" onClick={() => window.print()}><FaPrint /> Imprimer</button>
+        </PageHeader>
+      )}
       <Alert msg={msg} onClose={() => setMsg(null)} />
       <PeriodeFilter range={range} onChange={setRange} />
 

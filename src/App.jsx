@@ -2,6 +2,7 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ReparationModalProvider } from "./context/ReparationModalContext";
@@ -46,8 +47,15 @@ import Remuneration from "./pages/Atelier/Remuneration";
 import MaRemuneration from "./pages/Atelier/MaRemuneration";
 import MonDashboard from "./pages/MonDashboard/MonDashboard";
 import Clotures from "./pages/Atelier/Clotures";
-import Rapports from "./pages/Atelier/Rapports";
 import StockOperations from "./pages/Atelier/StockOperations";
+// ✅ Gestion commerciale
+import Ventes from "./pages/Commercial/Ventes";
+import Reglements from "./pages/Commercial/Reglements";
+import Comptoir from "./pages/Commercial/Comptoir";
+import Caisse from "./pages/Commercial/Caisse";
+import RapportCommercial from "./pages/Commercial/RapportCommercial";
+import DashboardCommerce from "./pages/Commercial/DashboardCommerce";
+import VueGlobale from "./pages/Commercial/VueGlobale";
 
 setupRefreshDetection();
 
@@ -96,7 +104,7 @@ function App() {
               <Route
                 path="statistiques"
                 element={
-                  <ProtectedRoute permission="statistiques">
+                  <ProtectedRoute anyPermission={["statistiques", "rapports"]}>
                     <Statistiques />
                   </ProtectedRoute>
                 }
@@ -265,7 +273,16 @@ function App() {
               {/* ✅ Tableau de bord personnel (réparateur / commercial ; l'admin choisit l'employé) */}
               <Route path="mon-tableau-de-bord" element={<ProtectedRoute permission="mon_dashboard"><MonDashboard /></ProtectedRoute>} />
               <Route path="clotures" element={<ProtectedRoute anyPermission={["clotures", "clotures_rouvrir"]}><Clotures /></ProtectedRoute>} />
-              <Route path="rapports" element={<ProtectedRoute permission="rapports"><Rapports /></ProtectedRoute>} />
+              {/* ✅ Rapports atelier : onglet des Statistiques atelier (ancienne adresse conservée) */}
+              <Route path="rapports" element={<Navigate to="/statistiques?tab=rapports" replace />} />
+              {/* ✅ Gestion commerciale */}
+              <Route path="commerce" element={<ProtectedRoute module="commercial" anyPermission={["rapport_commercial", "rapports", "ventes", "ventes:read"]}><DashboardCommerce /></ProtectedRoute>} />
+              <Route path="vue-globale" element={<ProtectedRoute module="commercial" anyPermission={["statistiques", "rapports", "rapport_commercial"]}><VueGlobale /></ProtectedRoute>} />
+              <Route path="caisse" element={<ProtectedRoute module="commercial" anyPermission={["caisse", "clotures_rouvrir"]}><Caisse /></ProtectedRoute>} />
+              <Route path="rapport-commercial" element={<ProtectedRoute module="commercial" anyPermission={["rapport_commercial", "rapports"]}><RapportCommercial /></ProtectedRoute>} />
+              <Route path="comptoir" element={<ProtectedRoute module="commercial" anyPermission={["comptoir", "ventes"]}><Comptoir /></ProtectedRoute>} />
+              <Route path="ventes" element={<ProtectedRoute module="commercial" anyPermission={["ventes", "ventes:read"]}><Ventes /></ProtectedRoute>} />
+              <Route path="reglements" element={<ProtectedRoute module="commercial" anyPermission={["reglements", "ventes", "ventes:read"]}><Reglements /></ProtectedRoute>} />
 
               <Route
                 path="history"

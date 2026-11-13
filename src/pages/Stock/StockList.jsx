@@ -15,6 +15,7 @@ import DataTable from "../../components/common/DataTable";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import MultiSelect from "../../components/common/MultiSelect";
 import StockForm from "./StockForm";
+import ProduitForm from "./ProduitForm";
 import StockHistory from "./StockHistory";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import { informer } from "../../utils/dialog";
@@ -32,7 +33,14 @@ const DEFAULT_FILTERS = {
 };
 
 const StockList = () => {
-  const { user, hasPermission, isAllBoutiques, boutiqueOf } = useAuth();
+  const { user, hasPermission, isAllBoutiques, boutiqueOf, espaceActif } = useAuth();
+  // ✅ Usage affiché : pièces (Atelier) ou produits (Commerce) ; "" = tous
+  const [usage, setUsage] = useState(espaceActif === "commerce" ? "vente" : "reparation");
+  // Fiche à ouvrir : produit de vente (commerce) ou pièce de réparation (atelier)
+  const ficheProduitPour = (row) => {
+    if (row) return row.usage === "vente" || (row.usage === "mixte" && (usage === "vente" || (!usage && espaceActif === "commerce")));
+    return usage === "vente" || (!usage && espaceActif === "commerce");
+  };
   const canDelete = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
   // ✅ "stock:read" = consultation seule (pas d'ajout / modification)
   const canWrite = hasPermission('stock');
@@ -52,6 +60,7 @@ const StockList = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [formulaireProduit, setFormulaireProduit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const [showDeleteMany, setShowDeleteMany] = useState(false);
@@ -80,6 +89,7 @@ const StockList = () => {
         }
       });
 
+      if (usage) params.usage = usage;
       const [res, statsRes] = await Promise.all([
         getStock(params),
         getStockStats(),
@@ -107,7 +117,7 @@ const StockList = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line
-  }, [filters]);
+  }, [filters, usage]);
 
   // ============================================================
   // Handlers
@@ -360,6 +370,20 @@ const StockList = () => {
         ),
       },
       {
+        name: "Usage",
+        selector: (row) => row.usage || "reparation",
+        sortable: true,
+        width: "120px",
+        cell: (row) => {
+          const u = row.usage || "reparation";
+          const [label, color, bg] = u === "vente"
+            ? ["🛒 Vente", "#b45309", "rgba(245,158,11,0.12)"]
+            : u === "mixte" ? ["🔁 Les deux", "#047857", "rgba(16,185,129,0.12)"]
+            : ["🔧 Réparation", "#4361ee", "rgba(67,97,238,0.1)"];
+          return <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color, background: bg, whiteSpace: "nowrap" }}>{label}</span>;
+        },
+      },
+      {
         name: "Marque",
         selector: (row) => row.marque?.nom || "",
         sortable: true,
@@ -382,7 +406,7 @@ const StockList = () => {
         ),
       },
       {
-        name: "Prix réparation",
+        name: "Prix vente / réparation",
         selector: (row) => row.prixIndicatif || 0,
         sortable: true,
         right: true,
@@ -420,6 +444,17 @@ const StockList = () => {
             </span>
           );
         },
+      },
+      {
+        // ✅ Coût moyen d'achat HT (mis à jour par les factures d'achat)
+        name: "Coût (CMP)",
+        selector: (row) => row.cmp ?? -1,
+        sortable: true,
+        right: true,
+        width: "115px",
+        cell: (row) => (row.cmp === null || row.cmp === undefined
+          ? <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
+          : <span style={{ fontSize: "12.5px", color: "var(--gray-600)" }}>{Number(row.cmp).toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>),
       },
       {
         name: "Stock",
@@ -588,10 +623,11 @@ const StockList = () => {
               className="btn-modern btn-modern-primary"
               onClick={() => {
                 setEditing(null);
+                setFormulaireProduit(ficheProduitPour(null));
                 if (!blockInGlobalView()) setShowForm(true);
               }}
             >
-              <FaPlus /> Nouvelle ligne
+              <FaPlus /> {ficheProduitPour(null) ? "Nouveau produit" : "Nouvelle ligne"}
             </button>
           )}
         </div>
@@ -629,6 +665,24 @@ const StockList = () => {
           </div>
         </div>
       )}
+
+      {/* ✅ USAGE : pièces de réparation / produits de vente */}
+      <div className="d-flex flex-wrap gap-2 mb-2" role="tablist" aria-label="Usage des articles">
+        {[
+          ["reparation", "🔧 Pièces de réparation"],
+          ["vente", "🛒 Produits de vente"],
+          ["", "Tous les articles"],
+        ].map(([v, l]) => (
+          <button key={v || "tous"} type="button" role="tab" aria-selected={usage === v}
+            className={`btn-modern btn-sm ${usage === v ? "btn-modern-primary" : "btn-modern-outline"}`}
+            onClick={() => setUsage(v)}>
+            {l}
+          </button>
+        ))}
+        <span className="text-muted" style={{ fontSize: 12, alignSelf: "center" }}>
+          Les articles « les deux » apparaissent dans les deux listes.
+        </span>
+      </div>
 
       {/* FILTRES */}
       <div className="card-modern mb-3" style={{ padding: "18px 20px" }}>
@@ -762,6 +816,7 @@ const StockList = () => {
             canWrite
               ? (row) => {
                   setEditing(row);
+                  setFormulaireProduit(ficheProduitPour(row));
                   if (!blockInGlobalView()) setShowForm(true);
                 }
               : undefined
@@ -778,7 +833,16 @@ const StockList = () => {
       </div>
 
       {/* MODALES */}
-      {showForm && (
+      {/* ✅ Produit de vente → fiche commerciale (prix achat / vente HT-TTC, TVA, marge) */}
+      {showForm && formulaireProduit && (
+        <ProduitForm
+          stock={editing}
+          referentiels={referentiels}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); load(); }}
+        />
+      )}
+      {showForm && !formulaireProduit && (
         <StockForm
           stock={editing}
           referentiels={referentiels}

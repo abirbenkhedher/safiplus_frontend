@@ -9,6 +9,7 @@ import {
   canUseGlobalView,
   ALL_BOUTIQUES,
 } from '../utils/boutiqueStorage';
+import { useEspaceMemorise, PERMS_COMMERCE, PERMS_ATELIER } from '../utils/espace';
 
 const AuthContext = createContext();
 
@@ -136,6 +137,18 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => user?.role === 'ADMIN' || isSuperAdmin();
   const isOwner = () => (user?.role === 'ADMIN' && !!user?.isOwner) || isSuperAdmin();
 
+  // ✅ Modules souscrits par la société (le serveur refuse aussi les routes)
+  const hasModule = (nom) => {
+    if (!user) return false;
+    if (isSuperAdmin()) return true;
+    return user.organisation?.modules?.[nom] !== false;
+  };
+  // ✅ Espaces disponibles pour cet utilisateur
+  const commerceDispo = hasModule('commercial') && hasAnyPermission(PERMS_COMMERCE);
+  const atelierDispo = hasAnyPermission(PERMS_ATELIER);
+  const espaceMemorise = useEspaceMemorise();
+  const espaceActif = !commerceDispo ? 'atelier' : !atelierDispo ? 'commerce' : espaceMemorise;
+
   // ============================================================
   // ✅ MULTI-TENANT : boutiques
   // ============================================================
@@ -156,12 +169,23 @@ export const AuthProvider = ({ children }) => {
     [['depenses'], '/depenses'],
     [['statistiques'], '/statistiques'],
   ];
-  const homePath = () => {
-    if (isSuperAdmin() && !activeBoutique) return '/organisations';
+  // Accueil de l'espace Commerce
+  const homeCommerce = () => {
+    if (hasAnyPermission(['ventes', 'ventes:read', 'rapport_commercial'])) return '/commerce';
+    if (hasPermission('comptoir')) return '/comptoir';
+    if (hasPermission('caisse')) return '/caisse';
+    return '/reglements';
+  };
+  // Accueil de l'espace Atelier (indépendant de l'espace mémorisé)
+  const homeAtelier = () => {
     // ✅ Employés (réparateur / commercial) : leur tableau de bord personnel
     if (!isAdmin() && hasPermission('mon_dashboard')) return '/mon-tableau-de-bord';
     const found = HOME_PAGES.find(([mods]) => mods.some((m) => hasPermission(m)));
     return found ? found[1] : '/reparations';
+  };
+  const homePath = () => {
+    if (isSuperAdmin() && !activeBoutique) return '/organisations';
+    return espaceActif === 'commerce' ? homeCommerce() : homeAtelier();
   };
 
   // Utilisateur avec plusieurs boutiques qui n'a pas encore choisi
@@ -208,6 +232,12 @@ export const AuthProvider = ({ children }) => {
     orgBoutiques,
     needsBoutiqueChoice,
     homePath,
+    homeCommerce,
+    homeAtelier,
+    hasModule,
+    commerceDispo,
+    atelierDispo,
+    espaceActif,
     changeBoutique,
     isAuthenticated: !!user,
   };

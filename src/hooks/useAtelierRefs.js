@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { getStock } from "../api/stock";
 import { getReparateurs } from "../api/atelier";
 
-/** Articles (lignes de stock) de la boutique active. */
-export const useArticles = () => {
+/**
+ * Articles (lignes de stock) de la boutique active.
+ * usage = "reparation" | "vente" (inclut « les deux ») ; absent = tous.
+ */
+export const useArticles = (usage) => {
   const [articles, setArticles] = useState([]);
   useEffect(() => {
-    getStock().then((r) => setArticles(r.data.data || [])).catch(() => setArticles([]));
-  }, []);
+    getStock(usage ? { usage } : undefined).then((r) => setArticles(r.data.data || [])).catch(() => setArticles([]));
+  }, [usage]);
   return articles;
 };
 

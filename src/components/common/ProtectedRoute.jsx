@@ -13,9 +13,10 @@ const ProtectedRoute = ({
   layout = false,         // ✅ route parente (Layout) : authentification seule
   chooser = false,        // ✅ écran de choix de boutique
   redirectHome = false,   // ✅ sans la permission → page d'accueil au lieu de "Accès refusé"
+  module = null,          // ✅ module souscrit requis (ex : "commercial")
 }) => {
   const {
-    loading, isAuthenticated, hasAnyRole, hasPermission, isSuperAdmin, isOwner,
+    loading, isAuthenticated, hasAnyRole, hasPermission, isSuperAdmin, isOwner, hasModule,
     needsBoutiqueChoice, activeBoutique, homePath,
   } = useAuth();
 
@@ -61,6 +62,19 @@ const ProtectedRoute = ({
         <div className="empty-state-title">Accès refusé</div>
         <div className="empty-state-text">
           Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Module non souscrit par la société
+  if (module && !hasModule(module)) {
+    return (
+      <div className="empty-state" style={{ minHeight: '400px' }}>
+        <div className="empty-state-icon">🧩</div>
+        <div className="empty-state-title">Module non activé</div>
+        <div className="empty-state-text">
+          La gestion commerciale n'est pas incluse dans la formule de votre société.
         </div>
       </div>
     );

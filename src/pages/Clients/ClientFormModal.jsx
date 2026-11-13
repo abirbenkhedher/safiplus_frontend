@@ -62,6 +62,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
     phone2: "",
     email: "",
     adresse: "",
+    matriculeFiscal: "",
     zone: "",
     codeFidelite: "",
     isActive: true,
@@ -97,6 +98,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               phone2: client.phone2 || "",
               email: client.email || "",
               adresse: client.adresse || "",
+              matriculeFiscal: client.matriculeFiscal || "",
               zone: client.zone || "",
               codeFidelite: client.codeFidelite || "",
               isActive: client.isActive !== undefined ? client.isActive : true,
@@ -107,6 +109,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               phone2: "",
               email: "",
               adresse: "",
+              matriculeFiscal: "",
               zone: "",
               codeFidelite: "",
               isActive: true,
@@ -169,6 +172,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
         phone2: existingClient.phone2 || "",
         email: existingClient.email || "",
         adresse: existingClient.adresse || "",
+        matriculeFiscal: existingClient.matriculeFiscal || "",
         zone: existingClient.zone || "",
         codeFidelite: existingClient.codeFidelite || "",
         isActive: existingClient.isActive,
@@ -605,6 +609,20 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                   onChange={handleChange}
                   className="form-control-modern"
                   placeholder="Ex: 123 Rue de la République"
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              {/* ✅ Gestion commerciale : client professionnel (imprimé sur les factures) */}
+              <div style={{ marginBottom: "18px" }}>
+                <label className="form-label-modern">Matricule fiscal (facultatif)</label>
+                <input
+                  type="text"
+                  name="matriculeFiscal"
+                  value={formData.matriculeFiscal || ""}
+                  onChange={handleChange}
+                  className="form-control-modern"
+                  placeholder="Ex: 1234567/A/M/000"
                   style={{ width: "100%" }}
                 />
               </div>

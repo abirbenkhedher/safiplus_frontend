@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 // ============================================================
 const EMPTY = {
   nom: '', telephone: '', email: '', adresse: '', maxBoutiques: 0,
+  moduleCommercial: true, // ✅ formule : gestion commerciale incluse
   boutique: { nom: '', code: '' },
   owner: { username: '', password: '', firstName: '', lastName: '', email: '', phone: '' },
 };
@@ -117,6 +118,7 @@ const OrganisationsCRUD = () => {
       email: row.email || '',
       adresse: row.adresse || '',
       maxBoutiques: row.maxBoutiques || 0,
+      moduleCommercial: row.modules?.commercial !== false,
     });
     setFormError('');
     setShowModal(true);
@@ -133,6 +135,7 @@ const OrganisationsCRUD = () => {
         email: form.email,
         adresse: form.adresse,
         maxBoutiques: Number(form.maxBoutiques) || 0,
+        modules: { commercial: !!form.moduleCommercial },
       };
       if (editing) {
         await updateOrganisation(editing._id, base);
@@ -316,6 +319,13 @@ const OrganisationsCRUD = () => {
                   value={form.maxBoutiques}
                   onChange={(v) => set('maxBoutiques', v)}
                 />
+                <div className="form-check form-switch mb-3">
+                  <input id="mod-commercial" type="checkbox" role="switch" className="form-check-input"
+                    checked={!!form.moduleCommercial} onChange={(e) => set('moduleCommercial', e.target.checked)} />
+                  <label htmlFor="mod-commercial" className="form-check-label">
+                    Module « Gestion commerciale » (devis, factures, comptoir, caisse)
+                  </label>
+                </div>
               </div>
               {!editing && (
                 <div className="col-md-6">

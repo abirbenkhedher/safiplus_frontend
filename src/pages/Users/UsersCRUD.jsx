@@ -56,7 +56,7 @@ const UsersCRUD = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   // ✅ MULTI-TENANT : boutiques gérables par l'utilisateur connecté
-  const { user: currentUser, orgBoutiques: myBoutiques, isOwner, isAdmin } = useAuth();
+  const { user: currentUser, orgBoutiques: myBoutiques, isOwner, isAdmin, hasModule } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -183,6 +183,14 @@ const UsersCRUD = () => {
     clotures: { label: "Clôtures journalières / mensuelles", icon: "🔒", category: "atelier" },
     clotures_rouvrir: { label: "Rouvrir une clôture", icon: "🔓", category: "atelier" },
     rapports: { label: "Tableau de bord atelier et rapports", icon: "📊", category: "atelier" },
+
+    // ✅ Gestion commerciale
+    ventes: { label: "Devis, BL, factures, avoirs", icon: "🧾", category: "commercial" },
+    "ventes:read": { label: "Documents de vente (lecture seule)", icon: "👁️", category: "commercial", isRead: true },
+    reglements: { label: "Règlements clients, relevés, créances", icon: "💰", category: "commercial" },
+    comptoir: { label: "Vente comptoir", icon: "🛒", category: "commercial" },
+    caisse: { label: "Caisse : ouverture, entrées/sorties, fermeture", icon: "💵", category: "commercial" },
+    rapport_commercial: { label: "Statistiques commerciales (CA, TVA) + export Excel", icon: "📊", category: "commercial" },
   };
 
   const CATEGORIES = {
@@ -191,6 +199,7 @@ const UsersCRUD = () => {
     configuration: { label: "Configuration", color: "#f59e0b" },
     administration: { label: "Administration", color: "#ef4444" },
     atelier: { label: "Atelier (achats, rémunérations, clôtures)", color: "#10b981" },
+    commercial: { label: "Gestion commerciale (ventes, règlements)", color: "#8b5cf6" },
   };
 
   const loadData = async () => {
@@ -714,6 +723,8 @@ const UsersCRUD = () => {
 
   const modulesByCategory = availableModules.reduce((acc, module) => {
     const cat = MODULE_CONFIG[module]?.category || "autre";
+    // ✅ Module commercial non souscrit : ses permissions ne sont pas proposées
+    if (cat === "commercial" && !hasModule("commercial")) return acc;
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(module);
     return acc;
