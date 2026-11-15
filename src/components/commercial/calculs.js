@@ -66,3 +66,17 @@ export const montantEnLettres = (v) => {
   if (millimes) s += ` et ${nombreEnLettres(millimes)} millime${millimes > 1 ? "s" : ""}`;
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
+
+// ✅ Base des prix du commerce (caisse, devis, factures) : réglage commerce.prixTTC (TTC par défaut),
+//    indépendant du réglage atelier prixTTC (réparations, commissions).
+export const baseCommerce = (params) => (params?.commerce?.prixTTC === false ? "HT" : "TTC");
+
+/** Prix d'un article (stocké dans la base atelier) converti vers la base du document. */
+export const prixVersBase = (prix, params, prixSaisis, tva) => {
+  const p = Number(prix) || 0;
+  const sourceTTC = params?.prixTTC !== false;
+  const cibleTTC = prixSaisis !== "HT";
+  const t = Number(tva) || 0;
+  if (sourceTTC === cibleTTC || !t) return p;
+  return Math.round((cibleTTC ? p * (1 + t / 100) : p / (1 + t / 100)) * 1000) / 1000;
+};

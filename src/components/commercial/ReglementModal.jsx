@@ -15,6 +15,7 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
   const [client, setClient] = useState(clientInit || null);
   const [factures, setFactures] = useState([]);
   const [choix, setChoix] = useState({}); // id → montant
+  const [montantManuel, setMontantManuel] = useState(false); // ✅ sinon le montant suit le total affecté
   const [solde, setSolde] = useState(null);
   const [f, setF] = useState({ mode: "ESPECES", montant: "", date: isoDay(), reference: "", banque: "", dateEcheance: "", etatCheque: "en_portefeuille", observation: "" });
   const [busy, setBusy] = useState(false);
@@ -38,6 +39,13 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
   }, [client?.id, factureId, remboursement]);
 
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  // ✅ Le montant suit le total affecté tant qu'il n'a pas été saisi à la main
+  const majChoix = (n) => {
+    setChoix(n);
+    if (montantManuel) return;
+    const tot = r3(Object.values(n).reduce((s, v) => s + (Number(v) || 0), 0));
+    setF((x) => ({ ...x, montant: tot > 0 ? tot : "" }));
+  };
   const totalAffecte = r3(Object.values(choix).reduce((s, v) => s + (Number(v) || 0), 0));
   const avance = r3((Number(f.montant) || 0) - totalAffecte);
 
@@ -45,9 +53,7 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
     const n = { ...choix };
     if (n[fa._id] !== undefined) delete n[fa._id];
     else n[fa._id] = fa.paiement.reste;
-    setChoix(n);
-    const tot = r3(Object.values(n).reduce((s, v) => s + (Number(v) || 0), 0));
-    if (tot > 0) setF((x) => ({ ...x, montant: tot }));
+    majChoix(n);
   };
 
   const save = async () => {
@@ -102,7 +108,7 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
               </label>
               {choix[fa._id] !== undefined && (
                 <input type="number" step="0.001" min="0" max={fa.paiement.reste} className="form-control-modern" style={{ maxWidth: 150 }}
-                  value={choix[fa._id]} onChange={(e) => setChoix((c) => ({ ...c, [fa._id]: e.target.value }))} />
+                  value={choix[fa._id]} onChange={(e) => majChoix({ ...choix, [fa._id]: e.target.value })} />
               )}
             </div>
           ))}
@@ -111,7 +117,7 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
 
       <div className="row g-3 mt-1">
         <Field label="Montant (TND)" col="col-6 col-md-4">
-          <input type="number" step="0.001" min="0" required className="form-control-modern" value={f.montant} onChange={(e) => set("montant", e.target.value)} />
+          <input type="number" step="0.001" min="0" required className="form-control-modern" value={f.montant} onChange={(e) => { setMontantManuel(true); set("montant", e.target.value); }} />
         </Field>
         <Field label="Mode" col="col-6 col-md-4">
           <select className="form-control-modern" value={f.mode} onChange={(e) => set("mode", e.target.value)}>
@@ -141,9 +147,10 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
       </div>
 
       {!remboursement && Number(f.montant) > 0 && (
-        <div className="at-alert at-alert-info mt-3 mb-0">
+        <div className={`at-alert ${avance > 0 && totalAffecte > 0 ? "at-alert-warning" : "at-alert-info"} mt-3 mb-0`}>
           Affecté aux factures : <b>{tnd(totalAffecte)}</b>
           {avance > 0 && <> · En avance (crédit client) : <b>{tnd(avance)}</b></>}
+          {avance > 0 && totalAffecte > 0 && <div className="mt-1">⚠️ Le montant encaissé ({tnd(Number(f.montant) || 0)}) dépasse le montant affecté : vérifiez le champ « Montant ».</div>}
         </div>
       )}
       {remboursement && <div className="at-alert at-alert-info mt-3 mb-0">Crédit disponible : <b>{tnd(credit)}</b></div>}

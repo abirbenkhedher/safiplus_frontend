@@ -6,7 +6,7 @@ import { ArticleSelect } from "../atelier/pickers";
 import { useArticles } from "../../hooks/useAtelierRefs";
 import { tnd, errMsg, isoDay, articleLabel } from "../../utils/atelier";
 import { ClientPicker } from "./commun";
-import { calcLigne, calcTotaux, clientLabel } from "./calculs";
+import { calcLigne, calcTotaux, clientLabel, baseCommerce, prixVersBase } from "./calculs";
 
 // ============================================================
 // ✅ Saisie / modification d'un document en brouillon
@@ -21,7 +21,7 @@ const versFormulaire = (doc, params) => ({
   numero: doc.numero || null,
   client: doc.client?._id || doc.client || null,
   clientLabel: doc.client && typeof doc.client === "object" ? clientLabel(doc.client) : doc.clientLabel || "",
-  prixSaisis: doc.prixSaisis || (params?.prixTTC === false ? "HT" : "TTC"),
+  prixSaisis: doc.prixSaisis || baseCommerce(params),
   date: isoOrEmpty(doc.date) || isoDay(),
   dateEcheance: isoOrEmpty(doc.dateEcheance),
   dateValidite: isoOrEmpty(doc.dateValidite),
@@ -64,8 +64,9 @@ const DocumentEditor = ({ doc, params, onClose, onSaved }) => {
   }));
   const choisirArticle = (i, id) => {
     const a = articles.find((x) => x._id === id);
+    const tvaArticle = a && a.tauxTVA !== null && a.tauxTVA !== undefined ? a.tauxTVA : tva;
     setLigne(i, {
-      stock: id, designation: "", prixUnitaire: a ? Number(a.prixIndicatif || 0) : 0, code: a?.code || "",
+      stock: id, designation: "", prixUnitaire: a ? prixVersBase(a.prixIndicatif, params, f.prixSaisis, tvaArticle) : 0, code: a?.code || "",
       ...(a && a.tauxTVA !== null && a.tauxTVA !== undefined ? { tauxTVA: a.tauxTVA } : {}),
     });
   };

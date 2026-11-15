@@ -110,7 +110,7 @@ const ParametresAtelier = () => {
           </div>
           <div className="col-12 col-lg-6">
             <Card title="Bases de calcul et rémunération" icon={<FaPercent />} className="h-100">
-              <Toggle id="ttc" label="Les prix de réparation sont saisis TTC" checked={form.prixTTC} disabled={!canEdit} onChange={(v) => set("prixTTC", v)}
+              <Toggle id="ttc" label="Les prix de réparation et des articles sont saisis TTC" checked={form.prixTTC} disabled={!canEdit} onChange={(v) => set("prixTTC", v)}
                 hint="Les commissions et marges sont calculées sur le montant HT." />
               <div className="row g-3 mb-3">
                 <Field label="Taux de TVA (%)" col="col-6">
@@ -145,6 +145,11 @@ const ParametresAtelier = () => {
                       onChange={(e) => set("commerce", { ...(form.commerce || {}), [k]: e.target.value })} />
                   </Field>
                 ))}
+                <div className="col-12">
+                  <Toggle id="commerce-ttc" label="Prix commerce (caisse, devis, factures) saisis TTC"
+                    checked={form.commerce?.prixTTC !== false} disabled={!canEdit}
+                    onChange={(v) => set("commerce", { ...(form.commerce || {}), prixTTC: v })} />
+                </div>
                 <div className="col-12">
                   <Toggle id="caisse-obl" label="Caisse obligatoire : refuser les paiements en espèces tant que la caisse n'est pas ouverte"
                     checked={form.commerce?.caisseObligatoire} disabled={!canEdit}

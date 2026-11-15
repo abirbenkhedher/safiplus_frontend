@@ -9,7 +9,7 @@ import { isGlobalView } from "../../utils/boutiqueStorage";
 import { Page, PageHeader, Alert, Card, Table, Kpi, IconBtn } from "../../components/atelier/ui";
 import { tnd, errMsg } from "../../utils/atelier";
 import { ClientPicker } from "../../components/commercial/commun";
-import { calcLigne, calcTotaux } from "../../components/commercial/calculs";
+import { calcLigne, calcTotaux, baseCommerce, prixVersBase } from "../../components/commercial/calculs";
 import { imprimerTicket, imprimerDocument } from "../../components/commercial/imprimer";
 
 // ============================================================
@@ -42,7 +42,8 @@ const Comptoir = () => {
   const [autoPrint, setAutoPrint] = useState(lireAutoPrint);
   const searchRef = useRef(null);
 
-  const prixSaisis = params?.prixTTC === false ? "HT" : "TTC";
+  const prixSaisis = baseCommerce(params);
+  const prixDe = (a) => prixVersBase(a.prix, params, prixSaisis, a.tauxTVA ?? params?.tauxTVA ?? 19);
   const tva = Number(params?.tauxTVA ?? 19);
   const tot = calcTotaux(panier, prixSaisis);
   const recuTotal = mixte ? r3(paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0)) : (recu === "" ? tot.net : Number(recu) || 0);
@@ -71,7 +72,7 @@ const Comptoir = () => {
     setPanier((p) => {
       const i = p.findIndex((l) => l.stock === a._id);
       if (i >= 0) return p.map((l, j) => (j === i ? { ...l, quantite: Number(l.quantite) + 1 } : l));
-      return [...p, { type: "article", stock: a._id, designation: a.designation, code: a.code, dispo: a.quantite, quantite: 1, prixUnitaire: a.prix, remisePct: 0, tauxTVA: a.tauxTVA ?? tva }];
+      return [...p, { type: "article", stock: a._id, designation: a.designation, code: a.code, dispo: a.quantite, quantite: 1, prixUnitaire: prixDe(a), remisePct: 0, tauxTVA: a.tauxTVA ?? tva }];
     });
     setSearch("");
     setResultats([]);
@@ -103,6 +104,8 @@ const Comptoir = () => {
   const encaisser = async () => {
     if (!panier.length) { setMsg({ text: "Le panier est vide" }); return; }
     if (panier.some((l) => l.type === "libre" && !String(l.designation).trim())) { setMsg({ text: "Désignation obligatoire pour une ligne libre" }); return; }
+    // ✅ Client choisi : montant reçu obligatoire (évite « vide = payé en entier » sur un acompte)
+    if (client && !mixte && recu === "") { setMsg({ text: "Client choisi : saisissez le montant reçu (« Compte juste » = total, 0 = vente à crédit)." }); return; }
     if (!client && manque > 0) { setMsg({ text: `Il manque ${tnd(manque)}. Choisissez un client pour vendre à crédit.` }); return; }
     if (rendu > 0 && rendu > r3(especes)) { setMsg({ text: "Seules les espèces peuvent dépasser le total (monnaie rendue)." }); return; }
     setBusy(true); setMsg(null);
@@ -168,7 +171,7 @@ const Comptoir = () => {
                 <div className="at-picker-list">
                   {visibles.map((a) => (
                     <div key={a._id} role="button" className="at-picker-item" onClick={() => ajouter(a)}>
-                      <b>{a.designation}</b>{a.code ? ` · ${a.code}` : ""} — {tnd(a.prix)}
+                      <b>{a.designation}</b>{a.code ? ` · ${a.code}` : ""} — {tnd(prixDe(a))}
                       <span className="at-muted"> (stock {a.quantite})</span>
                     </div>
                   ))}
@@ -229,14 +232,14 @@ const Comptoir = () => {
                   ))}
                 </div>
                 <label className="form-label">{mode === "ESPECES" ? "Montant reçu" : "Montant payé"}</label>
-                <input type="number" min="0" step="0.001" className="form-control-modern mb-2" placeholder={String(tot.net)}
+                <input type="number" min="0" step="0.001" className="form-control-modern mb-2" placeholder={client ? "Montant obligatoire" : String(tot.net)}
                   value={recu} onChange={(e) => setRecu(e.target.value)} />
                 {mode === "ESPECES" && (
                   <div className="d-flex flex-wrap gap-2 mb-2">
                     {[5, 10, 20, 50].map((b) => (
                       <button key={b} type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => setRecu(String(r3(Number(recu || 0) + b)))}>+{b}</button>
                     ))}
-                    <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => setRecu("")}>Compte juste</button>
+                    <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => setRecu(client ? String(tot.net) : "")}>Compte juste</button>
                   </div>
                 )}
               </>
