@@ -9,6 +9,13 @@ import {
 import { getClient } from '../../api/clients';
 import ReparationModal from '../../components/reparations/ReparationModal';
 
+const TYPES_VENTE = {
+  FACTURE: { label: 'Facture', color: '#4361ee' },
+  TICKET: { label: 'Ticket comptoir', color: '#10b981' },
+  BL: { label: 'Bon de livraison', color: '#f59e0b' },
+  AVOIR: { label: 'Avoir', color: '#ef4444' },
+};
+
 const ClientDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -650,53 +657,125 @@ const ClientDetail = () => {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table className="table-modern">
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '13px',
+              }}>
                 <thead>
-                  <tr>
-                    <th style={{ width: '110px' }}>N° Vente</th>
-                    <th>Produit</th>
-                    <th style={{ width: '130px' }}>Statut</th>
-                    <th style={{ width: '130px' }}>Paiement</th>
-                    <th style={{ width: '110px', textAlign: 'right' }}>Montant</th>
-                    <th style={{ width: '110px', textAlign: 'right' }}>Date</th>
+                  <tr style={{ background: 'white', borderBottom: '2px solid var(--gray-200)' }}>
+                    {[
+                      ['N° Document', 'left'],
+                      ['Articles', 'left'],
+                      ['Type', 'left'],
+                      ['Paiement', 'left'],
+                      ['Montant', 'right'],
+                      ['Date', 'right'],
+                    ].map(([label, align]) => (
+                      <th key={label} style={{ padding: '14px 20px', textAlign: align, fontSize: '11px', fontWeight: '700', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ventes.map((vente) => {
-                    const reste = (vente.prix || 0) - (vente.acompte || 0);
-                    const isPaid = reste === 0;
-                    
+                  {ventes.map((vente, index) => {
+                    const type = TYPES_VENTE[vente.type] || { label: vente.type, color: 'var(--gray-500)' };
+                    const articles = vente.articles || [];
+                    const p = vente.paiement;
+                    const isAvoir = vente.type === 'AVOIR';
+                    const PILL = {
+                      paye: { bg: 'rgba(16, 185, 129, 0.15)', color: '#059669', label: '✓ Payé' },
+                      partiel: { bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', label: `◐ Reste ${(p?.reste || 0).toFixed(3)}` },
+                      non_paye: { bg: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', label: '⚠ Non payé' },
+                      facture: { bg: 'rgba(67, 97, 238, 0.15)', color: '#3a52c9', label: '✓ Facturé' },
+                      non_facture: { bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', label: '⚠ Non facturé' },
+                    };
+                    const pill = vente.type === 'BL'
+                      ? PILL[vente.statut === 'transforme' ? 'facture' : 'non_facture']
+                      : PILL[p?.etat];
+                    const rowBg = index % 2 === 0 ? 'white' : 'var(--gray-50)';
+
                     return (
-                      <tr key={vente._id}>
-                        <td>
-                          <span className="badge-modern badge-modern-gray" style={{ fontSize: '10.5px' }}>
-                            {vente.numero}
+                      <tr
+                        key={vente._id}
+                        style={{
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--gray-100)',
+                          transition: 'background 150ms ease',
+                          background: rowBg,
+                        }}
+                        onClick={() => navigate(`/ventes?type=${vente.type}&doc=${vente._id}`)}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-light)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = rowBg}
+                      >
+                        <td style={{ padding: '14px 20px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            background: 'var(--gray-100)',
+                            color: 'var(--gray-700)',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            fontFamily: 'monospace',
+                          }}>
+                            {vente.numero || '-'}
                           </span>
                         </td>
-                        <td>
+                        <td style={{ padding: '14px 20px' }}>
                           <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--gray-800)' }}>
-                            {vente.produit || 'Produit'}
+                            {articles[0] || '-'}
                           </div>
+                          {articles.length > 1 && (
+                            <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '2px' }} title={articles.join('\n')}>
+                              + {articles.length - 1} autre(s) article(s)
+                            </div>
+                          )}
                         </td>
-                        <td>
-                          <span className="badge-modern badge-modern-success">
-                            {vente.status || 'Complétée'}
+                        <td style={{ padding: '14px 20px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            background: type.color,
+                            color: 'white',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {type.label}
                           </span>
                         </td>
-                        <td>
-                          <span className={`badge-modern ${isPaid ? 'badge-modern-success' : 'badge-modern-warning'}`}>
-                            {isPaid ? '✓ Payé' : '⚠️ Non payé'}
-                          </span>
+                        <td style={{ padding: '14px 20px' }}>
+                          {pill ? (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              background: pill.bg,
+                              color: pill.color,
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {pill.label}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--gray-400)' }}>—</span>
+                          )}
                         </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--gray-900)' }}>
-                            {(vente.prix || 0).toFixed(3)}
+                        <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                          <div style={{ fontWeight: '700', fontSize: '14px', color: isAvoir ? '#dc2626' : 'var(--gray-900)' }}>
+                            {isAvoir ? '-' : ''}{(vente.montant || 0).toFixed(3)}
                           </div>
-                          <div style={{ fontSize: '10.5px', color: 'var(--gray-500)' }}>TND</div>
+                          <div style={{ fontSize: '10px', color: 'var(--gray-500)', fontWeight: '500' }}>
+                            TND
+                          </div>
                         </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '12.5px', color: 'var(--gray-600)' }}>
-                            {formatDate(vente.createdAt)}
+                        <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                          <span style={{ fontSize: '12.5px', color: 'var(--gray-600)', fontWeight: '500' }}>
+                            {formatDate(vente.date || vente.createdAt)}
                           </span>
                         </td>
                       </tr>
