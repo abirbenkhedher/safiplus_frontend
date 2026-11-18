@@ -3,14 +3,15 @@ import {
   FaPrint, FaCheck, FaEdit, FaTrash, FaBan, FaExchangeAlt, FaUndo, FaMoneyBillWave, FaThumbsUp, FaThumbsDown, FaFileInvoice,
 } from "react-icons/fa";
 import {
-  getDocument, validerDocument, deleteDocument, annulerDocument, transformerDocument, creerAvoir, statutDevis, TYPES_DOC, modeLabel,
+  getDocument, validerDocument, deleteDocument, annulerDocument, transformerDocument, creerAvoir, statutDevis, modeLabel,
+  typeDocDe, MODES_REGLEMENT,
 } from "../../api/ventes";
 import { useAuth } from "../../context/AuthContext";
 import { FormModal, Alert, Table } from "../atelier/ui";
 import { tnd, dateFr, errMsg, askMotif, userName } from "../../utils/atelier";
 import { confirmer } from "../../utils/dialog";
 import { StatutDoc, PaiementBadge } from "./commun";
-import { calcLigne, montantEnLettres } from "./calculs";
+import { calcLigne, montantEnLettres, remiseLabel } from "./calculs";
 import { imprimerDocument, imprimerTicket } from "./imprimer";
 import ReglementModal from "./ReglementModal";
 
@@ -26,6 +27,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
   const [busy, setBusy] = useState(false);
   const [encaisser, setEncaisser] = useState(false);
   const [rembourser, setRembourser] = useState(false);
+  const [validationAvoir, setValidationAvoir] = useState(null); // { mode } : avoir / bon de retour
 
   const load = () => getDocument(id).then((r) => setDoc(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
   // Le parent remonte le composant à chaque document (key = id)
@@ -36,7 +38,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
     setBusy(true);
     try {
       const r = await fn();
-      setMsg({ type: "success", text: ok });
+      setMsg({ type: "success", text: r?.data?.rembourse !== undefined && r?.data?.message ? r.data.message : ok });
       onChanged?.();
       if (after) after(r?.data?.data);
       else await load();
@@ -44,7 +46,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
     setBusy(false);
   };
 
-  const t = doc ? TYPES_DOC[doc.type] : null;
+  const t = doc ? typeDocDe(doc) : null;
   const s = doc?.statut;
   const brouillon = s === "brouillon";
   const ouvrirNouveau = (d) => { if (d) onEdit?.(d); };
@@ -56,6 +58,8 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
         <>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => onEdit?.(doc)}><FaEdit /> Modifier</button>
           <button type="button" className="btn-modern btn-modern-primary btn-sm" disabled={busy} onClick={async () => {
+            // ✅ Avoir / bon de retour : choix du remboursement (l'argent sort)
+            if (doc.type === "AVOIR") { setValidationAvoir({ mode: "ESPECES" }); return; }
             const stock = ["BL", "FACTURE"].includes(doc.type) && doc.lignes.some((l) => l.type === "article" && !l.stockSorti);
             const ok = await confirmer({
               title: `Valider ${t.label.toLowerCase()}`, confirmText: "Valider",
@@ -81,6 +85,13 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
       )}
       {canWrite && doc.type === "DEVIS" && ["valide", "accepte"].includes(s) && (
         <>
+          <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BC"), "Bon de commande créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de commande</button>
+          <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BL"), "Bon de livraison créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de livraison</button>
+          <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
+        </>
+      )}
+      {canWrite && doc.type === "BC" && s === "valide" && (
+        <>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BL"), "Bon de livraison créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de livraison</button>
           <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
         </>
@@ -88,10 +99,10 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
       {canWrite && doc.type === "BL" && s === "valide" && (
         <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
       )}
-      {canWrite && ["DEVIS", "BL"].includes(doc.type) && ["valide", "accepte", "refuse"].includes(s) && (
+      {canWrite && ["DEVIS", "BC", "BL"].includes(doc.type) && ["valide", "accepte", "refuse"].includes(s) && (
         <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={async () => {
           const m = await askMotif("Motif d'annulation :");
-          if (m) run(() => annulerDocument(doc._id, m), doc.type === "BL" ? "BL annulé (articles remis en stock)" : "Devis annulé");
+          if (m) run(() => annulerDocument(doc._id, m), doc.type === "BL" ? "BL annulé (articles remis en stock)" : `${t.label} annulé`);
         }}><FaBan /> Annuler</button>
       )}
       {doc.type === "TICKET" && (
@@ -106,7 +117,14 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
             <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => setEncaisser(true)}><FaMoneyBillWave /> Encaisser</button>
           )}
           {canWrite && Number(doc.montantAvoirs || 0) < Number(doc.netAPayer) && (
-            <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => creerAvoir(doc._id), "Avoir créé (brouillon) : ajustez les lignes puis validez", ouvrirNouveau)}><FaUndo /> Faire un avoir</button>
+            <>
+              {doc.lignes.some((l) => l.type === "article" && l.stockSorti) && (
+                <button type="button" className="btn-modern btn-modern-outline btn-sm" title="La marchandise revient en stock et l'argent est rendu"
+                  onClick={() => run(() => creerAvoir(doc._id, "retour"), "Bon de retour créé (brouillon) : ajustez les quantités puis validez", ouvrirNouveau)}><FaUndo /> Bon de retour</button>
+              )}
+              <button type="button" className="btn-modern btn-modern-outline btn-sm" title="L'argent est rendu, la marchandise ne revient pas en stock"
+                onClick={() => run(() => creerAvoir(doc._id, "avoir"), "Avoir créé (brouillon) : ajustez les lignes puis validez", ouvrirNouveau)}><FaUndo /> Faire un avoir</button>
+            </>
           )}
         </>
       )}
@@ -115,6 +133,29 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
 
   return (
     <>
+      {validationAvoir && doc && (
+        <FormModal show title={`Valider ${t.label.toLowerCase()}`} submitLabel="Valider" busy={busy} onClose={() => setValidationAvoir(null)}
+          onSubmit={() => {
+            const body = validationAvoir.mode ? { remboursement: { mode: validationAvoir.mode } } : {};
+            setValidationAvoir(null);
+            run(() => validerDocument(doc._id, body), `${t.label} validé`);
+          }}>
+          <div className="at-alert at-alert-info">
+            {doc.nature === "retour"
+              ? "Bon de retour : les articles reviennent en stock et l'argent est rendu au client."
+              : "Avoir : l'argent est rendu au client, les articles ne reviennent PAS en stock."}
+            {" "}Le numéro devient définitif.
+          </div>
+          <label className="form-label">Rendre l'argent</label>
+          <select className="form-control-modern" value={validationAvoir.mode} onChange={(e) => setValidationAvoir({ mode: e.target.value })}>
+            {MODES_REGLEMENT.map(([v, l]) => <option key={v} value={v}>Rembourser maintenant — {l}</option>)}
+            <option value="">Ne pas rembourser : garder en crédit client</option>
+          </select>
+          <div className="at-hint mt-2" style={{ fontStyle: "normal" }}>
+            Seule la part déjà payée de la facture est remboursée ; si la facture n'était pas payée, l'avoir diminue simplement ce que le client doit.
+          </div>
+        </FormModal>
+      )}
       <FormModal show size="xl" title={doc ? `${t.label} ${doc.numero || "(brouillon)"}` : "Chargement…"} onClose={onClose}>
         <Alert msg={msg?.text} type={msg?.type || "danger"} onClose={() => setMsg(null)} />
         {doc && (
@@ -124,7 +165,8 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
               <div className="col-6 col-md-3"><div className="at-stat-label">Statut</div><StatutDoc statut={s} type={doc.type} /> <PaiementBadge paiement={doc.paiement} /></div>
               <div className="col-6 col-md-3"><div className="at-stat-label">Client</div><div className="at-stat-value">{doc.clientSnapshot?.nom || doc.client?.nom}</div><div className="at-muted">{doc.client?.phone}</div></div>
               <div className="col-6 col-md-3"><div className="at-stat-label">Date</div><div className="at-stat-value">{dateFr(doc.date)}</div>
-                {doc.dateEcheance && doc.type === "FACTURE" && <div className="at-muted">Échéance {dateFr(doc.dateEcheance)}</div>}
+                {doc.dateEcheance && (doc.type === "FACTURE" || doc.modePaiement === "TRAITE") && <div className="at-muted">Échéance {dateFr(doc.dateEcheance)}</div>}
+                {doc.modePaiement && <div className="at-muted">Paiement : <b>{modeLabel(doc.modePaiement)}</b></div>}
                 {doc.dateValidite && doc.type === "DEVIS" && <div className="at-muted">Valable jusqu'au {dateFr(doc.dateValidite)}</div>}
               </div>
               <div className="col-6 col-md-3"><div className="at-stat-label">{doc.type === "AVOIR" ? "Total avoir" : "Net à payer"}</div><div className="at-stat-value">{tnd(doc.netAPayer)}</div></div>
@@ -135,7 +177,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
                 <span className="at-muted">Documents liés :</span>
                 {[...(doc.origines || []), ...(doc.factureOrigine ? [{ ...doc.factureOrigine, type: "FACTURE" }] : []), ...(doc.derives || []), ...(doc.avoirs || []).map((a) => ({ ...a, type: "AVOIR" }))].map((x) => (
                   <button key={x._id} type="button" className="at-chip" style={{ border: "none", cursor: "pointer" }} onClick={() => onOpen?.(x._id)}>
-                    {TYPES_DOC[x.type]?.label} {x.numero || "(brouillon)"}
+                    {typeDocDe(x).label} {x.numero || "(brouillon)"}
                   </button>
                 ))}
               </div>
@@ -145,13 +187,22 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
               { label: "Désignation", render: (l) => <>{l.designation}{l.type === "article" && l.stockSorti && doc.type !== "AVOIR" ? <span className="at-muted"> · stock sorti</span> : null}{doc.type === "AVOIR" && l.retourStock ? <span className="at-muted"> · retour stock</span> : null}</> },
               { label: "Qté", right: true, render: (l) => l.quantite },
               { label: `PU ${doc.prixSaisis}`, right: true, render: (l) => tnd(l.prixUnitaire) },
-              { label: "Remise", right: true, render: (l) => (l.remisePct ? `${l.remisePct} %` : "—") },
+              { label: "Remise", right: true, render: (l) => remiseLabel(l) || "—" },
               { label: "TVA", right: true, render: (l) => `${l.tauxTVA} %` },
-              { label: "Total HT", right: true, render: (l) => tnd(brouillon ? calcLigne(l, doc.prixSaisis).ht : l.montantHT) },
+              // Totaux de ligne avant remise globale (la remise globale figure dans les totaux)
+              { label: "Total HT", right: true, render: (l) => tnd(calcLigne(l, doc.prixSaisis).ht) },
               { label: "Total TTC", right: true, render: (l) => <b>{tnd(brouillon ? calcLigne(l, doc.prixSaisis).ttc : l.montantTTC)}</b> },
             ]} />
             <div className="d-flex justify-content-end mt-2">
               <div style={{ minWidth: 280 }}>
+                {Number(doc.remiseGlobaleMontant) > 0 && (
+                  <>
+                    <div className="d-flex justify-content-between"><span>Total avant remise ({doc.prixSaisis})</span><b>{tnd(doc.totalAvantRemise)}</b></div>
+                    <div className="d-flex justify-content-between" style={{ color: "#dc2626" }}>
+                      <span>Remise globale{doc.remiseGlobaleType === "pct" ? ` (${doc.remiseGlobaleValeur} %)` : ""}</span><b>− {tnd(doc.remiseGlobaleMontant)}</b>
+                    </div>
+                  </>
+                )}
                 <div className="d-flex justify-content-between"><span>Total HT</span><b>{tnd(doc.totalHT)}</b></div>
                 {(doc.tvaParTaux || []).map((x) => (
                   <div key={x.taux} className="d-flex justify-content-between at-muted"><span>TVA {x.taux} % (base {tnd(x.base)})</span><span>{tnd(x.montant)}</span></div>
@@ -194,6 +245,8 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
         <ReglementModal
           client={{ id: doc.client?._id, label: doc.client?.nom }}
           factureId={doc._id}
+          modeInitial={doc.modePaiement || undefined}
+          echeanceInitiale={doc.modePaiement === "TRAITE" ? doc.dateEcheance : undefined}
           onClose={() => setEncaisser(false)}
           onSaved={(r) => { setEncaisser(false); setMsg({ type: "success", text: `Règlement ${r.numero} enregistré` }); onChanged?.(); load(); }}
         />

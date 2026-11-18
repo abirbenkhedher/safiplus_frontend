@@ -15,13 +15,14 @@ import FacturerModal from "../../components/commercial/FacturerModal";
 // ============================================================
 // ✅ Gestion commerciale : devis, bons de livraison, factures, avoirs
 // ============================================================
-const ONGLETS = [["FACTURE", "Factures"], ["DEVIS", "Devis"], ["BL", "Bons de livraison"], ["TICKET", "Tickets comptoir"], ["AVOIR", "Avoirs"]];
+const ONGLETS = [["FACTURE", "Factures"], ["DEVIS", "Devis"], ["BC", "Bons de commande"], ["BL", "Bons de livraison"], ["TICKET", "Tickets comptoir"], ["AVOIR", "Avoirs & retours"]];
 const STATUTS = {
   FACTURE: [["brouillon", "Brouillon"], ["valide", "Validée"]],
   AVOIR: [["brouillon", "Brouillon"], ["valide", "Validé"]],
   TICKET: [["valide", "Validé"]],
   DEVIS: [["brouillon", "Brouillon"], ["valide", "Validé"], ["accepte", "Accepté"], ["refuse", "Refusé"], ["transforme", "Transformé"], ["annule", "Annulé"]],
   BL: [["brouillon", "Brouillon"], ["valide", "Validé"], ["transforme", "Facturé"], ["annule", "Annulé"]],
+  BC: [["brouillon", "Brouillon"], ["valide", "Validé"], ["transforme", "Livré / facturé"], ["annule", "Annulé"]],
 };
 
 const Ventes = () => {
@@ -57,7 +58,12 @@ const Ventes = () => {
   const label = TYPES_DOC[type];
 
   const cols = [
-    { label: "N°", render: (r) => <b>{r.numero || <span className="at-muted">brouillon</span>}</b> },
+    { label: "N°", render: (r) => (
+      <div>
+        <b>{r.numero || <span className="at-muted">brouillon</span>}</b>
+        {r.type === "AVOIR" && <div className="at-muted" style={{ fontSize: 11.5 }}>{r.nature === "retour" ? "↩ Bon de retour (stock + argent)" : "Avoir (argent seul)"}</div>}
+      </div>
+    ) },
     { label: "Date", render: (r) => dateFr(r.date) },
     { label: "Client", render: (r) => r.clientSnapshot?.nom || r.client?.nom || "—" },
     { label: "Total HT", right: true, render: (r) => tnd(r.totalHT) },
@@ -120,7 +126,8 @@ const Ventes = () => {
           <input className="form-control-modern" placeholder="N°, client, désignation…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </PeriodeFilter>
-      {type === "AVOIR" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Un avoir se crée depuis une facture validée (bouton « Faire un avoir » dans la facture).</div>}
+      {type === "AVOIR" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Depuis une facture ou un ticket validé : « Bon de retour » (la marchandise revient en stock et l'argent est rendu) ou « Faire un avoir » (l'argent est rendu, la marchandise ne revient pas).</div>}
+      {type === "BC" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Bon de commande client : ni stock ni argent. Une fois validé, transformez-le en bon de livraison ou en facture.</div>}
 
       <Table rows={rows} cols={cols} empty={`Aucun(e) ${label.label.toLowerCase()} sur cette période`} />
 

@@ -265,7 +265,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
               padding: "24px 28px 20px",
               borderBottom: "1px solid var(--gray-200)",
               background:
-                "linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)",
+                "linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.02) 100%)",
               display: "flex",
               alignItems: "center",
               gap: "14px",
@@ -283,7 +283,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "22px",
-                boxShadow: "0 6px 16px rgba(67, 97, 238, 0.35)",
+                boxShadow: "0 6px 16px rgba(var(--primary-rgb), 0.35)",
                 flexShrink: 0,
               }}
             >

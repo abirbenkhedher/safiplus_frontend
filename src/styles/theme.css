@@ -3,10 +3,13 @@
    ============================================ */
 
 :root {
-  /* Couleurs principales */
-  --primary: #4361ee;
-  --primary-dark: #3a52c9;
-  --primary-light: #e7ecff;
+  /* ✅ Couleurs principales — espace ATELIER (bleu)
+     principale #1565C0 · secondaire #42A5F5 · hover #0D47A1 · fond léger #E3F2FD */
+  --primary: #1565C0;
+  --primary-dark: #0D47A1;
+  --primary-light: #E3F2FD;
+  --primary-2: #42A5F5;
+  --primary-rgb: 21, 101, 192;
   --secondary: #6c757d;
   --success: #10b981;
   --success-light: #d1fae5;
@@ -98,12 +101,12 @@ body {
 .btn-modern-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
-  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
 }
 
 .btn-modern-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(67, 97, 238, 0.4);
+  box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.4);
   color: white;
 }
 
@@ -367,9 +370,11 @@ body {
    ============================================ */
 
 [data-theme="dark"] {
-  --primary: #5b7cfa;
-  --primary-dark: #4a6be8;
-  --primary-light: rgba(91, 124, 250, 0.15);
+  --primary: #42A5F5;
+  --primary-dark: #1E88E5;
+  --primary-light: rgba(66, 165, 245, 0.15);
+  --primary-2: #90CAF9;
+  --primary-rgb: 66, 165, 245;
   --secondary: #9ca3af;
   --success: #34d399;
   --success-light: rgba(52, 211, 153, 0.15);
@@ -716,4 +721,24 @@ body {
     min-height: 42px;
     justify-content: center;
   }
+}
+
+/* ============================================
+   ✅ PALETTE PAR ESPACE (attribut data-espace sur <html>)
+   Atelier = bleu (valeurs de :root) · Commerce = vert
+   principale #00897B · secondaire #26A69A · hover #00695C · fond léger #E0F2F1
+   ============================================ */
+html[data-espace="commerce"] {
+  --primary: #00897B;
+  --primary-dark: #00695C;
+  --primary-light: #E0F2F1;
+  --primary-2: #26A69A;
+  --primary-rgb: 0, 137, 123;
+}
+html[data-theme="dark"][data-espace="commerce"] {
+  --primary: #26A69A;
+  --primary-dark: #00897B;
+  --primary-light: rgba(38, 166, 154, 0.15);
+  --primary-2: #80CBC4;
+  --primary-rgb: 38, 166, 154;
 }

@@ -544,7 +544,7 @@ const ClientsList = () => {
       {/* ==================== STATS ==================== */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Total clients', value: stats.totalClients, icon: <FaUsers />, color: '#4361ee', bg: 'rgba(67, 97, 238, 0.1)' },
+          { label: 'Total clients', value: stats.totalClients, icon: <FaUsers />, color: 'var(--primary)', bg: 'rgba(var(--primary-rgb), 0.1)' },
           { label: 'Actifs (page)', value: stats.activeClients, icon: <FaUserCheck />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
           { label: 'Impayés (page)', value: stats.unpaidClients, icon: <FaWallet />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
           { label: 'À recevoir (page)', value: `${stats.totalRestant.toFixed(2)} DT`, icon: <FaMoneyBillWave />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isText: true },

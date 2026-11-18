@@ -16,11 +16,13 @@ export const getDocument = (id) => apiClient.get(`/ventes/${id}`);
 export const createDocument = (data) => apiClient.post("/ventes", data);
 export const updateDocument = (id, data) => apiClient.put(`/ventes/${id}`, data);
 export const deleteDocument = (id) => apiClient.delete(`/ventes/${id}`);
-export const validerDocument = (id) => apiClient.post(`/ventes/${id}/valider`, {}, idem());
+// body (avoir / bon de retour) : { remboursement: { mode } } → l'argent sort tout de suite
+export const validerDocument = (id, body = {}) => apiClient.post(`/ventes/${id}/valider`, body, idem());
 export const statutDevis = (id, statut) => apiClient.post(`/ventes/${id}/statut`, { statut });
 export const annulerDocument = (id, motif) => apiClient.post(`/ventes/${id}/annuler`, { motif }, idem());
 export const transformerDocument = (id, type) => apiClient.post(`/ventes/${id}/transformer`, { type });
-export const creerAvoir = (id) => apiClient.post(`/ventes/${id}/avoir`);
+// nature : "avoir" (argent seul) | "retour" (bon de retour : stock + argent)
+export const creerAvoir = (id, nature = "avoir") => apiClient.post(`/ventes/${id}/avoir`, { nature });
 export const creerDepuis = (data) => apiClient.post("/ventes/depuis", data);
 export const getAFacturer = (client) => apiClient.get("/ventes/a-facturer", { params: { client } });
 export const getDocumentsReparation = (id) => apiClient.get(`/ventes/reparation/${id}`);
@@ -46,13 +48,17 @@ export const getSynthese = (params) => apiClient.get("/reglements/synthese", { p
 
 export const TYPES_DOC = {
   DEVIS: { label: "Devis", pluriel: "Devis", titre: "DEVIS" },
+  BC: { label: "Bon de commande", pluriel: "Bons de commande", titre: "BON DE COMMANDE" },
   BL: { label: "Bon de livraison", pluriel: "Bons de livraison", titre: "BON DE LIVRAISON" },
   FACTURE: { label: "Facture", pluriel: "Factures", titre: "FACTURE" },
   AVOIR: { label: "Avoir", pluriel: "Avoirs", titre: "AVOIR" },
   TICKET: { label: "Ticket", pluriel: "Tickets comptoir", titre: "TICKET DE CAISSE" },
+  RETOUR: { label: "Bon de retour", pluriel: "Bons de retour", titre: "BON DE RETOUR" },
 };
+/** Libellés d'un document (un avoir de nature « retour » = bon de retour). */
+export const typeDocDe = (doc) => (doc?.type === "AVOIR" && doc?.nature === "retour" ? TYPES_DOC.RETOUR : TYPES_DOC[doc?.type]) || { label: doc?.type || "", titre: doc?.type || "" };
 
 export const MODES_REGLEMENT = [
-  ["ESPECES", "Espèces"], ["CHEQUE", "Chèque"], ["VIREMENT", "Virement"], ["CARTE", "Carte / TPE"], ["AUTRE", "Autre"],
+  ["ESPECES", "Espèces"], ["CHEQUE", "Chèque"], ["TRAITE", "Traite"], ["VIREMENT", "Virement"], ["CARTE", "Carte / TPE"], ["AUTRE", "Autre"],
 ];
 export const modeLabel = (m) => (MODES_REGLEMENT.find(([v]) => v === m) || [m, m])[1];

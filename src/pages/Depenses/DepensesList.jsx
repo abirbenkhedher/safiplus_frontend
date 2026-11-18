@@ -272,8 +272,8 @@ const DepensesList = () => {
               subtitle={`${stats.reparation.count} facture${
                 stats.reparation.count > 1 ? "s" : ""
               }`}
-              color="#4361ee"
-              bg="rgba(67, 97, 238, 0.1)"
+              color="var(--primary)"
+              bg="rgba(var(--primary-rgb), 0.1)"
             />
           </div>
           <div className="col-12 col-sm-6 col-lg-4">
@@ -641,7 +641,7 @@ const DepenseDetailsModal = ({ depense, onClose, onEdit }) => {
             alignItems: "center",
             gap: "14px",
             background: isReparation
-              ? "linear-gradient(135deg, rgba(67,97,238,0.08) 0%, rgba(67,97,238,0.02) 100%)"
+              ? "linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--primary-rgb), 0.02) 100%)"
               : "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.02) 100%)",
           }}
         >
@@ -767,6 +767,7 @@ const DepenseDetailsModal = ({ depense, onClose, onEdit }) => {
               {
                 ESPECES: "💵 Espèces",
                 CHEQUE: "📝 Chèque",
+                TRAITE: "📄 Traite",
                 VIREMENT: "🏦 Virement",
                 CARTE: "💳 Carte",
               }[depense.modePaiement] || depense.modePaiement

@@ -80,7 +80,7 @@ const RapportCommercial = () => {
               <div key={j.jour} className="d-flex align-items-center gap-2 mb-1" style={{ fontSize: 13 }}>
                 <span style={{ width: 86 }}>{dateFr(j.jour)}</span>
                 <div style={{ flex: 1, background: "var(--at-head-bg, #f1f5f9)", borderRadius: 4, height: 14 }}>
-                  <div style={{ width: `${Math.round((Math.abs(j.ttc) / maxJour) * 100)}%`, height: "100%", borderRadius: 4, background: j.ttc < 0 ? "#ef4444" : "#4361ee" }} />
+                  <div style={{ width: `${Math.round((Math.abs(j.ttc) / maxJour) * 100)}%`, height: "100%", borderRadius: 4, background: j.ttc < 0 ? "#ef4444" : "var(--primary)" }} />
                 </div>
                 <span className="at-num" style={{ width: 120, textAlign: "right" }}>{tnd(j.ttc)}</span>
                 <span className="at-num at-muted" style={{ width: 140, textAlign: "right" }}>encaissé {tnd(j.encaisse)}</span>

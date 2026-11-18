@@ -2,26 +2,70 @@
 // ✅ Gestion commerciale : calculs (identiques au serveur) et formatage
 // ============================================================
 
-/** Même calcul que le serveur (DocumentVente.calculer), au millime. */
+// ------------------------------------------------------------
+// ✅ Mêmes calculs que le serveur (DocumentVente.calculer), au millime :
+//   1) remise de la ligne (% ou montant) ; 2) remise globale répartie au prorata ;
+//   3) HT / TVA par ligne (base TTC : HT = net / (1+t), TVA = net − HT).
+// ------------------------------------------------------------
+const toM = (v) => Math.round(Number(v || 0) * 1000);
+
+/** Net d'une ligne après SA remise (millimes, base du document). */
+export const netLigneM = (l) => {
+  const brut = Math.round(toM(l.prixUnitaire) * Number(l.quantite || 0));
+  if (l.remiseType === "montant") return Math.max(0, brut - toM(l.remiseMontant));
+  return Math.round(brut * (1 - (Number(l.remisePct) || 0) / 100));
+};
+
+/** Répartit G millimes au prorata (somme exacte, reste aux plus gros montants). */
+export const repartirM = (G, montants) => {
+  const total = montants.reduce((s, m) => s + m, 0);
+  if (!G || total <= 0) return montants.map(() => 0);
+  const parts = montants.map((m) => Math.floor((G * m) / total));
+  let reste = G - parts.reduce((s, p) => s + p, 0);
+  const ordre = montants.map((m, i) => i).sort((a, b) => montants[b] - montants[a]);
+  for (let k = 0; reste > 0; k = (k + 1) % ordre.length) { parts[ordre[k]] += 1; reste -= 1; }
+  return parts;
+};
+
+const htTva = (netM, t, prixSaisis) => {
+  if (prixSaisis === "TTC") { const ht = Math.round(netM / (1 + t / 100)); return { ht, tva: netM - ht }; }
+  return { ht: netM, tva: Math.round((netM * t) / 100) };
+};
+
+/** Une ligne, après sa propre remise (avant remise globale). */
 export const calcLigne = (l, prixSaisis) => {
-  const t = Number(l.tauxTVA) || 0;
-  const r = Number(l.remisePct) || 0;
-  const brut = Math.round(Number(l.prixUnitaire || 0) * 1000 * Number(l.quantite || 0));
-  const net = Math.round(brut * (1 - r / 100));
-  let ht; let tva;
-  if (prixSaisis === "TTC") { ht = Math.round(net / (1 + t / 100)); tva = net - ht; }
-  else { ht = net; tva = Math.round((ht * t) / 100); }
+  const { ht, tva } = htTva(netLigneM(l), Number(l.tauxTVA) || 0, prixSaisis);
   return { ht: ht / 1000, tva: tva / 1000, ttc: (ht + tva) / 1000 };
 };
 
-export const calcTotaux = (lignes, prixSaisis, timbre = 0) => {
+/**
+ * Totaux du document. remise = { type: "pct" | "montant", valeur }.
+ * Renvoie aussi avantRemise (Σ nets) et remise (montant de la remise globale), base du document.
+ */
+export const calcTotaux = (lignes, prixSaisis, timbre = 0, remise = null) => {
+  const ls = lignes || [];
+  const nets = ls.map(netLigneM);
+  const somme = nets.reduce((s, n) => s + n, 0);
+  const v = Number(remise?.valeur) || 0;
+  const G = remise?.type === "montant" ? Math.min(toM(v), somme) : Math.round((somme * Math.min(100, v)) / 100);
+  const parts = repartirM(G, nets);
   let ht = 0; let tva = 0;
-  (lignes || []).forEach((l) => {
-    const c = calcLigne(l, prixSaisis);
-    ht += Math.round(c.ht * 1000); tva += Math.round(c.tva * 1000);
+  ls.forEach((l, i) => {
+    const x = htTva(nets[i] - parts[i], Number(l.tauxTVA) || 0, prixSaisis);
+    ht += x.ht; tva += x.tva;
   });
-  const t = Math.round(Number(timbre || 0) * 1000);
-  return { ht: ht / 1000, tva: tva / 1000, ttc: (ht + tva) / 1000, net: (ht + tva + t) / 1000 };
+  const t = toM(timbre);
+  return {
+    ht: ht / 1000, tva: tva / 1000, ttc: (ht + tva) / 1000, net: (ht + tva + t) / 1000,
+    avantRemise: somme / 1000, remise: G / 1000,
+  };
+};
+
+/** Libellé de la remise d'une ligne (« 10 % » ou « 5,000 DT »). */
+export const remiseLabel = (l) => {
+  if (l.remiseType === "montant") return Number(l.remiseMontant) ? `${Number(l.remiseMontant).toFixed(3)} DT` : "";
+  const p = Number(l.remisePct) || 0;
+  return p ? `${Math.round(p * 100) / 100} %` : "";
 };
 
 export const clientLabel = (c) => (c ? [c.code, c.nom, c.phone].filter(Boolean).join(" · ") : "");

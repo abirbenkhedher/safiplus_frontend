@@ -1,7 +1,7 @@
 :root {
   --sidebar-width: 260px;
   --header-height: 60px;
-  --primary-color: #0d6efd;
+  --primary-color: var(--primary);
   --success-color: #198754;
   --warning-color: #ffc107;
   --danger-color: #dc3545;

@@ -8,6 +8,7 @@ const CATEGORIES_DIVERSE = ["Transport", "Nettoyage", "Fourniture", "Loyer", "Sa
 const MODES_PAIEMENT = [
   { value: "ESPECES", label: "Espèces" },
   { value: "CHEQUE", label: "Chèque" },
+  { value: "TRAITE", label: "Traite" },
   { value: "VIREMENT", label: "Virement" },
   { value: "CARTE", label: "Carte" },
 ];

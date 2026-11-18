@@ -43,3 +43,5 @@ export const getMouvements = (id) =>
 // ✅ Suppression
 // ============================================================
 export const deleteStock = (id) => apiClient.delete(`/stock/${id}`);
+// ✅ Entrée en stock d'un produit existant : { quantite, coutUnitaireHT, motif } → CMUP recalculé
+export const entreeStock = (id, data) => apiClient.post(`/stock/${id}/entree`, data);

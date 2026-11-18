@@ -10,10 +10,11 @@ import { getClient } from '../../api/clients';
 import ReparationModal from '../../components/reparations/ReparationModal';
 
 const TYPES_VENTE = {
-  FACTURE: { label: 'Facture', color: '#4361ee' },
+  FACTURE: { label: 'Facture', color: 'var(--primary)' },
   TICKET: { label: 'Ticket comptoir', color: '#10b981' },
   BL: { label: 'Bon de livraison', color: '#f59e0b' },
   AVOIR: { label: 'Avoir', color: '#ef4444' },
+  RETOUR: { label: 'Bon de retour', color: '#8b5cf6' },
 };
 
 const ClientDetail = () => {
@@ -55,7 +56,7 @@ const ClientDetail = () => {
 
   const getAvatarColor = (name) => {
     const colors = [
-      'linear-gradient(135deg, #4361ee, #3a52c9)',
+      'linear-gradient(135deg, var(--primary), var(--primary-dark))',
       'linear-gradient(135deg, #10b981, #059669)',
       'linear-gradient(135deg, #f59e0b, #d97706)',
       'linear-gradient(135deg, #8b5cf6, #7c3aed)',
@@ -124,7 +125,7 @@ const ClientDetail = () => {
                   background: getAvatarColor(client.nom),
                   color: 'white', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontSize: '32px', fontWeight: '800',
-                  boxShadow: '0 8px 24px rgba(67, 97, 238, 0.3)',
+                  boxShadow: '0 8px 24px rgba(var(--primary-rgb), 0.3)',
                   flexShrink: 0,
                 }}>
                   {client.nom?.charAt(0).toUpperCase()}
@@ -226,16 +227,16 @@ const ClientDetail = () => {
                     color: 'white', borderRadius: '10px',
                     textDecoration: 'none', fontSize: '13px', fontWeight: '600',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    gap: '8px', boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)',
+                    gap: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)',
                     transition: 'all 150ms ease',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(67, 97, 238, 0.4)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(var(--primary-rgb), 0.4)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(67, 97, 238, 0.3)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(var(--primary-rgb), 0.3)';
                   }}
                 >
                   <FaPhone size={13} /> Appeler
@@ -683,12 +684,12 @@ const ClientDetail = () => {
                     const type = TYPES_VENTE[vente.type] || { label: vente.type, color: 'var(--gray-500)' };
                     const articles = vente.articles || [];
                     const p = vente.paiement;
-                    const isAvoir = vente.type === 'AVOIR';
+                    const isAvoir = ['AVOIR', 'RETOUR'].includes(vente.type);
                     const PILL = {
                       paye: { bg: 'rgba(16, 185, 129, 0.15)', color: '#059669', label: '✓ Payé' },
                       partiel: { bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', label: `◐ Reste ${(p?.reste || 0).toFixed(3)}` },
                       non_paye: { bg: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', label: '⚠ Non payé' },
-                      facture: { bg: 'rgba(67, 97, 238, 0.15)', color: '#3a52c9', label: '✓ Facturé' },
+                      facture: { bg: 'rgba(var(--primary-rgb), 0.15)', color: 'var(--primary-dark)', label: '✓ Facturé' },
                       non_facture: { bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', label: '⚠ Non facturé' },
                     };
                     const pill = vente.type === 'BL'
@@ -705,7 +706,7 @@ const ClientDetail = () => {
                           transition: 'background 150ms ease',
                           background: rowBg,
                         }}
-                        onClick={() => navigate(`/ventes?type=${vente.type}&doc=${vente._id}`)}
+                        onClick={() => navigate(`/ventes?type=${vente.type === 'RETOUR' ? 'AVOIR' : vente.type}&doc=${vente._id}`)}
                         onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-light)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = rowBg}
                       >

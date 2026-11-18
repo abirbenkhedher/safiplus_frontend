@@ -13,7 +13,8 @@ export const normalizeStatusLabel = (label) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const STATUTS_CLOTURE = ["REPARE", "SAV REPARE", "SORTIE REPARE", "SAV SORTIE REPARE"];
+// Seul « Sortie réparé(e) » clôture (un simple « Réparé » ne clôture jamais).
+const STATUTS_CLOTURE = ["SORTIE REPARE", "SAV SORTIE REPARE"];
 
 /** Statut qui clôture la réparation quand le reste à payer est 0. */
 export const isStatutCloture = (label) => {

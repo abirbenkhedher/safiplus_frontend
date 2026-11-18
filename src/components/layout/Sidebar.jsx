@@ -302,9 +302,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
 
       <style>{`
         .sidebar {
-          --accent: #4361ee;
-          --accent-2: #3a52c9;
-          --accent-soft: rgba(67, 97, 238, 0.16);
+          --accent: #1565C0;
+          --accent-2: #0D47A1;
+          --accent-soft: rgba(66, 165, 245, 0.18);
           --sb-text: #cbd5e1;
           --sb-muted: #7c8aa0;
           --sb-line: rgba(255, 255, 255, 0.07);
@@ -324,9 +324,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
         }
         /* ✅ Couleur d'accent de l'espace Commerce (contraste texte blanc ≥ 4.5) */
         .sidebar[data-espace="commerce"] {
-          --accent: #c2410c;
-          --accent-2: #9a3412;
-          --accent-soft: rgba(234, 88, 12, 0.18);
+          --accent: #00897B;
+          --accent-2: #00695C;
+          --accent-soft: rgba(38, 166, 154, 0.2);
         }
         .sidebar.collapsed { width: var(--sidebar-collapsed-width); }
 

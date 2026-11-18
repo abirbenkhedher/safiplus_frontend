@@ -214,8 +214,8 @@ const FamillesCRUD = () => {
         {showModal && (
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content" style={{ border: 'none', borderRadius: '16px', overflow: 'hidden' }}>
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--gray-200)', background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)', flexShrink: 0 }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--gray-200)', background: 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.02) 100%)', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)', flexShrink: 0 }}>
                   <FaTags />
                 </div>
                 <div style={{ flex: 1 }}>

@@ -5,6 +5,7 @@ import { createTypeArticle } from "../../api/typeArticles";
 import { getParametresAtelier } from "../../api/atelier";
 import { FormModal, Field, Alert } from "../../components/atelier/ui";
 import { tnd, errMsg } from "../../utils/atelier";
+import TvaInput, { versTTC, versHT } from "../../components/common/TvaInput";
 
 // ============================================================
 // ✅ Fiche « produit de vente » (espace Commerce)
@@ -38,6 +39,8 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
     usage: stock?.usage === "mixte" ? "mixte" : "vente",
     tauxTVA: stock?.tauxTVA ?? "",
     prixAchat: "",
+    prixAchatTTC: "",
+    prixReparation: stock?.prixIndicatif ?? "",
     puHT: "",
     puTTC: "",
     quantite: 0,
@@ -50,10 +53,11 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
     getParametresAtelier().then((r) => {
       const p = r.data.data;
       setParams(p);
-      // Prix existant : converti dans les deux bases
+      if (!stock) setF((x) => (x.tauxTVA === "" ? { ...x, tauxTVA: String(p.tauxTVA ?? 19) } : x));
+      // Prix de vente existant (anciens articles : prix unique) : converti dans les deux bases
       if (stock) {
         const t = Number(stock.tauxTVA ?? p.tauxTVA ?? 0);
-        const prix = Number(stock.prixIndicatif || 0);
+        const prix = Number(stock.prixVente ?? stock.prixIndicatif ?? 0);
         setF((x) => (p.prixTTC === false
           ? { ...x, puHT: prix, puTTC: r3(prix * (1 + t / 100)) }
           : { ...x, puTTC: prix, puHT: r3(prix / (1 + t / 100)) }));
@@ -66,8 +70,12 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
   const setTTC = (v) => setF((x) => ({ ...x, puTTC: v, puHT: v === "" ? "" : r3(Number(v) / (1 + tva / 100)) }));
   const setTVA = (v) => setF((x) => {
     const t = v === "" ? Number(params?.tauxTVA ?? 19) : Number(v);
-    return { ...x, tauxTVA: v, puTTC: x.puHT === "" ? x.puTTC : r3(Number(x.puHT) * (1 + t / 100)) };
+    return { ...x, tauxTVA: v, puTTC: x.puHT === "" ? x.puTTC : r3(Number(x.puHT) * (1 + t / 100)), prixAchatTTC: versTTC(x.prixAchat, t) };
   });
+  const setAchatHT = (v) => setF((x) => ({ ...x, prixAchat: v, prixAchatTTC: versTTC(v, tva) }));
+  const setAchatTTC = (v) => setF((x) => ({ ...x, prixAchatTTC: v, prixAchat: versHT(v, tva) }));
+  const tvaFigee = !!stock?.tvaVerrouillee;
+  const ttcDe = (ht) => (ht === null || ht === undefined ? null : r3(Number(ht) * (1 + tva / 100)));
 
   // Cascade famille → catégories ; objet → marques ; marque → modèles
   const categories = useMemo(() => (f.famille
@@ -105,11 +113,14 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
     if (f.puHT === "" && f.puTTC === "") { setErr("Le prix de vente est obligatoire"); return; }
     setBusy(true); setErr(null);
     try {
-      const prixIndicatif = params?.prixTTC === false ? Number(f.puHT) : Number(f.puTTC);
+      const prixVente = params?.prixTTC === false ? Number(f.puHT) : Number(f.puTTC);
       const commun = {
         code: f.code || null, unite: f.unite || "pièce", usage: f.usage, commissionActive: false,
-        tauxTVA: f.tauxTVA === "" ? null : Number(f.tauxTVA),
-        prixIndicatif, seuilAlerte: Number(f.seuilAlerte) || 0, observation: f.observation,
+        ...(tvaFigee ? {} : { tauxTVA: f.tauxTVA === "" ? null : Number(f.tauxTVA) }),
+        prixVente,
+        // Prix de réparation (indicatif) : seulement pour un produit aussi utilisé en réparation
+        ...(f.usage === "mixte" ? { prixIndicatif: Number(f.prixReparation) || 0 } : {}),
+        seuilAlerte: Number(f.seuilAlerte) || 0, observation: f.observation,
       };
       if (isEdit) {
         await updateStock(stock._id, commun);
@@ -186,20 +197,25 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
       <div className="row g-3 mb-2">
         {isEdit ? (
           <>
-            <Field label="Coût moyen (CMP) HT" col="col-6 col-md-4" hint="Mis à jour par les factures d'achat validées">
-              <input className="form-control-modern" disabled value={stock.cmp !== null && stock.cmp !== undefined ? tnd(stock.cmp) : "non valorisé"} />
+            <Field label="CMP HT / TTC" col="col-6 col-md-4" hint="Mis à jour par les entrées en stock et factures d'achat">
+              <input className="form-control-modern" disabled value={stock.cmp !== null && stock.cmp !== undefined ? `${tnd(stock.cmp)} / ${tnd(ttcDe(stock.cmp))}` : "non valorisé"} />
             </Field>
-            <Field label="Dernier prix d'achat HT" col="col-6 col-md-4">
-              <input className="form-control-modern" disabled value={stock.dernierCoutAchat !== null && stock.dernierCoutAchat !== undefined ? tnd(stock.dernierCoutAchat) : "—"} />
+            <Field label="Dernier achat HT / TTC" col="col-6 col-md-4">
+              <input className="form-control-modern" disabled value={stock.dernierCoutAchat !== null && stock.dernierCoutAchat !== undefined ? `${tnd(stock.dernierCoutAchat)} / ${tnd(ttcDe(stock.dernierCoutAchat))}` : "—"} />
             </Field>
           </>
         ) : (
-          <Field label="Prix d'achat HT" col="col-6 col-md-4" hint="Coût initial (CMP). Ensuite : factures d'achat.">
-            <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixAchat} onChange={(e) => set("prixAchat", e.target.value)} />
-          </Field>
+          <>
+            <Field label="Prix d'achat HT" col="col-6 col-md-4" hint="Coût initial (CMP). Ensuite : entrées en stock / factures d'achat.">
+              <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixAchat} onChange={(e) => setAchatHT(e.target.value)} />
+            </Field>
+            <Field label="Prix d'achat TTC" col="col-6 col-md-4">
+              <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixAchatTTC} onChange={(e) => setAchatTTC(e.target.value)} />
+            </Field>
+          </>
         )}
-        <Field label="TVA %" col="col-6 col-md-4" hint={`Vide = taux de la boutique (${params?.tauxTVA ?? 19} %)`}>
-          <input type="number" min="0" max="100" step="0.01" className="form-control-modern" placeholder={String(params?.tauxTVA ?? 19)} value={f.tauxTVA} onChange={(e) => setTVA(e.target.value)} />
+        <Field label="TVA %" col="col-6 col-md-4" hint={tvaFigee ? "Figée : le produit a déjà eu des mouvements" : `Flèches : ${(params?.tauxTVAAutorises || [7, 19]).join(" % ↔ ")} %, ou saisie libre`}>
+          <TvaInput value={f.tauxTVA} onChange={setTVA} taux={params?.tauxTVAAutorises} locked={tvaFigee} />
         </Field>
       </div>
       <div className="row g-3 mb-2">
@@ -209,6 +225,11 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
         <Field label="Prix de vente TTC *" col="col-6 col-md-4">
           <input type="number" min="0" step="0.001" className="form-control-modern" value={f.puTTC} onChange={(e) => setTTC(e.target.value)} />
         </Field>
+        {f.usage === "mixte" && (
+          <Field label="Prix de réparation (indicatif) TTC" col="col-6 col-md-4" hint="Indicatif uniquement : la commission utilise le prix du dossier de réparation">
+            <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixReparation} onChange={(e) => set("prixReparation", e.target.value)} />
+          </Field>
+        )}
         <div className="col-12 col-md-4">
           <div className="at-stat-label">Marge unitaire HT</div>
           <div className="at-stat-value" style={{ color: marge !== null && marge < 0 ? "#ef4444" : undefined }}>{marge !== null ? tnd(marge) : "—"}</div>

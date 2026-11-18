@@ -6,6 +6,7 @@ import {
   getPaiementsReparateurs, createPaiementReparateur, annulerPaiementReparateur,
 } from "../../api/atelier";
 import { getCategories } from "../../api/categories";
+import { getFamilles } from "../../api/familles";
 import { getTypeArticles } from "../../api/typeArticles";
 import { getPannes } from "../../api/pannes";
 import { useAuth } from "../../context/AuthContext";
@@ -20,7 +21,9 @@ const TABS = [
   ["contrats", "Contrats"], ["ecritures", "Primes / ajustements"], ["paiements", "Avances & paiements"],
 ];
 const CALC = { pourcentage: "Pourcentage", fixe_unite: "Montant fixe / unité", forfait_intervention: "Forfait par intervention", palier: "Barème (paliers)" };
-const BASES = { prix_vente: "Prix de vente (HT)", main_oeuvre: "Main-d'œuvre", marge: "Marge", cout_achat: "Coût d'achat" };
+const BASES = { prix_vente: "Prix du dossier (HT)", main_oeuvre: "Main-d'œuvre", marge: "Marge", cout_achat: "Coût d'achat", benefice_net: "Bénéfice net (TTC, mensuel)" };
+// ✅ Cibles possibles d'une règle « bénéfice net »
+const CIBLES_BENEFICE = ["", "famille", "categorie"];
 const MODES = { salaire: "Salaire fixe", commission: "Commission", mixte: "Mixte (salaire + commission)" };
 
 // ✅ Aide de la cible d'une règle (du plus large au plus précis)
@@ -30,6 +33,7 @@ const CIBLE_AIDE = {
   article: "Une seule référence du stock (ex. l'afficheur Samsung A12) : plus précis que le type d'article.",
   categorie: "Les pièces de la catégorie d'appareil choisie (ex. Smartphone).",
   panne: "Commission sur l'intervention elle-même (main-d'œuvre), pas sur les pièces.",
+  famille: "Toutes les réparations d'une famille (ex. Informatique) : % du bénéfice net du mois.",
 };
 
 const Remuneration = () => {
@@ -45,7 +49,7 @@ const Remuneration = () => {
   };
   const reparateurs = useReparateurs();
   const articles = useArticles();
-  const [refs, setRefs] = useState({ categories: [], types: [], pannes: [] });
+  const [refs, setRefs] = useState({ categories: [], types: [], pannes: [], familles: [] });
   const [tab, setTab] = useState("soldes");
   const [range, setRange] = usePeriode();
   const [rep, setRep] = useState("");
@@ -60,12 +64,12 @@ const Remuneration = () => {
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
-    Promise.all([getCategories().catch(() => null), getTypeArticles().catch(() => null), getPannes().catch(() => null)]).then(([c, t, p]) => {
+    Promise.all([getCategories().catch(() => null), getTypeArticles().catch(() => null), getPannes().catch(() => null), getFamilles().catch(() => null)]).then(([c, t, p, fa]) => {
       const pick = (r) => r?.data?.data || r?.data || r || [];
       const arr = (r) => (Array.isArray(pick(r)) ? pick(r) : []);
       // ✅ Pannes : noms uniques (une même panne peut exister dans plusieurs catégories)
       const noms = [...new Set(arr(p).map((x) => (x.nom || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-      setRefs({ categories: arr(c), types: arr(t), pannes: noms });
+      setRefs({ categories: arr(c), types: arr(t), pannes: noms, familles: arr(fa) });
     });
   }, []);
 
@@ -91,6 +95,7 @@ const Remuneration = () => {
   const reglesCible = (r) => {
     if (r.article) return `Article ${[r.article.code, r.article.typeArticle?.nom, r.article.marque?.nom, r.article.modele?.nom].filter(Boolean).join(" ")}`;
     if (r.categorie) return `Catégorie ${r.categorie.nom}`;
+    if (r.famille) return `Famille ${r.famille.nom}`;
     if (r.typeArticle) return `Type ${r.typeArticle.nom}`;
     if (r.panne) return `Intervention « ${r.panne} »`;
     return "Générale";
@@ -105,7 +110,8 @@ const Remuneration = () => {
   const saveRegle = () => {
     const f = { ...modal.data };
     const cible = f.cible;
-    for (const k of ["article", "categorie", "typeArticle", "panne"]) if (k !== cible) f[k] = null;
+    for (const k of ["article", "categorie", "typeArticle", "panne", "famille"]) if (k !== cible) f[k] = null;
+    if (f.base === "benefice_net") f.typeCalcul = "pourcentage";
     if (f.typeCalcul === "palier") f.paliers = (f.paliersTxt || "").split(";").map((s) => s.trim()).filter(Boolean).map((s) => {
       const [plage, val] = s.split(":").map((x) => x.trim());
       const [de, a] = plage.split("-").map((x) => x.trim());
@@ -131,8 +137,15 @@ const Remuneration = () => {
           </select>
         </Field>
         <Field label="Cible" col="col-12 col-md-6" hint={CIBLE_AIDE[f.cible || ""]}>
-          <select className="form-control-modern" value={f.cible} disabled={!!f._id} onChange={(e) => setModal({ ...modal, data: { ...f, cible: e.target.value, base: ["", "panne"].includes(e.target.value) || f.base !== "main_oeuvre" ? f.base : "prix_vente" } })}>
+          <select className="form-control-modern" value={f.cible} disabled={!!f._id} onChange={(e) => {
+            const c = e.target.value;
+            let base = ["", "panne"].includes(c) || f.base !== "main_oeuvre" ? f.base : "prix_vente";
+            if (c === "famille") base = "benefice_net";
+            else if (base === "benefice_net" && !CIBLES_BENEFICE.includes(c)) base = "prix_vente";
+            setModal({ ...modal, data: { ...f, cible: c, base, typeCalcul: base === "benefice_net" ? "pourcentage" : f.typeCalcul } });
+          }}>
             <option value="">Règle générale (toutes les pièces)</option>
+            <option value="famille">Famille (ex. Informatique) — bénéfice net</option>
             <option value="typeArticle">Type d'article (ex. tous les afficheurs)</option>
             <option value="article">Article précis du stock (ex. afficheur Samsung A12)</option>
             <option value="categorie">Catégorie d'appareil (ex. Smartphone)</option>
@@ -143,6 +156,11 @@ const Remuneration = () => {
         {f.cible === "categorie" && (
           <Field label="Catégorie"><select required className="form-control-modern" value={f.categorie || ""} onChange={(e) => set("categorie", e.target.value)}>
             <option value="">—</option>{refs.categories.map((c) => <option key={c._id} value={c._id}>{c.nom}</option>)}
+          </select></Field>
+        )}
+        {f.cible === "famille" && (
+          <Field label="Famille"><select required className="form-control-modern" value={f.famille || ""} onChange={(e) => set("famille", e.target.value)}>
+            <option value="">—</option>{refs.familles.map((c) => <option key={c._id} value={c._id}>{c.nom}</option>)}
           </select></Field>
         )}
         {f.cible === "typeArticle" && (
@@ -161,23 +179,33 @@ const Remuneration = () => {
           </Field>
         )}
         <Field label="Calcul" col="col-12 col-md-6">
-          <select className="form-control-modern" value={f.typeCalcul} onChange={(e) => set("typeCalcul", e.target.value)}>
+          <select className="form-control-modern" value={f.typeCalcul} disabled={f.base === "benefice_net"} onChange={(e) => set("typeCalcul", e.target.value)}>
             {Object.entries(CALC).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </Field>
         {["pourcentage", "palier"].includes(f.typeCalcul) && (
           <Field label="Base de calcul" col="col-12 col-md-6">
-            <select className="form-control-modern" value={f.base} onChange={(e) => set("base", e.target.value)}>
+            <select className="form-control-modern" value={f.base} onChange={(e) => setModal({ ...modal, data: { ...f, base: e.target.value, typeCalcul: e.target.value === "benefice_net" ? "pourcentage" : f.typeCalcul } })}>
               {Object.entries(BASES)
                 // ✅ La main-d'œuvre se calcule sur la réparation : pas sur un article / catégorie / type
                 .filter(([k]) => k !== "main_oeuvre" || ["", "panne"].includes(f.cible || ""))
+                // ✅ Bénéfice net : générale, famille ou catégorie ; une famille n'a que cette base
+                .filter(([k]) => (k === "benefice_net" ? CIBLES_BENEFICE.includes(f.cible || "") : f.cible !== "famille"))
                 .map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </Field>
         )}
         {["pourcentage", "palier"].includes(f.typeCalcul) && f.base === "main_oeuvre" && (
           <div className="col-12"><div className="at-alert at-alert-info mb-0">
-            Main-d'œuvre = prix de la réparation HT − prix de vente HT des pièces consommées. Calculée une fois par réparation{f.cible === "panne" ? " ayant cette panne" : ""}.
+            Main-d'œuvre = prix du dossier de réparation HT − coût d'achat HT des pièces consommées (le prix de réparation des articles est indicatif). Calculée une fois par réparation{f.cible === "panne" ? " ayant cette panne" : ""}.
+          </div></div>
+        )}
+        {f.base === "benefice_net" && (
+          <div className="col-12"><div className="at-alert at-alert-info mb-0">
+            <b>Bénéfice net du mois (TTC)</b> = Σ (prix du dossier − coût d'achat des pièces) des réparations clôturées du réparateur
+            {f.cible === "famille" ? " dans cette famille" : f.cible === "categorie" ? " dans cette catégorie" : ""}
+            {" "}− sa part des dépenses imputées à la famille (au prorata de sa marge ; hors factures d'achat de stock).
+            Commission = taux × bénéfice (0 si négatif). Calculée avec « Calculer » ou à la clôture du mois.
           </div></div>
         )}
         {f.typeCalcul === "pourcentage" && <Field label="Taux (%)" col="col-6"><input type="number" step="0.01" min="0" max="100" required className="form-control-modern" value={f.taux} onChange={(e) => set("taux", e.target.value)} /></Field>}
@@ -246,12 +274,12 @@ const Remuneration = () => {
   };
 
   // ---------------- Tableaux ----------------
-  const SOURCES = { PIECE_REPARATION: "Pièce", INTERVENTION: "Intervention", AJUSTEMENT: "Ajustement" };
+  const SOURCES = { PIECE_REPARATION: "Pièce", INTERVENTION: "Intervention", AJUSTEMENT: "Ajustement", BENEFICE_NET: "Bénéfice net" };
   const editRegle = (r) => setModal({
     type: "regle",
     data: {
-      ...r, reparateur: r.reparateur?._id || "", boutiqueCible: r.boutiqueCible?._id || r.boutiqueCible || "", article: r.article?._id, categorie: r.categorie?._id, typeArticle: r.typeArticle?._id,
-      cible: r.article ? "article" : r.categorie ? "categorie" : r.typeArticle ? "typeArticle" : r.panne ? "panne" : "",
+      ...r, reparateur: r.reparateur?._id || "", boutiqueCible: r.boutiqueCible?._id || r.boutiqueCible || "", article: r.article?._id, categorie: r.categorie?._id, typeArticle: r.typeArticle?._id, famille: r.famille?._id,
+      cible: r.article ? "article" : r.categorie ? "categorie" : r.famille ? "famille" : r.typeArticle ? "typeArticle" : r.panne ? "panne" : "",
       validFrom: isoDay(), validTo: r.validTo ? isoDay(new Date(r.validTo)) : "",
       paliersTxt: (r.paliers || []).map((p) => `${p.de}-${p.a ?? ""}: ${p.montant != null ? p.montant : `${p.taux}%`}`).join(" ; "),
     },
@@ -279,8 +307,13 @@ const Remuneration = () => {
       { label: "Réparateur", render: (r) => <b>{userName(r.reparateur)}</b> },
       { label: "Source", render: (r) => (
         <div>
-          <div>{SOURCES[r.sourceType] || r.sourceType} {r.reparation && <b>{r.reparation.numero}</b>}</div>
+          <div>{SOURCES[r.sourceType] || r.sourceType} {r.reparation && <b>{r.reparation.numero}</b>}{r.details?.periode && <b> {r.details.periode}</b>}</div>
           {r.panne && <div className="at-muted">{r.panne}</div>}
+          {r.sourceType === "BENEFICE_NET" && r.details && (
+            <div className="at-muted" style={{ fontSize: 12 }} title={(r.details.reparations || []).join(", ")}>
+              Marge {tnd(r.details.marge)} − dépenses {tnd(r.details.depenses)} = <b>{tnd(r.details.benefice)}</b> TTC · {r.details.nbReparations} réparation(s)
+            </div>
+          )}
         </div>
       ) },
       { label: "Règle appliquée", render: (r) => (

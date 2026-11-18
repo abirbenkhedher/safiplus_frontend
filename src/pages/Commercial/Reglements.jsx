@@ -18,7 +18,7 @@ import DocumentView from "../../components/commercial/DocumentView";
 // ============================================================
 // ✅ Règlements clients : journal, chèques, créances, relevé
 // ============================================================
-const ONGLETS = [["journal", "Encaissements"], ["cheques", "Chèques en portefeuille"], ["creances", "Créances clients"], ["releve", "Relevé client"]];
+const ONGLETS = [["journal", "Encaissements"], ["cheques", "Chèques & traites en portefeuille"], ["creances", "Créances clients"], ["releve", "Relevé client"]];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const imprimerReleve = (r) => {
@@ -55,7 +55,7 @@ const Reglements = () => {
   const [params, setParams] = useState(null);
 
   const loadJournal = () => getJournal({ from: range.from, to: range.to }).then((r) => setJournal(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
-  const loadCheques = () => getReglements({ mode: "CHEQUE", statut: "valide", etatCheque: "en_portefeuille" }).then((r) => setCheques(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
+  const loadCheques = () => getReglements({ mode: "CHEQUE,TRAITE", statut: "valide", etatCheque: "en_portefeuille" }).then((r) => setCheques(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
   const loadCreances = () => getCreances().then((r) => setCreances(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
   const loadReleve = () => {
     if (!client?.id) return;
@@ -129,20 +129,20 @@ const Reglements = () => {
       )}
 
       {tab === "cheques" && (
-        <Table rows={cheques} empty="Aucun chèque en portefeuille" cols={[
+        <Table rows={cheques} empty="Aucun chèque ni traite en portefeuille" cols={[
           { label: "N°", render: (r) => <b>{r.numero}</b> },
           { label: "Reçu le", render: (r) => dateFr(r.date) },
           { label: "Échéance", render: (r) => dateFr(r.dateEcheance) },
           { label: "Client", render: (r) => r.client?.nom },
-          { label: "Chèque", render: (r) => [r.reference, r.banque].filter(Boolean).join(" · ") || "—" },
+          { label: "Effet", render: (r) => <span><b>{r.mode === "TRAITE" ? "Traite" : "Chèque"}</b> {[r.reference, r.banque].filter(Boolean).join(" · ")}</span> },
           { label: "Montant", right: true, render: (r) => <b>{tnd(r.montant)}</b> },
           {
             label: "", render: (r) => canPay && (
               <div className="at-actions">
-                <IconBtn title="Encaissé (banque)" tone="success" onClick={() => act(() => etatCheque(r._id, "encaisse"), "Chèque encaissé")}><FaCheck /></IconBtn>
+                <IconBtn title="Encaissé (banque)" tone="success" onClick={() => act(() => etatCheque(r._id, "encaisse"), r.mode === "TRAITE" ? "Traite encaissée" : "Chèque encaissé")}><FaCheck /></IconBtn>
                 <IconBtn title="Impayé (rejeté)" tone="danger" onClick={async () => {
-                  if (await confirmer({ title: "Chèque impayé", message: `Le règlement ${r.numero} sera annulé et les factures redeviendront à payer.`, confirmText: "Confirmer" })) {
-                    act(() => etatCheque(r._id, "impaye"), "Chèque impayé : règlement annulé");
+                  if (await confirmer({ title: r.mode === "TRAITE" ? "Traite impayée" : "Chèque impayé", message: `Le règlement ${r.numero} sera annulé et les factures redeviendront à payer.`, confirmText: "Confirmer" })) {
+                    act(() => etatCheque(r._id, "impaye"), `${r.mode === "TRAITE" ? "Traite impayée" : "Chèque impayé"} : règlement annulé`);
                   }
                 }}><FaTimes /></IconBtn>
               </div>

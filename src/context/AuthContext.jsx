@@ -148,6 +148,10 @@ export const AuthProvider = ({ children }) => {
   const atelierDispo = hasAnyPermission(PERMS_ATELIER);
   const espaceMemorise = useEspaceMemorise();
   const espaceActif = !commerceDispo ? 'atelier' : !atelierDispo ? 'commerce' : espaceMemorise;
+  // ✅ Palette de l'espace (bleu Atelier / vert Commerce) appliquée à toute l'application
+  useEffect(() => {
+    document.documentElement.setAttribute('data-espace', user ? espaceActif : 'atelier');
+  }, [espaceActif, user]);
 
   // ============================================================
   // ✅ MULTI-TENANT : boutiques

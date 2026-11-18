@@ -50,8 +50,8 @@ const StatsCards = ({ stats, userRole }) => {
       title: "Total réparations",
       value: stats.totalReparations || 0,
       icon: <FaTools />,
-      color: "#4361ee",
-      bg: "rgba(67, 97, 238, 0.1)",
+      color: "var(--primary)",
+      bg: "rgba(var(--primary-rgb), 0.1)",
       subtitle: `${stats.reparationsMois || 0} ce mois`,
     },
     {

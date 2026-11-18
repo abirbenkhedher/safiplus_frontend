@@ -16,6 +16,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import MultiSelect from "../../components/common/MultiSelect";
 import StockForm from "./StockForm";
 import ProduitForm from "./ProduitForm";
+import EntreeStockModal from "./EntreeStockModal";
 import StockHistory from "./StockHistory";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import { informer } from "../../utils/dialog";
@@ -60,6 +61,7 @@ const StockList = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [entreePour, setEntreePour] = useState(null); // ✅ produit pour la modale d'entrée en stock
   const [formulaireProduit, setFormulaireProduit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [toDelete, setToDelete] = useState(null);
@@ -379,7 +381,7 @@ const StockList = () => {
           const [label, color, bg] = u === "vente"
             ? ["🛒 Vente", "#b45309", "rgba(245,158,11,0.12)"]
             : u === "mixte" ? ["🔁 Les deux", "#047857", "rgba(16,185,129,0.12)"]
-            : ["🔧 Réparation", "#4361ee", "rgba(67,97,238,0.1)"];
+            : ["🔧 Réparation", "var(--primary)", "rgba(var(--primary-rgb), 0.1)"];
           return <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color, background: bg, whiteSpace: "nowrap" }}>{label}</span>;
         },
       },
@@ -406,11 +408,52 @@ const StockList = () => {
         ),
       },
       {
-        name: "Prix vente / réparation",
-        selector: (row) => row.prixIndicatif || 0,
+        // ✅ Prix TTC : vente (comptoir / factures) et réparation (indicatif), séparés
+        name: "Prix TTC",
+        selector: (row) => (row.usage === "reparation" ? Number(row.prixIndicatif) || 0 : Number(row.prixVente ?? row.prixIndicatif) || 0),
         sortable: true,
         right: true,
-        width: "130px",
+        width: "150px",
+        cell: (row) => {
+          const fmt = (v) => new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(Number(v) || 0);
+          const u = row.usage || "reparation";
+          const vente = u !== "reparation" ? Number(row.prixVente ?? row.prixIndicatif) || 0 : null;
+          const rep = u !== "vente" ? Number(row.prixIndicatif) || 0 : null;
+          const ligne = (lib, v, color) => (
+            <div style={{ whiteSpace: "nowrap", lineHeight: 1.35 }} title={lib === "Rép." ? "Prix de réparation indicatif" : "Prix de vente"}>
+              <span style={{ fontSize: "10.5px", color: "var(--gray-500)", marginRight: 4 }}>{lib}</span>
+              {v > 0
+                ? <span style={{ fontSize: "13px", fontWeight: 700, color }}>{fmt(v)} <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--gray-500)" }}>DT</span></span>
+                : <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>}
+            </div>
+          );
+          return (
+            <div style={{ textAlign: "right" }}>
+              {vente !== null && ligne("Vente", vente, "#10b981")}
+              {rep !== null && ligne("Rép.", rep, "var(--gray-700)")}
+            </div>
+          );
+        },
+      },
+      {
+        name: "TVA",
+        selector: (row) => row.tauxTVA ?? -1,
+        sortable: true,
+        center: true,
+        width: "80px",
+        cell: (row) => (row.tauxTVA === null || row.tauxTVA === undefined
+          ? <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
+          : <span title={row.tvaVerrouillee ? "TVA figée (mouvements de stock)" : "TVA du produit"}
+              style={{ display: "inline-block", padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                background: Number(row.tauxTVA) === 7 ? "rgba(var(--primary-rgb), 0.12)" : "rgba(16, 185, 129, 0.12)",
+                color: Number(row.tauxTVA) === 7 ? "var(--primary-dark)" : "#047857" }}>
+              {Number(row.tauxTVA).toLocaleString("fr-FR")} %{row.tvaVerrouillee ? " 🔒" : ""}
+            </span>),
+      },
+      {
+        name: "__ancien_prix__",
+        omit: true,
+        selector: (row) => row.prixIndicatif || 0,
         cell: (row) => {
           const prix = Number(row.prixIndicatif) || 0;
           if (prix <= 0) {
@@ -446,15 +489,23 @@ const StockList = () => {
         },
       },
       {
-        // ✅ Coût moyen d'achat HT (mis à jour par les factures d'achat)
-        name: "Coût (CMP)",
+        // ✅ Coût moyen d'achat : HT (TVA récupérable) et TTC
+        name: "CMP HT / TTC",
         selector: (row) => row.cmp ?? -1,
         sortable: true,
         right: true,
-        width: "115px",
-        cell: (row) => (row.cmp === null || row.cmp === undefined
-          ? <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>
-          : <span style={{ fontSize: "12.5px", color: "var(--gray-600)" }}>{Number(row.cmp).toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>),
+        width: "130px",
+        cell: (row) => {
+          if (row.cmp === null || row.cmp === undefined) return <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>—</span>;
+          const f3 = (v) => Number(v).toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+          const ttc = Number(row.cmp) * (1 + (Number(row.tauxTVA) || 0) / 100);
+          return (
+            <div style={{ textAlign: "right", lineHeight: 1.35 }}>
+              <div style={{ fontSize: "12.5px", color: "var(--gray-700)", fontWeight: 600 }}>{f3(row.cmp)} <span style={{ fontSize: 10, color: "var(--gray-500)" }}>HT</span></div>
+              <div style={{ fontSize: "11.5px", color: "var(--gray-500)" }}>{f3(ttc)} TTC</div>
+            </div>
+          );
+        },
       },
       {
         name: "Stock",
@@ -530,10 +581,10 @@ const StockList = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleIncrement(row._id, 1);
+                  setEntreePour(row); // ✅ « + » = entrée en stock (prix d'achat, CMUP)
                 }}
                 disabled={!canWrite || isBusy}
-                title="Ajouter 1"
+                title="Entrée en stock (quantité + prix d'achat)"
                 style={{ ...btnIncrSmall, color: "var(--success)" }}
               >
                 <FaPlusCircle />
@@ -641,8 +692,8 @@ const StockList = () => {
               icon={<FaBoxes />}
               label="Lignes"
               value={stats.total}
-              color="#4361ee"
-              bg="rgba(67,97,238,0.1)"
+              color="var(--primary)"
+              bg="rgba(var(--primary-rgb), 0.1)"
             />
           </div>
           <div className="col-12 col-sm-6 col-lg-4">
@@ -833,6 +884,13 @@ const StockList = () => {
       </div>
 
       {/* MODALES */}
+      {entreePour && (
+        <EntreeStockModal
+          stock={entreePour}
+          onClose={() => setEntreePour(null)}
+          onSaved={() => { setEntreePour(null); load(); }}
+        />
+      )}
       {/* ✅ Produit de vente → fiche commerciale (prix achat / vente HT-TTC, TVA, marge) */}
       {showForm && formulaireProduit && (
         <ProduitForm

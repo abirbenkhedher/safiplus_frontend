@@ -59,8 +59,8 @@ const EspaceSwitch = ({ compact = false }) => {
         .espace-switch button:hover:not(.active) { color: white; background: rgba(255, 255, 255, 0.06); }
         .espace-switch button:focus-visible { outline: 2px solid white; outline-offset: 1px; }
         .espace-switch button.active { color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
-        .espace-switch button.espace-atelier.active { background: #4361ee; }
-        .espace-switch button.espace-commerce.active { background: #c2410c; }
+        .espace-switch button.espace-atelier.active { background: #1565C0; }
+        .espace-switch button.espace-commerce.active { background: #00897B; }
       `}</style>
     </div>
   );

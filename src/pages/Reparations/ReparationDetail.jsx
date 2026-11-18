@@ -635,7 +635,7 @@ const ReparationDetail = () => {
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "22px",
-                    boxShadow: "0 6px 16px rgba(67, 97, 238, 0.3)",
+                    boxShadow: "0 6px 16px rgba(var(--primary-rgb), 0.3)",
                     flexShrink: 0,
                   }}
                 >
@@ -879,7 +879,7 @@ const ReparationDetail = () => {
                     fontSize: "18px",
                     fontWeight: "700",
                     flexShrink: 0,
-                    boxShadow: "0 4px 12px rgba(67, 97, 238, 0.25)",
+                    boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.25)",
                   }}
                 >
                   {reparation.client?.nom?.charAt(0).toUpperCase()}
@@ -1575,7 +1575,7 @@ const ReparationDetail = () => {
                       padding: "14px 16px",
                       background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                       borderRadius: "12px",
-                      boxShadow: "0 4px 12px rgba(67, 97, 238, 0.25)",
+                      boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.25)",
                     }}
                   >
                     <span

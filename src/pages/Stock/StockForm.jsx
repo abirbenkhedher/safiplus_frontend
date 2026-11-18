@@ -6,6 +6,8 @@ import { createStock, updateStock } from "../../api/stock";
 import { createTypeArticle } from "../../api/typeArticles";
 import SearchSelect from "../../components/reparations/SearchSelect";
 import { useAuth } from "../../context/AuthContext";
+import { getParametresAtelier } from "../../api/atelier";
+import TvaInput, { versTTC, versHT } from "../../components/common/TvaInput";
 
 const getDraftKey = (stockId) =>
   stockId ? `stock_draft_edit_${stockId}` : "stock_draft_new";
@@ -24,6 +26,10 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
     quantite: stock?.quantite ?? 0,
     seuilAlerte: stock?.seuilAlerte ?? 2,
     prixIndicatif: stock?.prixIndicatif ?? 0,
+    // ✅ Prix de vente distinct du prix de réparation (anciens articles de vente : prix unique)
+    prixVente: stock?.prixVente ?? (stock && stock.usage !== "reparation" ? stock.prixIndicatif ?? "" : ""),
+    tauxTVA: stock?.tauxTVA ?? "",
+    coutUnitaireTTC: "",
     observation: stock?.observation || "",
     // ✅ Fiche article (module atelier)
     code: stock?.code || "",
@@ -49,6 +55,21 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
 
   const firstLoadRef = useRef(true);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // ✅ TVA : taux autorisés de la boutique, défaut pour un nouvel article, figée après mouvements
+  const [paramsAt, setParamsAt] = useState(null);
+  useEffect(() => {
+    getParametresAtelier().then((r) => {
+      const p = r.data.data;
+      setParamsAt(p);
+      setForm((f) => (f.tauxTVA === "" || f.tauxTVA === null ? { ...f, tauxTVA: String(p.tauxTVA ?? 19) } : f));
+    }).catch(() => {});
+  }, []);
+  const tvaFigee = !!stock?.tvaVerrouillee;
+  const tvaNum = form.tauxTVA === "" ? Number(paramsAt?.tauxTVA ?? 19) : Number(form.tauxTVA);
+  const setTva = (v) => setForm((f) => ({ ...f, tauxTVA: v, coutUnitaireTTC: versTTC(f.coutUnitaire, v === "" ? tvaNum : v) }));
+  const setCoutHT = (v) => setForm((f) => ({ ...f, coutUnitaire: v, coutUnitaireTTC: versTTC(v, tvaNum) }));
+  const setCoutTTC = (v) => setForm((f) => ({ ...f, coutUnitaireTTC: v, coutUnitaire: versHT(v, tvaNum) }));
 
   useEffect(() => {
     setTypesArticle(referentiels.typesArticle || []);
@@ -201,7 +222,9 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
         modele: form.modele || null,
         quantite: Number(form.quantite),
         seuilAlerte: Number(form.seuilAlerte),
-        prixIndicatif: Number(form.prixIndicatif),
+        prixIndicatif: Number(form.prixIndicatif) || 0,
+        ...(form.usage !== "reparation" ? { prixVente: form.prixVente === "" ? null : Number(form.prixVente) } : {}),
+        ...(tvaFigee ? {} : { tauxTVA: form.tauxTVA === "" ? null : Number(form.tauxTVA) }),
         observation: form.observation,
         code: form.code || null,
         unite: form.unite || "pièce",
@@ -262,7 +285,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
           style={{
             padding: "18px 26px",
             background:
-              "linear-gradient(135deg, rgba(67,97,238,0.06) 0%, rgba(67,97,238,0.02) 100%)",
+              "linear-gradient(135deg, rgba(var(--primary-rgb), 0.06) 0%, rgba(var(--primary-rgb), 0.02) 100%)",
             borderBottom: "1px solid var(--gray-200)",
             display: "flex",
             alignItems: "center",
@@ -276,14 +299,14 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               width: "42px",
               height: "42px",
               borderRadius: "12px",
-              background: "linear-gradient(135deg, #4361ee, #3a52c9)",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
               color: "white",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: "17px",
               flexShrink: 0,
-              boxShadow: "0 4px 12px rgba(67,97,238,0.35)",
+              boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.35)",
             }}
           >
             📦
@@ -368,7 +391,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                   setForm({
                     categorie: "", objet: "", typeArticle: "", marque: "",
                     modele: "", quantite: 0, seuilAlerte: 2,
-                    prixIndicatif: 0, observation: "",
+                    prixIndicatif: 0, prixVente: "", tauxTVA: String(paramsAt?.tauxTVA ?? 19), coutUnitaireTTC: "", observation: "",
                     code: "", unite: "pièce", coutManuel: "", coutUnitaire: "", commissionActive: true,
                     usage: espaceActif === "commerce" ? "vente" : "reparation",
                   });
@@ -472,7 +495,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                           alignItems: "center",
                           justifyContent: "center",
                           flexShrink: 0,
-                          boxShadow: "0 2px 8px rgba(67,97,238,0.3)",
+                          boxShadow: "0 2px 8px rgba(var(--primary-rgb), 0.3)",
                         }}
                       >
                         <FaPlus size={13} />
@@ -636,36 +659,35 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                   <div style={hintStyle}>Alerte si quantité ≤ seuil</div>
                 </div>
 
-                <div>
-                  <FieldLabel>{form.usage === "reparation" ? "Prix de réparation" : form.usage === "vente" ? "Prix de vente" : "Prix de vente / réparation"}</FieldLabel>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.prixIndicatif}
-                      onChange={(e) => set("prixIndicatif", e.target.value)}
-                      style={{ ...inputStyle, paddingRight: "45px" }}
-                      onFocus={(e) => applyFocus(e, true)}
-                      onBlur={(e) => applyFocus(e, false)}
-                    />
-                    <span
-                      style={{
-                        position: "absolute", right: "12px", top: "50%",
-                        transform: "translateY(-50%)", fontSize: "12px",
-                        fontWeight: "700", color: "var(--gray-400)",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      DT
-                    </span>
+                {form.usage !== "vente" && (
+                  <div>
+                    <FieldLabel>Prix de réparation (indicatif) TTC</FieldLabel>
+                    <div style={{ position: "relative" }}>
+                      <input type="number" min="0" step="0.001" value={form.prixIndicatif}
+                        onChange={(e) => set("prixIndicatif", e.target.value)}
+                        style={{ ...inputStyle, paddingRight: "45px" }}
+                        onFocus={(e) => applyFocus(e, true)} onBlur={(e) => applyFocus(e, false)} />
+                      <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "12px", fontWeight: "700", color: "var(--gray-400)", pointerEvents: "none" }}>DT</span>
+                    </div>
+                    <div style={hintStyle}>Indicatif uniquement : la commission utilise le prix du dossier de réparation</div>
                   </div>
-                  <div style={hintStyle}>
-                    {form.usage === "reparation"
-                      ? "Prix de réparation estimé (sert de prix de vente pour les commissions)"
-                      : "Prix proposé au comptoir et dans les devis / factures (modifiable à la vente). TTC ou HT selon les paramètres de l'atelier."}
+                )}
+                {form.usage !== "reparation" && (
+                  <div>
+                    <FieldLabel>Prix de vente TTC</FieldLabel>
+                    <div style={{ position: "relative" }}>
+                      <input type="number" min="0" step="0.001" value={form.prixVente}
+                        onChange={(e) => set("prixVente", e.target.value)}
+                        style={{ ...inputStyle, paddingRight: "45px" }}
+                        onFocus={(e) => applyFocus(e, true)} onBlur={(e) => applyFocus(e, false)} />
+                      <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "12px", fontWeight: "700", color: "var(--gray-400)", pointerEvents: "none" }}>DT</span>
+                    </div>
+                    <div style={hintStyle}>
+                      {form.prixVente !== "" && form.prixVente !== null ? `HT : ${Number(versHT(form.prixVente, tvaNum)).toFixed(3)} DT — ` : ""}
+                      Comptoir, devis et factures (modifiable à la vente)
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* ✅ Usage de l'article : réparation / vente / les deux */}
@@ -681,7 +703,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                       style={{
                         ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 600,
                         borderColor: form.usage === v ? "var(--primary)" : undefined,
-                        background: form.usage === v ? "rgba(67, 97, 238, 0.1)" : undefined,
+                        background: form.usage === v ? "rgba(var(--primary-rgb), 0.1)" : undefined,
                         color: form.usage === v ? "var(--primary)" : undefined,
                       }}>
                       {l}
@@ -705,18 +727,29 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                   <FieldLabel>Unité</FieldLabel>
                   <input value={form.unite} onChange={(e) => set("unite", e.target.value)} style={inputStyle} />
                 </div>
+                <div>
+                  <FieldLabel>TVA</FieldLabel>
+                  <TvaInput value={form.tauxTVA} onChange={setTva} taux={paramsAt?.tauxTVAAutorises} locked={tvaFigee} className="" inputStyle={inputStyle} />
+                  <div style={hintStyle}>{tvaFigee ? "Figée : déjà des mouvements de stock" : "Flèches ↑↓ ou saisie libre"}</div>
+                </div>
                 {!isEdit && (
-                  <div>
-                    <FieldLabel>Coût d'achat unitaire initial</FieldLabel>
-                    <input type="number" min="0" step="0.001" value={form.coutUnitaire} onChange={(e) => set("coutUnitaire", e.target.value)} style={inputStyle} />
-                    <div style={hintStyle}>Valorise la quantité initiale (CMP)</div>
-                  </div>
+                  <>
+                    <div>
+                      <FieldLabel>Prix d'achat initial HT</FieldLabel>
+                      <input type="number" min="0" step="0.001" value={form.coutUnitaire} onChange={(e) => setCoutHT(e.target.value)} style={inputStyle} />
+                      <div style={hintStyle}>Valorise la quantité initiale (CMP)</div>
+                    </div>
+                    <div>
+                      <FieldLabel>Prix d'achat initial TTC</FieldLabel>
+                      <input type="number" min="0" step="0.001" value={form.coutUnitaireTTC} onChange={(e) => setCoutTTC(e.target.value)} style={inputStyle} />
+                    </div>
+                  </>
                 )}
                 {isEdit && (
                   <div>
-                    <FieldLabel>Coût moyen (CMP)</FieldLabel>
-                    <input value={stock?.cmp != null ? `${Number(stock.cmp).toFixed(3)} DT` : "non valorisé"} disabled style={inputStyle} />
-                    <div style={hintStyle}>Mis à jour par les factures d'achat validées</div>
+                    <FieldLabel>CMP HT / TTC</FieldLabel>
+                    <input value={stock?.cmp != null ? `${Number(stock.cmp).toFixed(3)} / ${Number(versTTC(stock.cmp, tvaNum)).toFixed(3)} DT` : "non valorisé"} disabled style={inputStyle} />
+                    <div style={hintStyle}>Mis à jour par les entrées en stock et factures d'achat</div>
                   </div>
                 )}
                 <div>
@@ -799,20 +832,20 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               alignItems: "center",
               justifyContent: "center",
               gap: "8px",
-              boxShadow: saving ? "none" : "0 2px 10px rgba(67,97,238,0.35)",
+              boxShadow: saving ? "none" : "0 2px 10px rgba(var(--primary-rgb), 0.35)",
               transition: "all 150ms ease",
               minWidth: "140px",
             }}
             onMouseEnter={(e) => {
               if (!saving) {
                 e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(67,97,238,0.45)";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(var(--primary-rgb), 0.45)";
               }
             }}
             onMouseLeave={(e) => {
               if (!saving) {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 2px 10px rgba(67,97,238,0.35)";
+                e.currentTarget.style.boxShadow = "0 2px 10px rgba(var(--primary-rgb), 0.35)";
               }
             }}
           >

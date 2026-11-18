@@ -130,7 +130,7 @@ const formatPannes = (pannes) => {
             href="/"
             style={{
               display: "inline-flex", alignItems: "center", gap: "8px",
-              padding: "12px 24px", background: "#4361ee", color: "white",
+              padding: "12px 24px", background: "var(--primary)", color: "white",
               borderRadius: "10px", textDecoration: "none",
               fontWeight: "600", fontSize: "14px",
             }}
@@ -152,12 +152,12 @@ const formatPannes = (pannes) => {
 
         {/* HEADER */}
         <div style={{
-          background: "linear-gradient(135deg, #4361ee, #3a52c9)",
+          background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
           color: "white",
           padding: "28px 24px",
           borderRadius: "20px",
           marginBottom: "16px",
-          boxShadow: "0 12px 24px rgba(67, 97, 238, 0.3)",
+          boxShadow: "0 12px 24px rgba(var(--primary-rgb), 0.3)",
           textAlign: "center",
         }}>
           <div style={{
@@ -423,7 +423,7 @@ const formatPannes = (pannes) => {
             <div style={{
               display: "flex", justifyContent: "space-between",
               alignItems: "center", padding: "12px 14px",
-              background: "linear-gradient(135deg, #4361ee, #3a52c9)",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
               borderRadius: "10px", marginTop: "4px",
             }}>
               <span style={{

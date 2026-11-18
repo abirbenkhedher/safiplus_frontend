@@ -1,5 +1,5 @@
-import { TYPES_DOC, modeLabel } from "../../api/ventes";
-import { calcLigne, montantEnLettres } from "./calculs";
+import { TYPES_DOC, modeLabel, typeDocDe } from "../../api/ventes";
+import { calcLigne, montantEnLettres, remiseLabel } from "./calculs";
 
 // ============================================================
 // ✅ Impression A4 d'un document de vente (fenêtre d'impression du navigateur
@@ -59,7 +59,7 @@ export const imprimerDocument = (doc, params = {}) => {
     ? { ...(params.commerce || {}), raisonSociale: params.commerce?.raisonSociale || "" }
     : doc.vendeurSnapshot;
   const c = doc.statut === "brouillon" || !doc.clientSnapshot?.nom ? (doc.client || {}) : doc.clientSnapshot;
-  const t = TYPES_DOC[doc.type] || { titre: doc.type };
+  const t = typeDocDe(doc);
   const ttc = doc.prixSaisis === "TTC";
 
   const lignes = (doc.lignes || []).map((l) => {
@@ -69,7 +69,7 @@ export const imprimerDocument = (doc, params = {}) => {
       <td>${esc(l.designation)}</td>
       <td class="r">${esc(l.quantite)}</td>
       <td class="r">${m3(l.prixUnitaire)}</td>
-      <td class="r">${l.remisePct ? `${esc(l.remisePct)} %` : ""}</td>
+      <td class="r">${esc(remiseLabel(l))}</td>
       <td class="r">${esc(l.tauxTVA)} %</td>
       <td class="r">${m3(x.ht)}</td>
       <td class="r">${m3(x.ttc)}</td>
@@ -145,14 +145,17 @@ ${doc.statut === "annule" ? '<div class="wm">ANNULÉ</div>' : ""}
 <div class="bas">
   <table class="tva"><thead><tr><th>Taux TVA</th><th class="r">Base HT</th><th class="r">Montant TVA</th></tr></thead><tbody>${tva}</tbody></table>
   <table class="tot">
+    ${Number(doc.remiseGlobaleMontant) > 0 ? `<tr><td>Total avant remise ${doc.prixSaisis === "TTC" ? "TTC" : "HT"}</td><td class="r">${m3(doc.totalAvantRemise)}</td></tr>
+    <tr><td>Remise globale${doc.remiseGlobaleType === "pct" ? ` (${esc(doc.remiseGlobaleValeur)} %)` : ""}</td><td class="r">− ${m3(doc.remiseGlobaleMontant)}</td></tr>` : ""}
     <tr><td>Total HT</td><td class="r">${m3(doc.totalHT)}</td></tr>
     <tr><td>Total TVA</td><td class="r">${m3(doc.totalTVA)}</td></tr>
     ${doc.type === "FACTURE" && Number(doc.timbreFiscal) ? `<tr><td>Timbre fiscal</td><td class="r">${m3(doc.timbreFiscal)}</td></tr>` : ""}
     <tr class="net"><td>${doc.type === "AVOIR" ? "Total avoir TTC" : "Net à payer TTC"}</td><td class="r">${m3(doc.netAPayer)} TND</td></tr>
   </table>
 </div>
-<div class="lettres">Arrêté${doc.type === "FACTURE" ? "e la présente facture" : doc.type === "AVOIR" ? " le présent avoir" : doc.type === "DEVIS" ? " le présent devis" : doc.type === "TICKET" ? " le présent ticket" : " le présent bon"} à la somme de : <b>${esc(montantEnLettres(doc.netAPayer))}</b>.</div>
+<div class="lettres">Arrêté${doc.type === "FACTURE" ? "e la présente facture" : doc.type === "AVOIR" ? (doc.nature === "retour" ? " le présent bon de retour" : " le présent avoir") : doc.type === "DEVIS" ? " le présent devis" : doc.type === "TICKET" ? " le présent ticket" : " le présent bon"} à la somme de : <b>${esc(montantEnLettres(doc.netAPayer))}</b>.</div>
 ${regl}
+${doc.modePaiement ? `<div class="pay">Mode de paiement : <b>${esc(modeLabel(doc.modePaiement))}</b>${doc.modePaiement === "TRAITE" && doc.dateEcheance ? ` — échéance ${d(doc.dateEcheance)}` : ""}</div>` : ""}
 ${doc.conditionsPaiement ? `<div class="pay">Conditions : ${esc(doc.conditionsPaiement)}</div>` : ""}
 ${doc.observation ? `<div class="pay">${esc(doc.observation)}</div>` : ""}
 ${v.rib && doc.type === "FACTURE" ? `<div class="pay">RIB : ${esc(v.rib)}</div>` : ""}

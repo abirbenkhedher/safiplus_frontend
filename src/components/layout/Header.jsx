@@ -484,7 +484,7 @@ const Header = ({ onToggleSidebar }) => {
           font-weight: 700;
           font-size: 13px;
           flex-shrink: 0;
-          box-shadow: 0 2px 8px rgba(67, 97, 238, 0.25);
+          box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.25);
         }
 
         .header-user-info {
@@ -663,7 +663,7 @@ const Header = ({ onToggleSidebar }) => {
           font-weight: 700;
           font-size: 16px;
           flex-shrink: 0;
-          box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+          box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
         }
 
         .header-user-name-large {

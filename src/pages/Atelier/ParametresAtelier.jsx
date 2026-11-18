@@ -113,8 +113,13 @@ const ParametresAtelier = () => {
               <Toggle id="ttc" label="Les prix de réparation et des articles sont saisis TTC" checked={form.prixTTC} disabled={!canEdit} onChange={(v) => set("prixTTC", v)}
                 hint="Les commissions et marges sont calculées sur le montant HT." />
               <div className="row g-3 mb-3">
-                <Field label="Taux de TVA (%)" col="col-6">
+                <Field label="Taux de TVA par défaut (%)" col="col-6" hint="Proposé à la création d'un produit">
                   <input type="number" min="0" max="100" step="0.01" className="form-control-modern" value={form.tauxTVA} disabled={!canEdit} onChange={(e) => set("tauxTVA", e.target.value)} />
+                </Field>
+                <Field label="Taux de TVA proposés (%)" col="col-6" hint="Séparés par des virgules. Les flèches du champ TVA passent de l'un à l'autre.">
+                  <input type="text" className="form-control-modern" placeholder="7, 19" disabled={!canEdit}
+                    value={Array.isArray(form.tauxTVAAutorises) ? form.tauxTVAAutorises.join(", ") : (form.tauxTVAAutorises ?? "7, 19")}
+                    onChange={(e) => set("tauxTVAAutorises", e.target.value)} />
                 </Field>
               </div>
               <Toggle id="sav" label="Commissions sur les réparations SAV / garantie" checked={form.commissionSurSAV} disabled={!canEdit} onChange={(v) => set("commissionSurSAV", v)}

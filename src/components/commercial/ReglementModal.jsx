@@ -11,13 +11,14 @@ import { ClientPicker } from "./commun";
 // ============================================================
 const r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
 
-const ReglementModal = ({ client: clientInit, factureId, remboursement = false, onClose, onSaved }) => {
+const ReglementModal = ({ client: clientInit, factureId, remboursement = false, modeInitial, echeanceInitiale, onClose, onSaved }) => {
   const [client, setClient] = useState(clientInit || null);
   const [factures, setFactures] = useState([]);
   const [choix, setChoix] = useState({}); // id → montant
   const [montantManuel, setMontantManuel] = useState(false); // ✅ sinon le montant suit le total affecté
   const [solde, setSolde] = useState(null);
-  const [f, setF] = useState({ mode: "ESPECES", montant: "", date: isoDay(), reference: "", banque: "", dateEcheance: "", etatCheque: "en_portefeuille", observation: "" });
+  const [f, setF] = useState({ mode: modeInitial || "ESPECES", montant: "", date: isoDay(), reference: "", banque: "", dateEcheance: echeanceInitiale ? String(echeanceInitiale).slice(0, 10) : "", etatCheque: "en_portefeuille", observation: "" });
+  const effet = ["CHEQUE", "TRAITE"].includes(f.mode); // chèque ou traite : échéance + portefeuille
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -66,8 +67,8 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
       const r = await createReglement({
         client: client.id, sens: remboursement ? "REMBOURSEMENT" : "ENCAISSEMENT",
         mode: f.mode, montant: Number(f.montant), date: f.date, reference: f.reference, banque: f.banque,
-        dateEcheance: f.mode === "CHEQUE" && f.dateEcheance ? f.dateEcheance : null,
-        etatCheque: f.mode === "CHEQUE" ? f.etatCheque : undefined,
+        dateEcheance: effet && f.dateEcheance ? f.dateEcheance : null,
+        etatCheque: effet ? f.etatCheque : undefined,
         observation: f.observation,
         affectations, auto: false,
       });
@@ -126,16 +127,16 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
         </Field>
         <Field label="Date" col="col-6 col-md-4"><input type="date" className="form-control-modern" value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
         {f.mode !== "ESPECES" && (
-          <Field label={f.mode === "CHEQUE" ? "N° de chèque" : "Référence"} col="col-6 col-md-4">
+          <Field label={f.mode === "CHEQUE" ? "N° de chèque" : f.mode === "TRAITE" ? "N° de traite" : "Référence"} col="col-6 col-md-4">
             <input className="form-control-modern" value={f.reference} onChange={(e) => set("reference", e.target.value)} />
           </Field>
         )}
-        {["CHEQUE", "VIREMENT"].includes(f.mode) && (
+        {["CHEQUE", "TRAITE", "VIREMENT"].includes(f.mode) && (
           <Field label="Banque" col="col-6 col-md-4"><input className="form-control-modern" value={f.banque} onChange={(e) => set("banque", e.target.value)} /></Field>
         )}
-        {f.mode === "CHEQUE" && (
+        {effet && (
           <>
-            <Field label="Échéance du chèque" col="col-6 col-md-4"><input type="date" className="form-control-modern" value={f.dateEcheance} onChange={(e) => set("dateEcheance", e.target.value)} /></Field>
+            <Field label={f.mode === "TRAITE" ? "Échéance de la traite" : "Échéance du chèque"} col="col-6 col-md-4"><input type="date" className="form-control-modern" value={f.dateEcheance} onChange={(e) => set("dateEcheance", e.target.value)} /></Field>
             <Field label="État" col="col-6 col-md-4">
               <select className="form-control-modern" value={f.etatCheque} onChange={(e) => set("etatCheque", e.target.value)}>
                 <option value="en_portefeuille">En portefeuille</option><option value="encaisse">Encaissé (banque)</option>

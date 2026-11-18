@@ -227,7 +227,7 @@ const Comptoir = () => {
             {!mixte ? (
               <>
                 <div className="d-flex flex-wrap gap-2 mb-3">
-                  {MODES_REGLEMENT.filter(([v]) => v !== "AUTRE").map(([v, l]) => (
+                  {MODES_REGLEMENT.filter(([v]) => !["AUTRE", "TRAITE"].includes(v)).map(([v, l]) => (
                     <button key={v} type="button" className={`btn-modern btn-sm ${mode === v ? "btn-modern-primary" : "btn-modern-outline"}`} onClick={() => setMode(v)}>{l}</button>
                   ))}
                 </div>

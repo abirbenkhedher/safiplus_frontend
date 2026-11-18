@@ -194,7 +194,7 @@ const UsersCRUD = () => {
   };
 
   const CATEGORIES = {
-    principal: { label: "Principal", color: "#4361ee" },
+    principal: { label: "Principal", color: "var(--primary)" },
     gestion: { label: "Gestion", icon: "💼", color: "#3b82f6" },
     configuration: { label: "Configuration", color: "#f59e0b" },
     administration: { label: "Administration", color: "#ef4444" },
@@ -479,7 +479,7 @@ const UsersCRUD = () => {
               width: "38px",
               height: "38px",
               borderRadius: "10px",
-              background: "linear-gradient(135deg, #4361ee, #3a52c9)",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
               color: "white",
               display: "flex",
               alignItems: "center",
@@ -892,7 +892,7 @@ const UsersCRUD = () => {
                   padding: "20px 24px",
                   borderBottom: "1px solid var(--gray-200)",
                   background:
-                    "linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)",
+                    "linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.02) 100%)",
                   display: "flex",
                   alignItems: "center",
                   gap: "14px",

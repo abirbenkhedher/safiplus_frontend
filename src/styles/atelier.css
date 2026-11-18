@@ -262,7 +262,7 @@
   width: 46px; height: 46px; border-radius: 12px;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff; display: flex; align-items: center; justify-content: center; font-size: 19px;
-  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3); flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3); flex-shrink: 0;
 }
 .at-header h1 { font-size: 24px; font-weight: 700; color: var(--gray-900); margin: 0 0 2px; }
 .at-header p { font-size: 13px; color: var(--gray-500); margin: 0; }
@@ -340,3 +340,29 @@
 [data-theme="dark"] .at-chip { background: #242838; color: #cbd5e1; }
 [data-theme="dark"] .at-icon-btn { color: #cbd5e1; }
 [data-theme="dark"] .atelier-page .form-control-modern:disabled { background: #20242f !important; }
+
+/* ============================================================
+   ✅ Lignes de document (vente / achat) — champs alignés
+   Ligne 1 : article / désignation (toute la largeur) + supprimer
+   Ligne 2 : champs de même hauteur, libellé au-dessus de chacun
+   ============================================================ */
+.doc-lignes { border: 1px solid var(--at-border, var(--gray-200)); border-radius: var(--radius-md); overflow: visible; margin-bottom: 12px; }
+.doc-ligne { padding: 12px 14px; border-bottom: 1px solid var(--gray-100); }
+.doc-ligne:last-child { border-bottom: none; }
+.doc-ligne:nth-child(even) { background: var(--gray-50); }
+.doc-ligne-tete { display: flex; gap: 10px; align-items: flex-start; }
+.doc-ligne-tete > .doc-ligne-article { flex: 1; min-width: 0; }
+.doc-ligne-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--primary-light); color: var(--primary); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 7px; }
+.doc-ligne-champs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; align-items: end; }
+.doc-champ { min-width: 0; }
+.doc-champ > label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-500); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-champ .form-control-modern, .doc-champ input { height: 40px; }
+.doc-champ-total { height: 40px; display: flex; align-items: center; justify-content: flex-end; padding: 0 12px; border-radius: var(--radius-md); background: var(--primary-light); color: var(--gray-900); font-weight: 700; white-space: nowrap; }
+.doc-champ-gris { background: var(--gray-100) !important; color: var(--gray-500) !important; }
+.doc-remise { display: flex; height: 40px; }
+.doc-remise input { flex: 1; min-width: 0; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.doc-remise button { flex-shrink: 0; width: 44px; border: 1px solid var(--gray-300); border-left: none; border-radius: 0 var(--radius-md) var(--radius-md) 0; background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 12px; cursor: pointer; }
+.doc-etat { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11.5px; }
+.doc-remise-globale { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: flex-end; margin-bottom: 8px; }
+.doc-remise-globale .doc-champ { width: 200px; }
+[data-theme="dark"] .doc-ligne:nth-child(even) { background: #20242f; }

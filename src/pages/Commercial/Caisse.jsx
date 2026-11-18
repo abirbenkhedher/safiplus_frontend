@@ -28,6 +28,22 @@ const lignesCalcul = (s, c) => [
   ["+ Acomptes saisis dans les dossiers de réparation", c.acomptesReparations, "Considérés payés en espèces"],
 ];
 
+/** ✅ Origine des espèces encaissées : réparations / ventes (un seul tiroir-caisse). */
+const origine = (c) => (c && c.dontReparations !== undefined && c.dontReparations !== null
+  ? [["dont réparations", c.dontReparations, "Factures de réparation payées en espèces + acomptes saisis dans les dossiers"],
+    ["dont ventes", c.dontVentes, "Ventes comptoir, factures d'articles, avances − remboursements"]]
+  : []);
+const Origine = ({ c }) => {
+  const l = origine(c);
+  if (!l.length) return null;
+  return (
+    <div className="mt-2 p-2" style={{ borderRadius: 10, background: "var(--primary-light)" }}>
+      <div className="at-stat-label mb-1">Origine des espèces encaissées</div>
+      {l.map(([lib, v, h]) => <div key={lib} className="d-flex justify-content-between" title={h}><span>{lib}</span><b>{tnd(v)}</b></div>)}
+    </div>
+  );
+};
+
 const imprimerZ = (s) => {
   const c = s.totaux || s.calcul || {};
   const m3 = (v) => Number(v || 0).toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -41,6 +57,7 @@ const imprimerZ = (s) => {
 <table>${rows}<tr><td><b>Théorique espèces</b></td><td class="r"><b>${m3(c.theorique)}</b></td></tr>
 <tr><td>Compté</td><td class="r">${m3(s.montantCompte)}</td></tr><tr><td><b>Écart</b></td><td class="r"><b>${m3(s.ecart)}</b></td></tr>
 <tr><td>Fond laissé</td><td class="r">${m3(s.fondLaisse)}</td></tr><tr><td>Remise en banque</td><td class="r">${m3(s.remiseBanque)}</td></tr></table>
+${origine(c).length ? `<hr/><b>Origine des espèces</b><table>${origine(c).map(([l, v]) => `<tr><td>${esc(l)}</td><td class="r">${m3(v)}</td></tr>`).join("")}</table>` : ""}
 ${autres ? `<hr/><b>Autres modes (info)</b><table>${autres}</table>` : ""}
 ${s.observationFermeture ? `<hr/>${esc(s.observationFermeture)}` : ""}
 <script>window.onload=function(){window.print()}</script></body></html>`);
@@ -109,7 +126,8 @@ const Caisse = () => {
           <div className="row g-3 mb-3">
             <div className="col-6 col-lg-3"><Kpi tone="success" label={`Caisse ${courante.numero} ouverte`} value={heure(courante.ouvertureLe)} hint={`Fond ${tnd(courante.fondInitial)}`} /></div>
             <div className="col-6 col-lg-3"><Kpi tone="primary" label="Espèces théoriques" value={tnd(c.theorique)} /></div>
-            <div className="col-6 col-lg-3"><Kpi tone="info" label="Règlements espèces" value={tnd(c.encaissementsEspeces)} hint={`${courante.reglements.length} règlement(s)`} /></div>
+            <div className="col-6 col-lg-3"><Kpi tone="info" label="Règlements espèces" value={tnd(c.encaissementsEspeces)}
+              hint={c.dontReparations !== undefined ? `Réparations ${tnd(c.dontReparations)} · Ventes ${tnd(c.dontVentes)}` : `${courante.reglements.length} règlement(s)`} /></div>
             <div className="col-6 col-lg-3"><Kpi tone="gray" label="Autres modes (info)" value={tnd(Object.values(c.autresModes || {}).reduce((s, v) => s + v, 0))}
               hint={Object.entries(c.autresModes || {}).map(([m, v]) => `${modeLabel(m)} ${tnd(v)}`).join(" · ") || "—"} /></div>
           </div>
@@ -123,6 +141,7 @@ const Caisse = () => {
                   <div key={l} className="d-flex justify-content-between" title={h}><span>{l}</span><b>{tnd(v)}</b></div>
                 ))}
                 <div className="d-flex justify-content-between at-total mt-2"><span>Théorique</span><span>{tnd(c.theorique)}</span></div>
+                <Origine c={c} />
                 {c.acomptesDetails?.length > 0 && (
                   <div className="at-hint mt-2" style={{ fontStyle: "normal" }}>
                     Acomptes dossiers : {c.acomptesDetails.map((a) => `${a.numero} ${tnd(a.montant)}`).join(" · ")}
@@ -248,6 +267,7 @@ const Caisse = () => {
             <div key={l} className="d-flex justify-content-between"><span>{l}</span><b>{tnd(v)}</b></div>
           ))}
           <div className="d-flex justify-content-between at-total mt-2"><span>Théorique</span><span>{tnd(vue.calcul?.theorique)}</span></div>
+          <Origine c={vue.calcul} />
           {vue.montantCompte !== null && (
             <>
               <div className="d-flex justify-content-between"><span>Compté</span><b>{tnd(vue.montantCompte)}</b></div>

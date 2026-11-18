@@ -79,3 +79,12 @@ export const downloadRapport = async (nom, params) => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+// ✅ Bons de commande fournisseur (ni stock ni argent → facture d'achat brouillon)
+export const getCommandesFournisseur = (params) => apiClient.get("/commandes-fournisseurs", { params });
+export const createCommandeFournisseur = (data) => apiClient.post("/commandes-fournisseurs", data);
+export const updateCommandeFournisseur = (id, data) => apiClient.put(`/commandes-fournisseurs/${id}`, data);
+export const deleteCommandeFournisseur = (id) => apiClient.delete(`/commandes-fournisseurs/${id}`);
+export const validerCommandeFournisseur = (id) => apiClient.post(`/commandes-fournisseurs/${id}/valider`);
+export const annulerCommandeFournisseur = (id, motif) => apiClient.post(`/commandes-fournisseurs/${id}/annuler`, { motif });
+export const facturerCommandeFournisseur = (id) => apiClient.post(`/commandes-fournisseurs/${id}/facturer`);

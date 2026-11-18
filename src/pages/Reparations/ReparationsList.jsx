@@ -1438,7 +1438,7 @@ const ReparationsList = () => {
       {/* ==================== STATS (4 ou 5 cartes selon rôle) ==================== */}
       <div className="row g-3 mb-4">
         {[
-          { label: "Total affiché", value: stats.total, icon: <FaTools />, color: "#4361ee", bg: "rgba(67, 97, 238, 0.1)" },
+          { label: "Total affiché", value: stats.total, icon: <FaTools />, color: "var(--primary)", bg: "rgba(var(--primary-rgb), 0.1)" },
           { label: "Impayées", value: stats.impayees, icon: <FaMoneyBillWave />, color: "#ef4444", bg: "rgba(239, 68, 68, 0.1)" },
           { label: "En cours", value: stats.enCours, icon: <FaSpinner />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
           { label: "Terminées", value: stats.terminees, icon: <FaCheckCircle />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
@@ -1916,7 +1916,7 @@ const ReparationsList = () => {
         .search-bar-input:focus {
           outline: none;
           border-color: var(--primary);
-          box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1);
+          box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
         }
 
         .search-bar-clear {

@@ -57,7 +57,7 @@ const ClientQuickCreate = ({ show, onClose, onClientCreated }) => {
           style={{
             padding: '24px 24px 20px',
             borderBottom: '1px solid var(--gray-200)',
-            background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.02) 100%)',
+            background: 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.02) 100%)',
             display: 'flex',
             alignItems: 'center',
             gap: '14px',
@@ -74,7 +74,7 @@ const ClientQuickCreate = ({ show, onClose, onClientCreated }) => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '20px',
-              boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)',
+              boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)',
               flexShrink: 0,
             }}
           >

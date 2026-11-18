@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import {
   FaPlus, FaCheck, FaBan, FaEdit, FaPaperclip, FaEye, FaFileInvoice, FaTrash, FaHourglassHalf, FaCheckCircle, FaFilePdf,
@@ -6,27 +6,54 @@ import {
 import { getDepenses, createDepense, updateDepense } from "../../api/depenses";
 import { getFournisseurs, getParametresAtelier, validerDepense, annulerDepense, uploadPieceJointe, openPieceJointe } from "../../api/atelier";
 import { useAuth } from "../../context/AuthContext";
-import { ArticleSelect } from "../../components/atelier/pickers";
+import SearchSelect from "../../components/reparations/SearchSelect";
+import TvaInput from "../../components/common/TvaInput";
+import RemiseInput from "../../components/common/RemiseInput";
 import { useArticles } from "../../hooks/useAtelierRefs";
 import { useFamilles } from "../../hooks/useFamilles";
-import { Page, PageHeader, Alert, Table, FormModal, Field, StatutBadge, PeriodeFilter, IconBtn, Kpi } from "../../components/atelier/ui";
-import { usePeriode, tnd, dateFr, errMsg, askMotif, isoDay } from "../../utils/atelier";
+import { Page, PageHeader, Alert, Table, FormModal, Field, StatutBadge, PeriodeFilter, IconBtn, Kpi, Tabs } from "../../components/atelier/ui";
+import CommandesFournisseur from "./CommandesFournisseur";
+import { usePeriode, tnd, dateFr, errMsg, askMotif, isoDay, articleLabel } from "../../utils/atelier";
 import { confirmer } from "../../utils/dialog";
-const LIGNE = { stock: "", designation: "", quantite: 1, prixUnitaire: 0, prixSaisis: "HT", remise: 0, tauxTVA: 19, fraisImputables: 0 };
+const LIGNE = { stock: "", designation: "", quantite: 1, prixUnitaire: 0, prixSaisis: "HT", remiseType: "montant", remise: 0, remisePct: 0, tauxTVA: 19, fraisImputables: 0 };
 const r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
 // ✅ Prix unitaire HT ↔ TTC d'une ligne : le champ tapé est conservé, l'autre est calculé
 const puHT = (l) => (l.prixSaisis === "TTC" ? r3(Number(l.prixUnitaire || 0) / (1 + (Number(l.tauxTVA) || 0) / 100)) : l.prixUnitaire);
 const puTTC = (l) => (l.prixSaisis === "TTC" ? l.prixUnitaire : r3(Number(l.prixUnitaire || 0) * (1 + (Number(l.tauxTVA) || 0) / 100)));
-// ✅ Même calcul que le modèle Depense : remise HT, frais hors TVA, coût = HT + frais
-const calcLigne = (l) => {
+// ✅ Mêmes calculs que le modèle Depense (au millime) :
+//   1) HT brut − remise de ligne (% ou montant HT) ; 2) remise globale répartie au prorata ;
+//   3) TVA sur le HT net ; frais hors TVA ; coût de revient = HT + frais
+const netHTM = (l) => {
   const t = Number(l.tauxTVA) || 0;
   const brut = Math.round(Number(l.prixUnitaire || 0) * 1000 * Number(l.quantite || 0));
-  const ht = (l.prixSaisis === "TTC" ? Math.round(brut / (1 + t / 100)) : brut) - Math.round(Number(l.remise || 0) * 1000);
-  const tva = Math.round((ht * t) / 100);
+  const brutHT = l.prixSaisis === "TTC" ? Math.round(brut / (1 + t / 100)) : brut;
+  const rem = l.remiseType === "pct" ? Math.round((brutHT * (Number(l.remisePct) || 0)) / 100) : Math.round(Number(l.remise || 0) * 1000);
+  return Math.max(0, brutHT - rem);
+};
+/** Une ligne (avant remise globale). */
+const calcLigne = (l) => {
+  const ht = netHTM(l);
+  const tva = Math.round((ht * (Number(l.tauxTVA) || 0)) / 100);
   const frais = Math.round(Number(l.fraisImputables || 0) * 1000);
   return { ht: (ht + frais) / 1000, tva: tva / 1000, ttc: (ht + tva + frais) / 1000 };
 };
-const LINE_GRID = { gridTemplateColumns: "minmax(200px, 3fr) repeat(6, minmax(78px, 1fr)) minmax(105px, 1fr) 32px" };
+/** Totaux de la facture d'achat avec la remise globale. */
+const calcFacture = (lignes, type, valeur) => {
+  const nets = lignes.map(netHTM);
+  const somme = nets.reduce((s, n) => s + n, 0);
+  const v = Number(valeur) || 0;
+  const G = type === "montant" ? Math.min(Math.round(v * 1000), somme) : Math.round((somme * Math.min(100, v)) / 100);
+  const parts = nets.map((n) => (somme > 0 ? Math.floor((G * n) / somme) : 0));
+  let reste = G - parts.reduce((s, p) => s + p, 0);
+  const ordre = nets.map((n, i) => i).sort((a, b) => nets[b] - nets[a]);
+  for (let k = 0; reste > 0 && ordre.length; k = (k + 1) % ordre.length) { parts[ordre[k]] += 1; reste -= 1; }
+  let ht = 0; let tva = 0; let frais = 0;
+  lignes.forEach((l, i) => {
+    const h = nets[i] - parts[i];
+    ht += h; tva += Math.round((h * (Number(l.tauxTVA) || 0)) / 100); frais += Math.round(Number(l.fraisImputables || 0) * 1000);
+  });
+  return { avantRemise: somme / 1000, remise: G / 1000, ht: (ht + frais) / 1000, tva: tva / 1000, ttc: (ht + tva + frais) / 1000 };
+};
 
 const Achats = () => {
   const { hasPermission } = useAuth();
@@ -45,6 +72,9 @@ const Achats = () => {
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [tvaDefaut, setTvaDefaut] = useState(19);
+  const [tauxProposes, setTauxProposes] = useState([7, 19]);
+  // ✅ Onglets : factures d'achat | bons de commande fournisseur
+  const [onglet, setOnglet] = useState("factures");
 
   const load = () =>
     getDepenses({ type: "ACHAT", statut: statut || undefined, dateDebut: range.from, dateFin: range.to, limit: 500 })
@@ -53,12 +83,35 @@ const Achats = () => {
   useEffect(() => { getFournisseurs({ actifs: "true" }).then((r) => setFournisseurs(r.data.data)).catch(() => {}); }, []);
   // ✅ Taux de TVA par défaut des lignes = taux des paramètres atelier de la boutique
   useEffect(() => {
-    getParametresAtelier().then((r) => { const t = Number(r.data?.data?.tauxTVA); if (t >= 0) setTvaDefaut(t); }).catch(() => {});
+    getParametresAtelier().then((r) => {
+      const t = Number(r.data?.data?.tauxTVA); if (t >= 0) setTvaDefaut(t);
+      if (Array.isArray(r.data?.data?.tauxTVAAutorises)) setTauxProposes(r.data.data.tauxTVAAutorises);
+    }).catch(() => {});
   }, []);
   const nouvelleLigne = () => ({ ...LIGNE, tauxTVA: tvaDefaut });
 
-  const openNew = () => setEdit({ famille: "", fournisseurRef: "", factureNumero: "", dateDepense: isoDay(), modePaiement: "ESPECES", observation: "", lignes: [nouvelleLigne()] });
+  const openNew = () => setEdit({ famille: "", fournisseurRef: "", factureNumero: "", dateDepense: isoDay(), modePaiement: "ESPECES", observation: "", remiseGlobaleType: "pct", remiseGlobaleValeur: "", lignes: [nouvelleLigne()] });
   const setLigne = (i, k, v) => setEdit((e) => ({ ...e, lignes: e.lignes.map((l, j) => (j === i ? { ...l, [k]: v } : l)) }));
+  // ✅ Recherche d'article ; au choix : TVA du produit (figée) + dernier prix d'achat HT proposé
+  const optionsArticles = useMemo(() => articles.map((a) => ({
+    value: a._id, label: `${a.code ? `${a.code} — ` : ""}${articleLabel(a)} (stock ${a.quantite ?? 0})`,
+  })), [articles]);
+  const choisirArticle = (i, id) => {
+    const a = articles.find((x) => x._id === id);
+    setEdit((e) => ({
+      ...e,
+      lignes: e.lignes.map((l, j) => {
+        if (j !== i) return l;
+        if (!a) return { ...l, stock: "" };
+        const pu = a.dernierCoutAchat ?? a.cmp;
+        return {
+          ...l, stock: id, designation: "",
+          tauxTVA: a.tauxTVA ?? tvaDefaut,
+          ...(pu !== null && pu !== undefined && !Number(l.prixUnitaire) ? { prixUnitaire: r3(pu), prixSaisis: "HT" } : {}),
+        };
+      }),
+    }));
+  };
 
   const save = async () => {
     setBusy(true);
@@ -68,6 +121,7 @@ const Achats = () => {
         type: "ACHAT", famille: edit.famille || null, fournisseurRef: edit.fournisseurRef || null, fournisseur: f?.nom || edit.fournisseur || "",
         factureNumero: edit.factureNumero, dateDepense: edit.dateDepense, modePaiement: edit.modePaiement,
         observation: edit.observation,
+        remiseGlobaleType: edit.remiseGlobaleType || "pct", remiseGlobaleValeur: Number(edit.remiseGlobaleValeur) || 0,
         lignes: edit.lignes.map((l) => ({ ...l, stock: l.stock || null })),
       };
       if (edit._id) await updateDepense(edit._id, body);
@@ -83,19 +137,20 @@ const Achats = () => {
     try { await fn(); setMsg({ type: "success", text: ok }); load(); } catch (e) { setMsg({ text: errMsg(e) }); }
   };
 
-  const totaux = (edit?.lignes || []).reduce((acc, l) => {
-    const c = calcLigne(l);
-    return { ht: acc.ht + c.ht, tva: acc.tva + c.tva, ttc: acc.ttc + c.ttc };
-  }, { ht: 0, tva: 0, ttc: 0 });
+  const totaux = calcFacture(edit?.lignes || [], edit?.remiseGlobaleType, edit?.remiseGlobaleValeur);
   const sumBy = (st) => r3(rows.filter((r) => r.statut === st).reduce((s, r) => s + (r.montant || 0), 0));
   const nbBrouillons = rows.filter((r) => r.statut === "brouillon").length;
 
   return (
     <Page>
-      <PageHeader icon={<FaFileInvoice />} title="Factures d'achat" subtitle="La validation met à jour le stock et le coût moyen selon le mode de la boutique">
-        <button className="btn-modern btn-modern-primary" onClick={openNew}><FaPlus /> Nouvelle facture</button>
+      <PageHeader icon={<FaFileInvoice />} title="Achats" subtitle="Bons de commande fournisseur et factures d'achat (la validation d'une facture met à jour le stock et le coût moyen)">
+        {onglet === "factures" && <button className="btn-modern btn-modern-primary" onClick={openNew}><FaPlus /> Nouvelle facture</button>}
       </PageHeader>
+      <Tabs tabs={[["factures", "Factures d'achat"], ["commandes", "Bons de commande"]]} value={onglet} onChange={setOnglet} />
       <Alert msg={msg?.text} type={msg?.type || "danger"} onClose={() => setMsg(null)} />
+      {onglet === "commandes" ? (
+        <CommandesFournisseur onFactureCreee={(d) => { setOnglet("factures"); setStatut("brouillon"); load(); if (d) setMsg({ type: "success", text: `Facture d'achat ${d.numero} créée en brouillon : vérifiez les quantités et prix reçus puis validez-la (entrée en stock).` }); }} />
+      ) : (<>
 
       <div className="row g-3 mb-3">
         <div className="col-12 col-md-4"><Kpi icon={<FaCheckCircle />} tone="success" label="Achats validés" value={tnd(sumBy("validee"))} hint={`${rows.filter((r) => r.statut === "validee").length} facture(s)`} /></div>
@@ -129,7 +184,7 @@ const Achats = () => {
               <div className="at-actions">
                 <IconBtn title="Détail" onClick={() => setView(r)}><FaEye /></IconBtn>
                 {r.statut === "brouillon" && (
-                  <IconBtn title="Modifier" onClick={() => setEdit({ ...r, famille: r.famille?._id || r.famille || "", fournisseurRef: r.fournisseurRef?._id || "", dateDepense: isoDay(new Date(r.dateDepense)), lignes: r.lignes.map((l) => ({ ...l, prixSaisis: l.prixSaisis || r.prixSaisis || "HT", tauxTVA: l.tauxTVA ?? 0, stock: l.stock || "" })) })}>
+                  <IconBtn title="Modifier" onClick={() => setEdit({ ...r, famille: r.famille?._id || r.famille || "", fournisseurRef: r.fournisseurRef?._id || "", dateDepense: isoDay(new Date(r.dateDepense)), remiseGlobaleType: r.remiseGlobaleType || "pct", remiseGlobaleValeur: r.remiseGlobaleValeur || "", lignes: r.lignes.map((l) => ({ ...l, prixSaisis: l.prixSaisis || r.prixSaisis || "HT", tauxTVA: l.tauxTVA ?? 0, stock: l.stock || "", remiseType: l.remiseType || "montant" })) })}>
                     <FaEdit />
                   </IconBtn>
                 )}
@@ -148,6 +203,7 @@ const Achats = () => {
           },
         ]}
       />
+      </>)}
 
       {/* ---------- Saisie ---------- */}
       <FormModal show={!!edit} size="xl" title={edit?._id ? `Modifier ${edit.numero}` : "Nouvelle facture d'achat"} onClose={() => setEdit(null)} onSubmit={save} busy={busy} submitLabel="Enregistrer en brouillon">
@@ -164,51 +220,94 @@ const Achats = () => {
               <Field label="Date" col="col-6 col-md-2"><input type="date" className="form-control-modern" value={edit.dateDepense} onChange={(e) => setEdit({ ...edit, dateDepense: e.target.value })} /></Field>
               <Field label="Mode de paiement" col="col-12 col-md-3">
                 <select className="form-control-modern" value={edit.modePaiement} onChange={(e) => setEdit({ ...edit, modePaiement: e.target.value })}>
-                  {[["ESPECES", "Espèces"], ["CHEQUE", "Chèque"], ["VIREMENT", "Virement"], ["CARTE", "Carte"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  {[["ESPECES", "Espèces"], ["CHEQUE", "Chèque"], ["TRAITE", "Traite"], ["VIREMENT", "Virement"], ["CARTE", "Carte"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </Field>
             </div>
 
             <div className="at-card-title">Lignes de la facture</div>
-            <div className="at-lines">
-              <div className="at-line d-none d-lg-grid" style={{ ...LINE_GRID, background: "var(--at-head-bg)" }}>
-                {["Article (ou ligne libre)", "Quantité", "TVA %", "PU HT", "PU TTC", "Remise HT", "Frais (hors TVA)", "Montant TTC", ""].map((h, i) => (
-                  <div key={i} className="form-label mb-0" style={i === 7 ? { textAlign: "right" } : undefined}>{h}</div>
-                ))}
-              </div>
-              {edit.lignes.map((l, i) => (
-                <div key={i} className="at-line" style={LINE_GRID}>
-                  <div>
-                    <ArticleSelect articles={articles} value={l.stock} onChange={(v) => setLigne(i, "stock", v)} />
-                    {!l.stock && <input className="form-control-modern mt-2" placeholder="Désignation (ligne libre)" value={l.designation} onChange={(e) => setLigne(i, "designation", e.target.value)} />}
-                  </div>
-                  {[["quantite", "Quantité"], ["tauxTVA", "TVA %"], ["puHT", "PU HT"], ["puTTC", "PU TTC"], ["remise", "Remise HT"], ["fraisImputables", "Frais (hors TVA)"]].map(([k, lib]) => {
-                    // ✅ PU HT et PU TTC liés : taper l'un calcule l'autre (selon la TVA de la ligne)
-                    const value = k === "puHT" ? puHT(l) : k === "puTTC" ? puTTC(l) : l[k];
-                    const onChange = (v) => (k === "puHT" || k === "puTTC"
-                      ? setEdit((e) => ({ ...e, lignes: e.lignes.map((x, j) => (j === i ? { ...x, prixUnitaire: v, prixSaisis: k === "puHT" ? "HT" : "TTC" } : x)) }))
-                      : setLigne(i, k, v));
-                    return (
-                      <div key={k}>
-                        {/* ✅ Libellé visible sur téléphone (l'en-tête des colonnes y est masqué) */}
-                        <label className="at-mini-label d-lg-none">{lib}</label>
-                        <input type="number" step={k === "tauxTVA" ? "0.01" : "0.001"} min="0" max={k === "tauxTVA" ? 100 : undefined} className="form-control-modern" aria-label={lib} value={value} onChange={(e) => onChange(e.target.value)} />
+            <div className="doc-lignes">
+              {edit.lignes.map((l, i) => {
+                const a = l.stock ? articles.find((x) => x._id === l.stock) : null;
+                const tvaA = Number(l.tauxTVA) || 0;
+                const prixChange = (champ, v) => setEdit((e) => ({ ...e, lignes: e.lignes.map((x, j) => (j === i ? { ...x, prixUnitaire: v, prixSaisis: champ } : x)) }));
+                return (
+                  <div key={i} className="doc-ligne">
+                    {/* Ligne 1 : article (recherche) ou désignation libre */}
+                    <div className="doc-ligne-tete">
+                      <div className="doc-ligne-num">{i + 1}</div>
+                      <div className="doc-ligne-article">
+                        <SearchSelect options={optionsArticles} value={l.stock} onChange={(v) => choisirArticle(i, v)} placeholder="Rechercher un article (vide = ligne libre)" />
+                        {a && (
+                          // ✅ État actuel du produit : stock, TVA figée, dernier achat, CMP
+                          <div className="doc-etat">
+                            <span className="at-chip">Stock : <b>{a.quantite ?? 0}</b> {a.unite || ""}</span>
+                            <span className="at-chip doc-champ-gris">TVA {tvaA.toLocaleString("fr-FR")} % 🔒</span>
+                            {a.dernierCoutAchat != null && <span className="at-chip">Dernier achat {tnd(a.dernierCoutAchat)} HT · {tnd(r3(a.dernierCoutAchat * (1 + tvaA / 100)))} TTC</span>}
+                            {a.cmp != null && <span className="at-chip">CMP {tnd(a.cmp)} HT</span>}
+                          </div>
+                        )}
+                        {!l.stock && <input className="form-control-modern mt-2" placeholder="Désignation (ligne libre)" value={l.designation} onChange={(e) => setLigne(i, "designation", e.target.value)} />}
                       </div>
-                    );
-                  })}
-                  <div className="at-num" style={{ textAlign: "right", fontWeight: 600, paddingTop: 11 }}><span className="at-mini-label d-lg-none">Montant TTC </span>{tnd(calcLigne(l).ttc)}</div>
-                  <div style={{ paddingTop: 5 }}>
-                    {edit.lignes.length > 1 && <IconBtn title="Supprimer la ligne" tone="danger" onClick={() => setEdit({ ...edit, lignes: edit.lignes.filter((_, j) => j !== i) })}><FaTrash /></IconBtn>}
+                      <div style={{ paddingTop: 4 }}>
+                        {edit.lignes.length > 1 && <IconBtn title="Supprimer la ligne" tone="danger" onClick={() => setEdit({ ...edit, lignes: edit.lignes.filter((_, j) => j !== i) })}><FaTrash /></IconBtn>}
+                      </div>
+                    </div>
+                    {/* Ligne 2 : Quantité → PU TTC → TVA → PU HT → Remise → Frais → Montant (alignés) */}
+                    <div className="doc-ligne-champs">
+                      <div className="doc-champ">
+                        <label>Quantité</label>
+                        <input type="number" step="0.001" min="0" className="form-control-modern" value={l.quantite} onChange={(e) => setLigne(i, "quantite", e.target.value)} />
+                      </div>
+                      <div className="doc-champ">
+                        <label>PU TTC</label>
+                        <input type="number" step="0.001" min="0" className="form-control-modern" value={puTTC(l)}
+                          style={l.prixSaisis === "TTC" ? { fontWeight: 600 } : undefined} onChange={(e) => prixChange("TTC", e.target.value)} />
+                      </div>
+                      <div className="doc-champ">
+                        <label>TVA %</label>
+                        {l.stock
+                          ? <input className="form-control-modern doc-champ-gris" disabled title="TVA du produit (non modifiable)" value={`${tvaA.toLocaleString("fr-FR")} %`} />
+                          : <TvaInput value={l.tauxTVA} onChange={(v) => setLigne(i, "tauxTVA", v)} taux={tauxProposes} />}
+                      </div>
+                      <div className="doc-champ">
+                        <label>PU HT</label>
+                        <input type="number" step="0.001" min="0" className="form-control-modern" value={puHT(l)}
+                          style={l.prixSaisis !== "TTC" ? { fontWeight: 600 } : undefined} onChange={(e) => prixChange("HT", e.target.value)} />
+                      </div>
+                      <div className="doc-champ">
+                        <label>Remise {l.remiseType === "pct" ? "(%)" : "(DT HT)"}</label>
+                        <RemiseInput type={l.remiseType === "pct" ? "pct" : "montant"} valeur={l.remiseType === "pct" ? l.remisePct : l.remise}
+                          onChange={(type, v) => setEdit((e) => ({ ...e, lignes: e.lignes.map((x, j) => (j === i ? (type === "pct" ? { ...x, remiseType: "pct", remisePct: v, remise: 0 } : { ...x, remiseType: "montant", remise: v, remisePct: 0 }) : x)) }))} />
+                      </div>
+                      <div className="doc-champ">
+                        <label>Frais (hors TVA)</label>
+                        <input type="number" step="0.001" min="0" className="form-control-modern" value={l.fraisImputables} onChange={(e) => setLigne(i, "fraisImputables", e.target.value)} />
+                      </div>
+                      <div className="doc-champ">
+                        <label style={{ textAlign: "right" }}>Montant TTC</label>
+                        <div className="doc-champ-total">{tnd(calcLigne(l).ttc)}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
               <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => setEdit({ ...edit, lignes: [...edit.lignes, nouvelleLigne()] })}><FaPlus /> Ajouter une ligne</button>
-              <span className="at-total">Total TTC : {tnd(r3(totaux.ttc))}</span>
+              {/* ✅ Remise sur toute la facture d'achat (HT, répartie au prorata → coût et CMP justes) */}
+              <div className="doc-champ" style={{ width: 210 }}>
+                <label>Remise globale {edit.remiseGlobaleType === "montant" ? "(DT HT)" : "(%)"}</label>
+                <RemiseInput type={edit.remiseGlobaleType || "pct"} valeur={edit.remiseGlobaleValeur} ariaLabel="Remise globale"
+                  onChange={(type, v) => setEdit((e) => ({ ...e, remiseGlobaleType: type, remiseGlobaleValeur: v }))} />
+              </div>
             </div>
-            <div className="at-muted mb-3" style={{ textAlign: "right" }}>
-              Total HT (coût du stock) : <b>{tnd(r3(totaux.ht))}</b> · TVA : <b>{tnd(r3(totaux.tva))}</b>
+            <div className="mb-3" style={{ textAlign: "right" }}>
+              {totaux.remise > 0 && (
+                <div className="at-muted">Total HT avant remise : <b>{tnd(totaux.avantRemise)}</b> · Remise globale : <b style={{ color: "#dc2626" }}>− {tnd(totaux.remise)}</b></div>
+              )}
+              <div className="at-muted">Total HT (coût du stock) : <b>{tnd(totaux.ht)}</b> · TVA : <b>{tnd(totaux.tva)}</b></div>
+              <span className="at-total">Total TTC : {tnd(totaux.ttc)}</span>
             </div>
             <Field label="Famille (lignes hors stock, statistiques Bénéfice)">
               <select className="form-control-modern" value={edit.famille || ""} onChange={(e) => setEdit({ ...edit, famille: e.target.value })}>

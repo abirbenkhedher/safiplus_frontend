@@ -73,7 +73,7 @@ export const StatutBadge = ({ statut }) => {
 };
 
 const KPI_COLORS = {
-  primary: ["#4361ee", "rgba(67, 97, 238, 0.1)"],
+  primary: ["var(--primary)", "rgba(var(--primary-rgb), 0.1)"],
   success: ["#10b981", "rgba(16, 185, 129, 0.1)"],
   danger: ["#ef4444", "rgba(239, 68, 68, 0.1)"],
   warning: ["#f59e0b", "rgba(245, 158, 11, 0.12)"],

@@ -132,7 +132,7 @@ const textareaStyle = {
 const applyFocus = (e, focused) => {
   if (focused) {
     e.target.style.borderColor = "var(--primary)";
-    e.target.style.boxShadow = "0 0 0 4px rgba(67,97,238,0.12)";
+    e.target.style.boxShadow = "0 0 0 4px rgba(var(--primary-rgb), 0.12)";
     e.target.style.background = "white";
   } else {
     e.target.style.borderColor = "var(--gray-300)";
@@ -818,7 +818,7 @@ const ReparationModal = ({
   }, [isEdit, statusLabelCurrent, piecesActivesCount]);
 
   // ✅ Indication visuelle : réparation clôturée ?
-  // Même règle que le serveur : statut « réparé / sortie réparé » + reste à payer = 0
+  // Même règle que le serveur : statut « sortie réparé » (pas « réparé » seul) + reste à payer = 0
   const isCloture = useMemo(() => {
     if (!isStatutCloture(statusLabelCurrent)) return false;
     const imprevusAcceptes = (formData.diagnosticImprevus?.imprevus || [])
@@ -864,7 +864,7 @@ const ReparationModal = ({
             className="reparation-modal-header"
             style={{
               padding: "18px 26px",
-              background: "linear-gradient(135deg, rgba(67,97,238,0.06) 0%, rgba(67,97,238,0.02) 100%)",
+              background: "linear-gradient(135deg, rgba(var(--primary-rgb), 0.06) 0%, rgba(var(--primary-rgb), 0.02) 100%)",
               borderBottom: "1px solid var(--gray-200)",
               display: "flex", alignItems: "center", gap: "14px",
               flexShrink: 0,
@@ -873,10 +873,10 @@ const ReparationModal = ({
             <div
               style={{
                 width: "42px", height: "42px", borderRadius: "12px",
-                background: "linear-gradient(135deg, #4361ee, #3a52c9)",
+                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
                 color: "white", display: "flex", alignItems: "center",
                 justifyContent: "center", fontSize: "17px", flexShrink: 0,
-                boxShadow: "0 4px 12px rgba(67,97,238,0.35)",
+                boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.35)",
               }}
             >
               <FaTools />
@@ -969,7 +969,7 @@ const ReparationModal = ({
               .reparation-modal-body .search-select-trigger:focus-visible,
               .reparation-modal-body .search-select-trigger[data-open="true"] {
                 border-color: var(--primary) !important;
-                box-shadow: 0 0 0 4px rgba(67,97,238,0.12) !important;
+                box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.12) !important;
                 background: white !important;
               }
 
@@ -1711,7 +1711,7 @@ const ReparationModal = ({
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                boxShadow: saving ? "none" : "0 2px 10px rgba(67,97,238,0.35)",
+                boxShadow: saving ? "none" : "0 2px 10px rgba(var(--primary-rgb), 0.35)",
                 transition: "all 150ms ease",
               }}
             >

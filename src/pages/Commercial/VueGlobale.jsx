@@ -55,7 +55,7 @@ const VueGlobale = () => {
           </div>
 
           <Card title="Répartition du chiffre d'affaires" className="mb-3">
-            <div className="d-flex align-items-center gap-2 mb-2"><span style={{ width: 120 }}>Atelier</span><Barre part={t.reparations.ca} total={t.total.ca} couleur="#4361ee" /><b className="at-num" style={{ width: 130, textAlign: "right" }}>{tnd(t.reparations.ca)}</b></div>
+            <div className="d-flex align-items-center gap-2 mb-2"><span style={{ width: 120 }}>Atelier</span><Barre part={t.reparations.ca} total={t.total.ca} couleur="var(--primary)" /><b className="at-num" style={{ width: 130, textAlign: "right" }}>{tnd(t.reparations.ca)}</b></div>
             <div className="d-flex align-items-center gap-2"><span style={{ width: 120 }}>Commerce</span><Barre part={t.commerce.ca} total={t.total.ca} couleur="#f59e0b" /><b className="at-num" style={{ width: 130, textAlign: "right" }}>{tnd(t.commerce.ca)}</b></div>
           </Card>
 
