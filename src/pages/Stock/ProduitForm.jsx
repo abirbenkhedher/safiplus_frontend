@@ -1,25 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { createStock, updateStock } from "../../api/stock";
 import { createTypeArticle } from "../../api/typeArticles";
 import { getParametresAtelier } from "../../api/atelier";
 import { FormModal, Field, Alert } from "../../components/atelier/ui";
-import { tnd, errMsg } from "../../utils/atelier";
-import TvaInput, { versTTC, versHT } from "../../components/common/TvaInput";
+import { tnd, errMsg, nomArticle } from "../../utils/atelier";
+import TvaInput from "../../components/common/TvaInput";
+import { versTTC, versHT } from "../../utils/tva";
 
 // ============================================================
-// ✅ Fiche « produit de vente » (espace Commerce)
-// Classement (famille → catégorie, objet, marque, modèle), code-barres,
-// prix d'achat, prix de vente HT ↔ TTC, TVA, marge, CMP, stock initial.
+// ✅ Fiche « produit de vente » (espace Commerce) — formulaire SIMPLE
+// L'essentiel : désignation, type, code-barres, prix d'achat / de vente, TVA,
+// quantité initiale. Le reste (classement famille → modèle, unité, seuil,
+// usage « les deux »…) est replié dans « Plus d'options ».
+// Sans catégorie choisie, le serveur range le produit dans « Produits ».
 // Le prix de vente est enregistré dans la base de saisie de la boutique
 // (TTC ou HT, paramètre « prix saisis TTC »).
 // ============================================================
-const FAMILLE_KEY = "produitDerniereFamille";
 const r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
 const idOf = (x) => (x && typeof x === "object" ? x._id : x) || "";
-const lireFamille = () => { try { return localStorage.getItem(FAMILLE_KEY) || ""; } catch { return ""; } };
 
-const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
+const ProduitForm = ({ stock, referentiels, onClose, onSaved, codeInitial = "" }) => {
   const isEdit = !!stock;
   const [params, setParams] = useState(null);
   const [types, setTypes] = useState(referentiels.typesArticle || []);
@@ -27,14 +28,17 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const categorieInit = referentiels.categories.find((c) => c._id === idOf(stock?.categorie));
+  const [options, setOptions] = useState(false);
   const [f, setF] = useState({
-    famille: categorieInit ? idOf(categorieInit.famille) : lireFamille(),
+    // Ancien produit sans désignation : on part de son nom actuel (Type + Marque + Modèle)
+    designation: stock ? nomArticle(stock) : "",
+    famille: categorieInit ? idOf(categorieInit.famille) : "",
     categorie: idOf(stock?.categorie),
     typeArticle: idOf(stock?.typeArticle),
     objet: idOf(stock?.objet),
     marque: idOf(stock?.marque),
     modele: idOf(stock?.modele),
-    code: stock?.code || "",
+    code: stock?.code || String(codeInitial || "").toUpperCase(),
     unite: stock?.unite || "pièce",
     usage: stock?.usage === "mixte" ? "mixte" : "vente",
     tauxTVA: stock?.tauxTVA ?? "",
@@ -43,7 +47,7 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
     prixReparation: stock?.prixIndicatif ?? "",
     puHT: "",
     puTTC: "",
-    quantite: 0,
+    quantite: "",
     seuilAlerte: stock?.seuilAlerte ?? 2,
     observation: stock?.observation || "",
   });
@@ -93,7 +97,6 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
   const ht = f.puHT === "" ? null : Number(f.puHT);
   const marge = cout !== null && ht !== null ? r3(ht - cout) : null;
   const tauxMarque = marge !== null && ht ? Math.round((marge / ht) * 1000) / 10 : null;
-  const coef = cout && ht ? Math.round((ht / cout) * 100) / 100 : null;
 
   const creerType = async () => {
     const nom = String(nouveauType || "").trim();
@@ -108,13 +111,14 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
   };
 
   const save = async () => {
-    if (!f.categorie) { setErr("La catégorie est obligatoire"); return; }
+    if (!f.designation.trim()) { setErr("La désignation est obligatoire (ex. : Chargeur Samsung 25W)"); return; }
     if (!f.typeArticle) { setErr("Le type de produit est obligatoire"); return; }
     if (f.puHT === "" && f.puTTC === "") { setErr("Le prix de vente est obligatoire"); return; }
     setBusy(true); setErr(null);
     try {
       const prixVente = params?.prixTTC === false ? Number(f.puHT) : Number(f.puTTC);
       const commun = {
+        designation: f.designation.trim(),
         code: f.code || null, unite: f.unite || "pièce", usage: f.usage, commissionActive: false,
         ...(tvaFigee ? {} : { tauxTVA: f.tauxTVA === "" ? null : Number(f.tauxTVA) }),
         prixVente,
@@ -122,18 +126,19 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
         ...(f.usage === "mixte" ? { prixIndicatif: Number(f.prixReparation) || 0 } : {}),
         seuilAlerte: Number(f.seuilAlerte) || 0, observation: f.observation,
       };
+      let r;
       if (isEdit) {
-        await updateStock(stock._id, commun);
+        r = await updateStock(stock._id, commun);
       } else {
-        await createStock({
+        r = await createStock({
           ...commun,
-          categorie: f.categorie, typeArticle: f.typeArticle, objet: f.objet || null, marque: f.marque || null, modele: f.modele || null,
+          // Catégorie facultative : « Produits » par défaut (côté serveur)
+          categorie: f.categorie || null, typeArticle: f.typeArticle, objet: f.objet || null, marque: f.marque || null, modele: f.modele || null,
           quantite: Number(f.quantite) || 0,
           ...(f.prixAchat !== "" ? { coutUnitaire: Number(f.prixAchat) } : {}),
         });
-        try { if (f.famille) localStorage.setItem(FAMILLE_KEY, f.famille); } catch { /* ignoré */ }
       }
-      onSaved();
+      onSaved(r?.data?.data || null);
     } catch (e) { setErr(errMsg(e)); }
     setBusy(false);
   };
@@ -146,20 +151,14 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
   );
 
   return (
-    <FormModal show size="lg" title={isEdit ? "Modifier le produit de vente" : "Nouveau produit de vente"} onClose={onClose} onSubmit={save} busy={busy}>
+    <FormModal show size="lg" title={isEdit ? "Modifier le produit" : "Nouveau produit"} onClose={onClose} onSubmit={save} busy={busy}>
       <Alert msg={err} onClose={() => setErr(null)} />
 
-      <div className="at-card-title">Classement</div>
       <div className="row g-3 mb-3">
-        <Field label="Famille" col="col-12 col-md-6" hint={!isEdit ? "Ex. : « Vente ». Filtre les catégories ; mémorisée pour le prochain produit." : undefined}>
-          <select className="form-control-modern" value={f.famille} disabled={isEdit}
-            onChange={(e) => setF((x) => ({ ...x, famille: e.target.value, categorie: "" }))}>
-            <option value="">Toutes les familles</option>
-            {(referentiels.familles || []).map((x) => <option key={x._id} value={x._id}>{x.nom}</option>)}
-          </select>
+        <Field label="Désignation *" col="col-12 col-md-7" hint="Le nom qui apparaît sur le ticket et la facture">
+          <input className="form-control-modern" autoFocus={!isEdit} placeholder="Ex. : Chargeur Samsung 25W" value={f.designation} onChange={(e) => set("designation", e.target.value)} />
         </Field>
-        <Field label="Catégorie *" col="col-12 col-md-6">{sel("categorie", categories, "— Catégorie —", isEdit)}</Field>
-        <Field label="Type de produit *" col="col-12 col-md-6" hint="Ex. : Coque, Chargeur, Câble, Écouteurs…">
+        <Field label="Type *" col="col-12 col-md-5" hint="Ex. : Coque, Chargeur, Câble…">
           {nouveauType === null ? (
             <div className="d-flex gap-2">
               {sel("typeArticle", types, "— Type —", isEdit)}
@@ -173,91 +172,92 @@ const ProduitForm = ({ stock, referentiels, onClose, onSaved }) => {
             </div>
           )}
         </Field>
-        <Field label="Objet (appareil)" col="col-12 col-md-6">{sel("objet", referentiels.objets, "— Aucun —", isEdit)}</Field>
-        <Field label="Marque" col="col-12 col-md-6">{sel("marque", marques, "— Aucune —", isEdit)}</Field>
-        <Field label="Modèle" col="col-12 col-md-6">{sel("modele", modeles, "— Aucun —", isEdit)}</Field>
-      </div>
-      {isEdit && <div className="at-hint mb-3" style={{ fontStyle: "normal" }}>Le classement d'un produit existant n'est pas modifiable (historique du stock).</div>}
-
-      <div className="at-card-title">Identification</div>
-      <div className="row g-3 mb-3">
-        <Field label="Code / code-barres" col="col-12 col-md-5" hint="Scannez le code-barres du produit">
+        <Field label="Code / code-barres" col="col-12 col-md-5" hint="Facultatif : scannez le code-barres">
           <input className="form-control-modern" value={f.code} onChange={(e) => set("code", e.target.value.toUpperCase())} />
         </Field>
-        <Field label="Unité" col="col-6 col-md-3"><input className="form-control-modern" value={f.unite} onChange={(e) => set("unite", e.target.value)} /></Field>
-        <Field label="Usage" col="col-6 col-md-4">
-          <select className="form-control-modern" value={f.usage} onChange={(e) => set("usage", e.target.value)}>
-            <option value="vente">🛒 Produit de vente</option>
-            <option value="mixte">🔁 Vente + réparation</option>
-          </select>
+        <Field label="TVA %" col="col-6 col-md-3" hint={tvaFigee ? "Figée : le produit a déjà eu des mouvements" : undefined}>
+          <TvaInput value={f.tauxTVA} onChange={setTVA} taux={params?.tauxTVAAutorises} locked={tvaFigee} />
         </Field>
+        {isEdit ? (
+          <Field label="En stock" col="col-6 col-md-4" hint="Ajustez depuis la liste ou par un achat">
+            <input className="form-control-modern" disabled value={stock.quantite} />
+          </Field>
+        ) : (
+          <Field label="Quantité initiale" col="col-6 col-md-4">
+            <input type="number" min="0" step="1" className="form-control-modern" placeholder="0" value={f.quantite} onChange={(e) => set("quantite", e.target.value)} />
+          </Field>
+        )}
       </div>
 
       <div className="at-card-title">Prix</div>
       <div className="row g-3 mb-2">
         {isEdit ? (
-          <>
-            <Field label="CMP HT / TTC" col="col-6 col-md-4" hint="Mis à jour par les entrées en stock et factures d'achat">
-              <input className="form-control-modern" disabled value={stock.cmp !== null && stock.cmp !== undefined ? `${tnd(stock.cmp)} / ${tnd(ttcDe(stock.cmp))}` : "non valorisé"} />
-            </Field>
-            <Field label="Dernier achat HT / TTC" col="col-6 col-md-4">
-              <input className="form-control-modern" disabled value={stock.dernierCoutAchat !== null && stock.dernierCoutAchat !== undefined ? `${tnd(stock.dernierCoutAchat)} / ${tnd(ttcDe(stock.dernierCoutAchat))}` : "—"} />
-            </Field>
-          </>
+          <Field label="Coût moyen (CMP) HT / TTC" col="col-12 col-md-6" hint="Mis à jour par les entrées en stock et factures d'achat">
+            <input className="form-control-modern" disabled value={stock.cmp !== null && stock.cmp !== undefined ? `${tnd(stock.cmp)} / ${tnd(ttcDe(stock.cmp))}` : "non valorisé"} />
+          </Field>
         ) : (
           <>
-            <Field label="Prix d'achat HT" col="col-6 col-md-4" hint="Coût initial (CMP). Ensuite : entrées en stock / factures d'achat.">
+            <Field label="Prix d'achat HT" col="col-6 col-md-3">
               <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixAchat} onChange={(e) => setAchatHT(e.target.value)} />
             </Field>
-            <Field label="Prix d'achat TTC" col="col-6 col-md-4">
+            <Field label="Prix d'achat TTC" col="col-6 col-md-3">
               <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixAchatTTC} onChange={(e) => setAchatTTC(e.target.value)} />
             </Field>
           </>
         )}
-        <Field label="TVA %" col="col-6 col-md-4" hint={tvaFigee ? "Figée : le produit a déjà eu des mouvements" : `Flèches : ${(params?.tauxTVAAutorises || [7, 19]).join(" % ↔ ")} %, ou saisie libre`}>
-          <TvaInput value={f.tauxTVA} onChange={setTVA} taux={params?.tauxTVAAutorises} locked={tvaFigee} />
-        </Field>
-      </div>
-      <div className="row g-3 mb-2">
-        <Field label="Prix de vente HT" col="col-6 col-md-4">
+        <Field label="Prix de vente HT" col="col-6 col-md-3">
           <input type="number" min="0" step="0.001" className="form-control-modern" value={f.puHT} onChange={(e) => setHT(e.target.value)} />
         </Field>
-        <Field label="Prix de vente TTC *" col="col-6 col-md-4">
+        <Field label="Prix de vente TTC *" col="col-6 col-md-3">
           <input type="number" min="0" step="0.001" className="form-control-modern" value={f.puTTC} onChange={(e) => setTTC(e.target.value)} />
         </Field>
-        {f.usage === "mixte" && (
-          <Field label="Prix de réparation (indicatif) TTC" col="col-6 col-md-4" hint="Indicatif uniquement : la commission utilise le prix du dossier de réparation">
-            <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixReparation} onChange={(e) => set("prixReparation", e.target.value)} />
-          </Field>
-        )}
-        <div className="col-12 col-md-4">
-          <div className="at-stat-label">Marge unitaire HT</div>
-          <div className="at-stat-value" style={{ color: marge !== null && marge < 0 ? "#ef4444" : undefined }}>{marge !== null ? tnd(marge) : "—"}</div>
-          <div className="at-muted" style={{ fontSize: 12 }}>
-            {tauxMarque !== null ? `Taux de marque ${tauxMarque} %` : ""}{coef ? ` · coefficient ×${coef}` : ""}
-          </div>
-        </div>
       </div>
-      <div className="at-hint mb-3" style={{ fontStyle: "normal" }}>
-        Le prix enregistré est le prix {params?.prixTTC === false ? "HT" : "TTC"} (paramètre de la boutique). Il reste modifiable au moment de la vente.
+      <div className="at-muted mb-3" style={{ fontSize: 12.5 }}>
+        Marge unitaire HT : <b style={{ color: marge !== null && marge < 0 ? "#ef4444" : undefined }}>{marge !== null ? tnd(marge) : "—"}</b>
+        {tauxMarque !== null ? ` (${tauxMarque} %)` : ""}
+        {" · "}Prix enregistré en {params?.prixTTC === false ? "HT" : "TTC"}, modifiable au moment de la vente.
       </div>
 
-      <div className="at-card-title">Stock</div>
-      <div className="row g-3 mb-3">
-        {isEdit ? (
-          <Field label="Quantité en stock" col="col-6 col-md-4" hint="Ajustez depuis la liste ou par une facture d'achat">
-            <input className="form-control-modern" disabled value={stock.quantite} />
-          </Field>
-        ) : (
-          <Field label="Quantité initiale" col="col-6 col-md-4">
-            <input type="number" min="0" step="1" className="form-control-modern" value={f.quantite} onChange={(e) => set("quantite", e.target.value)} />
-          </Field>
-        )}
-        <Field label="Seuil d'alerte" col="col-6 col-md-4">
-          <input type="number" min="0" step="1" className="form-control-modern" value={f.seuilAlerte} onChange={(e) => set("seuilAlerte", e.target.value)} />
-        </Field>
-        <Field label="Observation" col="col-12 col-md-4"><input className="form-control-modern" value={f.observation} onChange={(e) => set("observation", e.target.value)} /></Field>
-      </div>
+      {/* ✅ Le détail, seulement si on en a besoin */}
+      <button type="button" className="btn-modern btn-modern-outline btn-sm mb-3" onClick={() => setOptions((o) => !o)}>
+        {options ? <FaChevronDown /> : <FaChevronRight />} Plus d'options (classement, seuil, usage…)
+      </button>
+      {options && (
+        <>
+          <div className="row g-3 mb-3">
+            <Field label="Usage" col="col-12 col-md-4">
+              <select className="form-control-modern" value={f.usage} onChange={(e) => set("usage", e.target.value)}>
+                <option value="vente">🛒 Produit de vente</option>
+                <option value="mixte">🔁 Vente + réparation</option>
+              </select>
+            </Field>
+            {f.usage === "mixte" && (
+              <Field label="Prix de réparation (indicatif) TTC" col="col-12 col-md-4">
+                <input type="number" min="0" step="0.001" className="form-control-modern" value={f.prixReparation} onChange={(e) => set("prixReparation", e.target.value)} />
+              </Field>
+            )}
+            <Field label="Unité" col="col-6 col-md-2"><input className="form-control-modern" value={f.unite} onChange={(e) => set("unite", e.target.value)} /></Field>
+            <Field label="Seuil d'alerte" col="col-6 col-md-2">
+              <input type="number" min="0" step="1" className="form-control-modern" value={f.seuilAlerte} onChange={(e) => set("seuilAlerte", e.target.value)} />
+            </Field>
+          </div>
+          <div className="row g-3 mb-3">
+            <Field label="Famille" col="col-12 col-md-4">
+              <select className="form-control-modern" value={f.famille} disabled={isEdit}
+                onChange={(e) => setF((x) => ({ ...x, famille: e.target.value, categorie: "" }))}>
+                <option value="">Toutes les familles</option>
+                {(referentiels.familles || []).map((x) => <option key={x._id} value={x._id}>{x.nom}</option>)}
+              </select>
+            </Field>
+            <Field label="Catégorie" col="col-12 col-md-4" hint={!isEdit ? "Vide : « Produits »" : undefined}>{sel("categorie", categories, "— Produits (par défaut) —", isEdit)}</Field>
+            <Field label="Objet (appareil)" col="col-12 col-md-4">{sel("objet", referentiels.objets, "— Aucun —", isEdit)}</Field>
+            <Field label="Marque" col="col-12 col-md-4">{sel("marque", marques, "— Aucune —", isEdit)}</Field>
+            <Field label="Modèle" col="col-12 col-md-4">{sel("modele", modeles, "— Aucun —", isEdit)}</Field>
+            <Field label="Observation" col="col-12 col-md-4"><input className="form-control-modern" value={f.observation} onChange={(e) => set("observation", e.target.value)} /></Field>
+          </div>
+          {isEdit && <div className="at-hint mb-3" style={{ fontStyle: "normal" }}>Le classement d'un produit existant n'est pas modifiable (historique du stock).</div>}
+        </>
+      )}
     </FormModal>
   );
 };

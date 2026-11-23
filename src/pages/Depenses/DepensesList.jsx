@@ -3,15 +3,25 @@ import { useAuth } from "../../context/AuthContext";
 import { withBoutiqueColumn } from "../../components/common/boutiqueColumn";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import {
-  FaPlus, FaSearch, FaTimes, FaMoneyBillWave,
-  FaTools, FaTruck, FaFileInvoice, FaCalendarAlt,
-  FaCreditCard, FaStickyNote, FaUser, FaBuilding,
-  FaEye, FaEdit, FaTrash,
+  FaPlus,
+  FaSearch,
+  FaTimes,
+  FaMoneyBillWave,
+  FaTools,
+  FaTruck,
+  FaFileInvoice,
+  FaCalendarAlt,
+  FaCreditCard,
+  FaStickyNote,
+  FaUser,
+  FaBuilding,
+  FaEdit,
 } from "react-icons/fa";
 import { getDepenses, getDepensesStats, deleteDepense } from "../../api/depenses";
 import DataTable from "../../components/common/DataTable";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import DepenseForm from "./DepenseForm";
+import StatCard from "../../components/common/StatCard";
 
 const DepensesList = () => {
   // ✅ Récupérer l'utilisateur connecté
@@ -163,7 +173,7 @@ const DepensesList = () => {
       {
         name: "Détails",
         grow: 2,
-        minWidth: "220px",
+        minWidth: "min(220px, 100%)",
         cell: (row) => (
           <div style={{ fontSize: "12px", color: "var(--gray-600)" }}>
             {/* ✅ Famille de la dépense (statistiques Bénéfice) */}
@@ -211,7 +221,6 @@ const DepensesList = () => {
         ),
       },
     ],
-    // eslint-disable-next-line
     []
   );
 
@@ -254,7 +263,7 @@ const DepensesList = () => {
       {/* ============================================ */}
       {stats && (
         <div className="row g-3 mb-4">
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-6 col-lg-4">
             <KpiCard
               icon={<FaMoneyBillWave />}
               label="Total dépenses"
@@ -264,7 +273,7 @@ const DepensesList = () => {
               bg="rgba(239, 68, 68, 0.1)"
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-6 col-lg-4">
             <KpiCard
               icon={<FaTools />}
               label="Réparation"
@@ -276,7 +285,7 @@ const DepensesList = () => {
               bg="rgba(var(--primary-rgb), 0.1)"
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-12 col-lg-4">
             <KpiCard
               icon={<FaTruck />}
               label="Diverse"
@@ -526,72 +535,8 @@ const DepensesList = () => {
 // ============================================================
 // ✅ Sous-composant : Carte KPI
 // ============================================================
-const KpiCard = ({ icon, label, value, subtitle, color, bg }) => (
-  <div
-    style={{
-      background: "var(--gray-50)",
-      border: "1px solid var(--gray-200)",
-      borderRadius: "16px",
-      padding: "18px",
-      display: "flex",
-      alignItems: "center",
-      gap: "14px",
-      height: "100%",
-    }}
-  >
-    <div
-      style={{
-        width: "46px",
-        height: "46px",
-        borderRadius: "12px",
-        background: bg,
-        color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "20px",
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: "600",
-          color: "var(--gray-500)",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: "2px",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: "18px",
-          fontWeight: "800",
-          color: "var(--gray-900)",
-          lineHeight: 1.1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          fontSize: "11.5px",
-          color: "var(--gray-500)",
-          marginTop: "3px",
-        }}
-      >
-        {subtitle}
-      </div>
-    </div>
-  </div>
+const KpiCard = ({ subtitle, ...rest }) => (
+  <StatCard {...rest} hint={subtitle} />
 );
 
 // ============================================================
@@ -622,7 +567,7 @@ const DepenseDetailsModal = ({ depense, onClose, onEdit }) => {
     >
       <div
         style={{
-          background: "#fff",
+          background: "var(--surface)",
           borderRadius: "16px",
           width: "100%",
           maxWidth: "560px",

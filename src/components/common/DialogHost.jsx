@@ -27,7 +27,7 @@ const DialogHost = () => {
     if (!courant?.timeoutMs) return undefined;
     timer.current = setTimeout(() => fermer(courant.kind === 'prompt' ? null : false), courant.timeoutMs);
     return () => clearTimeout(timer.current);
-  }, [courant]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courant]);
 
   if (!courant) return null;
   const annulation = courant.kind === 'prompt' ? null : courant.kind === 'alert' ? undefined : false;

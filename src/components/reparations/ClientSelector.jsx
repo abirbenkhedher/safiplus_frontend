@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
-  FaSearch, FaTimes, FaCheckCircle, FaExclamationTriangle,
-  FaUserPlus, FaCheck, FaEdit, FaMapMarkerAlt,
+  FaTimes,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaUserPlus,
+  FaCheck,
+  FaEdit,
+  FaMapMarkerAlt,
 } from 'react-icons/fa';
 import {
   getClients,
@@ -38,7 +43,7 @@ const loadClientsOnce = async () => {
   return clientsPromise;
 };
 
-export const invalidateClientsCache = () => {
+const invalidateClientsCache = () => {
   clientsCache = null;
   clientsPromise = null;
 };
@@ -510,12 +515,12 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             >
               <strong>{exactMatchClient.nom}</strong>
               {exactMatchClient.code && (
-                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace' }}>
+                <span style={{ background: 'var(--surface)', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace' }}>
                   {exactMatchClient.code}
                 </span>
               )}
               {exactMatchClient.codeFidelite && (
-                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--warning)' }}>
+                <span style={{ background: 'var(--surface)', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--warning)' }}>
                   🎁 {exactMatchClient.codeFidelite}
                 </span>
               )}
@@ -562,7 +567,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             <div
               style={{
                 maxHeight: '180px', overflowY: 'auto', marginBottom: '10px',
-                background: 'white', borderRadius: '8px', border: '1px solid var(--gray-200)',
+                background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--gray-200)',
               }}
             >
               {passengerClients.map((client) => (
@@ -622,7 +627,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
         debouncedSearch.trim().length >= 1 && (
         <div
           style={{
-            marginTop: '6px', background: 'white',
+            marginTop: '6px', background: 'var(--surface)',
             border: '1px solid var(--gray-200)', borderRadius: '10px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             maxHeight: '220px', overflowY: 'auto', zIndex: 100,
@@ -712,12 +717,12 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             </div>
             <div style={{ fontSize: '11px', color: 'var(--success)', opacity: 0.85, marginTop: '2px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {foundClient.code && (
-                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace' }}>
+                <span style={{ background: 'var(--surface)', padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace' }}>
                   {foundClient.code}
                 </span>
               )}
               {foundClient.codeFidelite && (
-                <span style={{ background: 'white', padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--warning)' }}>
+                <span style={{ background: 'var(--surface)', padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--warning)' }}>
                   🎁 {foundClient.codeFidelite}
                 </span>
               )}
@@ -739,7 +744,7 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
             title="Modifier"
             style={{
               width: '32px', height: '32px', borderRadius: '8px', border: 'none',
-              background: 'white', color: 'var(--primary)', cursor: 'pointer',
+              background: 'var(--surface)', color: 'var(--primary)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 2px 6px rgba(0,0,0,0.08)', flexShrink: 0,
             }}
@@ -907,11 +912,13 @@ const ClientSelector = ({ value, onChange, onClientChange }) => {
                   <button
                     type="button"
                     onClick={() => {
+                      // Faux positif du compilateur React : appel dans un clic, pas pendant l'affichage
+                      // eslint-disable-next-line react-hooks/refs
                       handleSelectClient(existing);
                       setShowForm(false);
                     }}
                     style={{
-                      background: 'white', border: 'none',
+                      background: 'var(--surface)', border: 'none',
                       color: 'var(--warning)', fontWeight: 700,
                       fontSize: '11px', padding: '4px 10px',
                       borderRadius: '6px', cursor: 'pointer',

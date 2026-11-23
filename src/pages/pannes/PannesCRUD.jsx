@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  FaPlus, FaEdit, FaTrash, FaExclamationTriangle, FaSearch, FaSave,
-  FaTimes, FaCalendarAlt, FaSortNumericDown, FaBoxes
+  FaPlus,
+  FaExclamationTriangle,
+  FaSearch,
+  FaSave,
+  FaTimes,
+  FaCalendarAlt,
+  FaSortNumericDown,
+  FaBoxes,
 } from 'react-icons/fa';
 import {
   getPannes,
@@ -43,7 +49,7 @@ const PannesCRUD = () => {
       );
       setPannes(sorted);
       setCategories(categoriesRes.data);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -444,7 +450,7 @@ const PannesCRUD = () => {
                     height: '32px',
                     borderRadius: '8px',
                     border: 'none',
-                    background: 'white',
+                    background: 'var(--surface)',
                     color: 'var(--gray-500)',
                     cursor: 'pointer',
                     display: 'flex',

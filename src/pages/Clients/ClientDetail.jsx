@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  FaArrowLeft, FaPhone, FaEnvelope, FaMapMarkerAlt, 
-  FaWhatsapp, FaTools, FaShoppingCart, FaWallet,
-  FaCheckCircle, FaExclamationTriangle, FaUser,
-  FaCalendarAlt, FaPlus, FaFileInvoiceDollar
+import {
+  FaArrowLeft,
+  FaPhone,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaWhatsapp,
+  FaTools,
+  FaShoppingCart,
+  FaWallet,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaCalendarAlt,
+  FaPlus,
+  FaFileInvoiceDollar,
 } from 'react-icons/fa';
 import { getClient } from '../../api/clients';
 import ReparationModal from '../../components/reparations/ReparationModal';
@@ -30,7 +39,7 @@ const ClientDetail = () => {
 
   useEffect(() => { loadClient(); }, [id]);
 
-  const loadClient = async () => {
+  async function loadClient() {
     try {
       setLoading(true);
       const response = await getClient(id);
@@ -38,12 +47,12 @@ const ClientDetail = () => {
       setReparations(response.data.reparations || []);
       setVentes(response.data.ventes || []);
       setStats(response.data.stats || {});
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement du client');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const formatPhoneForWhatsApp = (phone) => {
     if (!phone) return '';
@@ -114,7 +123,7 @@ const ClientDetail = () => {
         {/* EN-TÊTE CLIENT */}
         <div className="card-modern mb-3" style={{ 
           padding: '28px',
-          background: 'white',
+          background: 'var(--surface)',
           border: '1px solid var(--gray-200)',
         }}>
           <div className="row g-3 align-items-center">
@@ -504,7 +513,7 @@ const ClientDetail = () => {
                 fontSize: '13px',
               }}>
                 <thead>
-                  <tr style={{ background: 'white', borderBottom: '2px solid var(--gray-200)' }}>
+                  <tr style={{ background: 'var(--surface)', borderBottom: '2px solid var(--gray-200)' }}>
                     <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                       N° Ticket
                     </th>
@@ -664,7 +673,7 @@ const ClientDetail = () => {
                 fontSize: '13px',
               }}>
                 <thead>
-                  <tr style={{ background: 'white', borderBottom: '2px solid var(--gray-200)' }}>
+                  <tr style={{ background: 'var(--surface)', borderBottom: '2px solid var(--gray-200)' }}>
                     {[
                       ['N° Document', 'left'],
                       ['Articles', 'left'],

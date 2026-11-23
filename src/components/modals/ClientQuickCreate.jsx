@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { 
   FaUserPlus, 
@@ -108,7 +108,7 @@ const ClientQuickCreate = ({ show, onClose, onClientCreated }) => {
               height: '32px',
               borderRadius: '8px',
               border: 'none',
-              background: 'white',
+              background: 'var(--surface)',
               color: 'var(--gray-500)',
               cursor: 'pointer',
               display: 'flex',

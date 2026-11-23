@@ -1,9 +1,19 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FaPlus, FaSearch, FaUsers, FaPhone, FaEnvelope,
-  FaDownload, FaTimes, FaUserCheck, FaWallet,
-  FaMoneyBillWave, FaTrophy, FaGift, FaTrash, FaSpinner,
+  FaPlus,
+  FaSearch,
+  FaUsers,
+  FaPhone,
+  FaEnvelope,
+  FaDownload,
+  FaTimes,
+  FaUserCheck,
+  FaWallet,
+  FaMoneyBillWave,
+  FaTrophy,
+  FaGift,
+  FaTrash,
 } from 'react-icons/fa';
 import {
   getClients,
@@ -18,6 +28,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
 import ClientFormModal from './ClientFormModal';
 import { useAuth } from '../../context/AuthContext';
+import StatCard from "../../components/common/StatCard";
 
 // ============================================================
 // ✅ Constantes
@@ -261,7 +272,7 @@ const ClientsList = () => {
       selector: (row) => row.nom,
       sortable: true,
       grow: 2,
-      minWidth: '240px',
+      minWidth: 'min(240px, 100%)',
       cell: (row) => (
         <div>
           <div style={{ fontWeight: '600', fontSize: '13.5px' }}>{row.nom}</div>
@@ -549,59 +560,8 @@ const ClientsList = () => {
           { label: 'Impayés (page)', value: stats.unpaidClients, icon: <FaWallet />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
           { label: 'À recevoir (page)', value: `${stats.totalRestant.toFixed(2)} DT`, icon: <FaMoneyBillWave />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isText: true },
         ].map((stat, i) => (
-          <div key={i} className="col-12 col-sm-6 col-lg-3">
-            <div
-              style={{
-                background: 'var(--gray-50)',
-                border: '1px solid var(--gray-200)',
-                borderRadius: '16px',
-                padding: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-              }}
-            >
-              <div
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '12px',
-                  background: stat.bg,
-                  color: stat.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '20px',
-                  flexShrink: 0,
-                }}
-              >
-                {stat.icon}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    color: 'var(--gray-500)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '2px',
-                  }}
-                >
-                  {stat.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: stat.isText ? '16px' : '22px',
-                    fontWeight: '800',
-                    color: 'var(--gray-900)',
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {stat.value}
-                </div>
-              </div>
-            </div>
+          <div key={i} className="col-6 col-lg-3">
+            <StatCard icon={stat.icon} label={stat.label} value={stat.value} color={stat.color} bg={stat.bg} />
           </div>
         ))}
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
   FaSun, FaMoon, FaDesktop, FaChevronDown, 
   FaUser, FaSignOutAlt, FaKeyboard,
@@ -14,7 +14,6 @@ import GlobalViewNotice from "./GlobalViewNotice";
 const Header = ({ onToggleSidebar }) => {
   const { user, logout, isSuperAdmin, activeBoutique } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showShortcutsMenu, setShowShortcutsMenu] = useState(false);
@@ -82,11 +81,7 @@ const Header = ({ onToggleSidebar }) => {
   // ============================================
   // GESTION DU THÈME
   // ============================================
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const applyTheme = (newTheme) => {
+  function applyTheme(newTheme) {
     const root = document.documentElement;
     
     if (newTheme === 'system') {
@@ -97,7 +92,11 @@ const Header = ({ onToggleSidebar }) => {
     }
     
     localStorage.setItem('theme', newTheme);
-  };
+  }
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const handleThemeChange = (newTheme) => {
     setTheme(newTheme);
@@ -110,44 +109,6 @@ const Header = ({ onToggleSidebar }) => {
     return <FaSun />;
   };
 
-  // ============================================
-  // BREADCRUMB
-  // ============================================
-  const getBreadcrumb = () => {
-    const path = location.pathname;
-    
-    const breadcrumbs = {
-      '/dashboard': { title: 'Tableau de bord', icon: '📊' },
-      '/clients': { title: 'Clients', icon: '👥' },
-      '/clients/new': { title: 'Nouveau client', icon: '➕', parent: 'Clients', parentPath: '/clients' },
-      '/reparations': { title: 'Réparations', icon: '🔧' },
-      '/reparations/new': { title: 'Nouvelle réparation', icon: '➕', parent: 'Réparations', parentPath: '/reparations' },
-      '/familles': { title: 'Familles', icon: '📁' },
-      '/categories': { title: 'Catégories', icon: '📂' },
-      '/objets': { title: 'Objets', icon: '📦' },
-      '/statuses': { title: 'Statuts', icon: '🏷️' },
-      '/users': { title: 'Utilisateurs', icon: '👤' },
-      '/history': { title: 'Historique', icon: '📜' },
-      '/paiements': { title: 'Paiements', icon: '💰' },
-    };
-
-    if (path.includes('/clients/edit/')) {
-      return { title: 'Modifier un client', icon: '✏️', parent: 'Clients', parentPath: '/clients' };
-    }
-    if (path.match(/^\/clients\/[a-f0-9]+$/)) {
-      return { title: 'Détail client', icon: '👁️', parent: 'Clients', parentPath: '/clients' };
-    }
-    if (path.includes('/reparations/edit/')) {
-      return { title: 'Modifier une réparation', icon: '✏️', parent: 'Réparations', parentPath: '/reparations' };
-    }
-    if (path.match(/^\/reparations\/[a-f0-9]+$/)) {
-      return { title: 'Détail réparation', icon: '👁️', parent: 'Réparations', parentPath: '/reparations' };
-    }
-
-    return breadcrumbs[path] || { title: 'Page', icon: '📄' };
-  };
-
-  const breadcrumb = getBreadcrumb();
 
   // ============================================
   // RACCOURCIS (pour le menu)
@@ -388,7 +349,7 @@ const Header = ({ onToggleSidebar }) => {
           top: 0;
           left: var(--sidebar-width);
           right: 0;
-          background: white;
+          background: var(--surface);
           border-bottom: 1px solid var(--gray-200);
           display: flex;
           align-items: center;
@@ -520,7 +481,7 @@ const Header = ({ onToggleSidebar }) => {
           position: absolute;
           top: calc(100% + 8px);
           right: 0;
-          background: white;
+          background: var(--surface);
           border: 1px solid var(--gray-200);
           border-radius: 12px;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);

@@ -1,0 +1,371 @@
+/* ============================================================
+   SAFI — DESIGN SYSTEM GLOBAL (chargé sur toutes les pages)
+   Une seule définition pour : cartes, cartes KPI, champs,
+   en-têtes de page, alertes, modales, tableaux.
+   + règles responsive communes (téléphone → grand écran).
+   ============================================================ */
+
+:root {
+  --surface: #ffffff;
+  --surface-2: var(--gray-50);
+  --border: var(--gray-200);
+  --card-radius: var(--radius-lg);
+  --card-padding: 20px;
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --card-shadow-hover: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --content-max: 1680px;
+}
+[data-theme="dark"] {
+  --surface: #1a1d29;
+  --surface-2: #242838;
+  --border: #2f3444;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Base responsive ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+img, video, canvas { max-width: 100%; }
+img { height: auto; }
+/* Un bloc extensible dans une ligne flex peut rétrécir (champ date + bouton, etc.) */
+.d-flex > .flex-grow-1, .d-flex > .flex-fill, .min-w-0 { min-width: 0; }
+.app-main { min-width: 0; overflow-x: clip; }
+/* Très grands écrans : contenu centré, lignes pas trop longues */
+.app-content > .fade-in-up { max-width: var(--content-max); margin: 0 auto; width: 100%; }
+
+/* ============================================================
+   CARTES — même design partout
+   ============================================================ */
+.card-modern {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius) !important;
+  box-shadow: var(--card-shadow);
+  padding: var(--card-padding);
+  min-width: 0;
+  color: var(--gray-800);
+}
+.card-modern > .table-responsive:last-child,
+.card-modern > table:last-child { margin-bottom: 0; }
+
+/* Titre de carte (icône + libellé) */
+.card-title-modern,
+.at-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-800);
+  margin-bottom: 14px;
+}
+.at-card-title-icon {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--primary-light); color: var(--primary);
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* Cartes react-bootstrap (<Card>) alignées sur le même rendu */
+.app-content .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.app-content .card-header { background: var(--surface-2); border-bottom: 1px solid var(--border); font-weight: 700; }
+
+/* ============================================================
+   CARTE KPI — un seul modèle (icône à gauche, libellé, valeur, aide)
+   ============================================================ */
+.kpi-card,
+.at-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  min-width: 0;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+.kpi-icon,
+.at-kpi-icon {
+  width: 46px; height: 46px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; flex-shrink: 0;
+}
+.kpi-body { flex: 1; min-width: 0; }
+.kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kpi-label,
+.at-kpi-label {
+  font-size: 11px; font-weight: 600; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kpi-value,
+.at-kpi-value {
+  font-size: 21px; font-weight: 800; color: var(--gray-900); line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.kpi-value-suffix { font-size: 13px; font-weight: 600; color: var(--gray-500); margin-left: 4px; }
+.kpi-hint,
+.at-kpi-hint { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+.kpi-trend {
+  font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+}
+.kpi-trend.up { color: var(--success); background: var(--success-light); }
+.kpi-trend.down { color: var(--danger); background: var(--danger-light); }
+
+/* Grille de KPI auto-adaptative */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ============================================================
+   EN-TÊTE DE PAGE
+   ============================================================ */
+.page-header,
+.at-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+}
+.page-title { font-size: 24px; font-weight: 700; color: var(--gray-900); margin: 0 0 4px; }
+.page-subtitle { font-size: 13px; color: var(--gray-500); margin: 0; }
+.page-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ============================================================
+   CHAMPS DE FORMULAIRE
+   ============================================================ */
+.form-control-modern {
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  background: var(--surface);
+  color: var(--gray-800);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+textarea.form-control-modern { height: auto; min-height: 80px; padding: 10px 13px; }
+select.form-control-modern { padding-right: 30px; }
+.form-control-modern:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+.form-control-modern:disabled { background: var(--gray-100); color: var(--gray-500); cursor: not-allowed; }
+.form-control:focus, .form-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+.form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+
+/* ============================================================
+   ALERTES
+   ============================================================ */
+.alert-modern {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500; margin-bottom: 20px;
+  border: 1px solid transparent;
+}
+.alert-modern-success { background: var(--success-light); color: #047857; border-color: rgba(16, 185, 129, 0.25); }
+.alert-modern-danger  { background: var(--danger-light);  color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+.alert-modern-warning { background: var(--warning-light); color: #b45309; border-color: rgba(245, 158, 11, 0.25); }
+.alert-modern-info    { background: var(--info-light);    color: #1d4ed8; border-color: rgba(59, 130, 246, 0.25); }
+[data-theme="dark"] .alert-modern-success { color: #6ee7b7; }
+[data-theme="dark"] .alert-modern-danger  { color: #fca5a5; }
+[data-theme="dark"] .alert-modern-warning { color: #fcd34d; }
+[data-theme="dark"] .alert-modern-info    { color: #93c5fd; }
+
+/* ============================================================
+   SÉLECTEUR DE PÉRIODE (statistiques)
+   ============================================================ */
+.period-selector {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px 16px; padding: 14px 16px;
+}
+.period-presets { display: flex; gap: 4px; padding: 4px; background: var(--gray-100); border-radius: var(--radius-md); }
+.period-preset {
+  border: none; background: transparent; padding: 7px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; color: var(--gray-600); white-space: nowrap; cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.period-preset:hover { color: var(--primary); }
+.period-preset.active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow-sm); }
+.period-dates { display: flex; align-items: center; gap: 8px; }
+.period-dates .form-control-modern { width: 160px; height: 38px; }
+.period-arrow { color: var(--gray-400); }
+[data-theme="dark"] .period-presets { background: #242838; }
+@media (max-width: 767.98px) {
+  .period-selector { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .period-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .period-preset { padding: 8px 4px; font-size: 12.5px; white-space: normal; line-height: 1.2; }
+  .period-dates .form-control-modern { flex: 1; width: auto; min-width: 0; }
+}
+
+/* ============================================================
+   TABLEAUX — défilement horizontal au lieu de casser la page
+   ============================================================ */
+.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-responsive { -webkit-overflow-scrolling: touch; }
+.app-content .table { margin-bottom: 0; }
+
+/* ============================================================
+   MODALES react-bootstrap
+   ============================================================ */
+.modal-footer { gap: 8px; flex-wrap: wrap; }
+.modal-footer > * { margin: 0; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+/* Tablette */
+@media (max-width: 991.98px) {
+  :root { --card-padding: 16px; }
+}
+
+/* Téléphone */
+@media (max-width: 767.98px) {
+  .page-title { font-size: 20px; }
+  .at-header h1 { font-size: 20px; }
+  .kpi-card, .at-kpi { padding: 14px; gap: 12px; }
+  .kpi-icon, .at-kpi-icon { width: 40px; height: 40px; font-size: 16px; border-radius: 10px; }
+  .kpi-value, .at-kpi-value { font-size: 18px; }
+  .kpi-grid { gap: 12px; margin-bottom: 18px; }
+
+  /* iPhone / Android : 16px évite le zoom automatique au focus d'un champ */
+  input.form-control-modern, select.form-control-modern, textarea.form-control-modern,
+  .form-control, .form-select,
+  .app-content input[type="text"], .app-content input[type="search"], .app-content input[type="email"],
+  .app-content input[type="tel"], .app-content input[type="number"], .app-content input[type="password"],
+  .app-content input[type="date"], .app-content select, .app-content textarea,
+  .modal input, .modal select, .modal textarea {
+    font-size: 16px !important;
+  }
+
+  /* Modales : presque plein écran, défilement interne */
+  .modal-dialog { margin: 8px; max-width: none; }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 16px; }
+  .modal-footer { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Boutons d'action des en-têtes : pleine largeur partagée */
+  .page-actions, .at-header-actions { width: 100%; }
+  .page-actions > .btn-modern, .at-header-actions > .btn-modern { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Petit téléphone */
+@media (max-width: 575.98px) {
+  :root { --card-padding: 14px; }
+
+  /* KPI : 2 par ligne, format vertical compact (icône au-dessus) */
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpi-card, .at-kpi { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+  .kpi-card:hover { transform: none; }
+  .kpi-icon, .at-kpi-icon { width: 34px; height: 34px; font-size: 15px; border-radius: 9px; }
+  .kpi-body { width: 100%; }
+  .kpi-label, .at-kpi-label { white-space: normal; font-size: 10.5px; line-height: 1.3; }
+  .kpi-value, .at-kpi-value { font-size: 16px; }
+  .kpi-hint, .at-kpi-hint { font-size: 11px; }
+  .row.g-3:has(> [class*="col-"] > .kpi-card) { --bs-gutter-x: 10px; --bs-gutter-y: 10px; }
+  .modal-footer > .btn-modern, .modal-footer > .btn { flex: 1 1 auto; justify-content: center; }
+  .btn-modern { padding: 10px 14px; }
+}
+
+/* Filtres repliables sur téléphone (bouton .mobile-filter-toggle + bloc .mobile-collapsible) */
+.mobile-filter-toggle { display: none; }
+@media (max-width: 767.98px) {
+  .mobile-filter-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 44px; margin-bottom: 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--gray-700);
+    font-size: 14px; font-weight: 600; box-shadow: var(--card-shadow); cursor: pointer;
+  }
+  .mobile-filter-toggle .count {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+    background: var(--primary); color: #fff; font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .mobile-collapsible.collapsed { display: none !important; }
+}
+
+/* Panneaux de l'en-tête (messages, menus) : pleine largeur sur téléphone */
+@media (max-width: 640px) {
+  .tm-panel,
+  .header-dropdown-menu {
+    position: fixed !important;
+    top: calc(var(--header-height) + 8px) !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: calc(100dvh - var(--header-height) - 16px) !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Écrans tactiles : cibles plus confortables */
+@media (pointer: coarse) {
+  .btn-icon, .at-icon-btn { width: 36px; height: 36px; }
+}
+
+/* ============================================================
+   MODE SOMBRE
+   ============================================================ */
+[data-theme="dark"] .card-modern,
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .at-kpi { color: #e5e7eb; }
+[data-theme="dark"] .card-title-modern,
+[data-theme="dark"] .at-card-title,
+[data-theme="dark"] .kpi-value,
+[data-theme="dark"] .at-kpi-value,
+[data-theme="dark"] .page-title { color: #f3f4f6 !important; }
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .at-kpi { background: var(--surface) !important; border-color: var(--border) !important; }
+
+/* ============================================================
+   PAGES À ONGLETS (Stock, Achats, Statistiques, Catalogue, Fin de journée)
+   ============================================================ */
+.page-onglets { margin-bottom: 14px; overflow-x: auto; }
+.page-onglets .at-tabs { flex-wrap: nowrap; }
+.page-onglets .at-tab { white-space: nowrap; }
+
+/* Fin de journée : étapes 1 → 2 */
+.fdj-etapes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.fdj-etape {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border, var(--gray-200)); opacity: .75;
+}
+.fdj-etape.actif { opacity: 1; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), .12); }
+.fdj-etape.fait { opacity: 1; }
+.fdj-etape.fait .fdj-num { background: #10b981; }
+.fdj-num {
+  flex: 0 0 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 800;
+}
+.fdj-titre { font-weight: 700; color: var(--gray-800); }
+.fdj-texte { font-size: 12.5px; color: var(--gray-600); margin-top: 2px; }
+[data-theme="dark"] .fdj-titre { color: #f3f4f6; }
+
+/* Menu : compteur (brouillons à valider) */
+.nav-link-badge {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: #f59e0b; color: #fff; font-size: 11px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}

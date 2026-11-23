@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import ChartCard from "../../../components/statistiques/ChartCard";
 import KpiGrid from "../../../components/statistiques/KpiGrid";

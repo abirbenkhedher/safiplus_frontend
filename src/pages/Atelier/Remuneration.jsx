@@ -447,8 +447,8 @@ const Remuneration = () => {
       )}
       {tab === "commissions" && extra && (
         <div className="row g-3 mb-3">
-          <div className="col-12 col-md-6 col-lg-4"><Kpi icon={<FaCheckCircle />} tone="success" label="Commissions validées" value={tnd(extra.validee)} /></div>
-          <div className="col-12 col-md-6 col-lg-4"><Kpi icon={<FaHourglassHalf />} tone="warning" label="En attente de validation" value={tnd(extra.calculee)} /></div>
+          <div className="col-6 col-lg-4"><Kpi icon={<FaCheckCircle />} tone="success" label="Commissions validées" value={tnd(extra.validee)} /></div>
+          <div className="col-6 col-lg-4"><Kpi icon={<FaHourglassHalf />} tone="warning" label="En attente de validation" value={tnd(extra.calculee)} /></div>
         </div>
       )}
 

@@ -1,4 +1,3 @@
-import React from "react";
 
 const EmptyState = ({ message = "Aucune donnée disponible pour cette période." }) => {
   return (

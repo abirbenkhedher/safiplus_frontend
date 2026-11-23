@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaTimes,
@@ -27,6 +27,7 @@ import {
   saveRetardMode,
   loadRetardMode,
 } from "../../utils/filterStorage";
+import StatCard from "../../components/common/StatCard";
 
 // ============================================================
 // ✅ Constantes
@@ -110,6 +111,7 @@ const ReparationsList = () => {
   const exitRetardMode = () => {
     setIsRetardMode(false);
     saveRetardMode(false);
+    setPage(1); // la liste complète repart de la première page
     searchParams.delete("retard");
     setSearchParams(searchParams);
   };
@@ -117,6 +119,7 @@ const ReparationsList = () => {
   // ============================================================
   // States
   // ============================================================
+  const [filtresOuverts, setFiltresOuverts] = useState(false); // téléphone : filtres repliés
   const [reparations, setReparations] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [users, setUsers] = useState([]);
@@ -250,6 +253,11 @@ const ReparationsList = () => {
 
       params.limit = perPage;
       params.page = page;
+      // ✅ Mode retard : filtré par le serveur sur toutes les réparations (même règle que la cloche)
+      if (isRetardMode) {
+        params.retard = 1;
+        params.heures = DELAI_ALERTE_HEURES;
+      }
 
       const response = await getReparations(params);
 
@@ -278,7 +286,7 @@ const ReparationsList = () => {
   useEffect(() => {
     loadReparations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, page, perPage]);
+  }, [filters, page, perPage, isRetardMode]);
 
   useEffect(() => {
     const unregister = registerOnSuccess(() => {
@@ -640,24 +648,9 @@ const ReparationsList = () => {
   // ============================================================
   // ✅ FILTRAGE PAR RETARD
   // ============================================================
-  const reparationsFilteredByRetard = useMemo(() => {
-    if (!isRetardMode) return reparations;
-
-    const maintenant = new Date();
-    return reparations.filter((rep) => {
-      const statusLabel = (rep.status?.label || "").toLowerCase();
-      const isEnCours =
-        statusLabel.includes("en cours") || statusLabel.includes("cours");
-      if (!isEnCours) return false;
-
-      const dateReception = rep.dateReception || rep.createdAt;
-      if (!dateReception) return false;
-
-      const diffHeures =
-        (maintenant - new Date(dateReception)) / (1000 * 60 * 60);
-      return diffHeures >= DELAI_ALERTE_HEURES;
-    });
-  }, [reparations, isRetardMode]);
+  // (Avant : filtre fait ici sur la seule page chargée → liste vide ou incomplète avec beaucoup
+  //  de dossiers, car les retards sont les plus anciens. Désormais filtré par le serveur : params.retard.)
+  const reparationsFilteredByRetard = reparations;
 
   const sortedReparations = useMemo(() => {
     return reparationsFilteredByRetard;
@@ -963,7 +956,7 @@ const ReparationsList = () => {
                   padding: "3px 6px",
                   borderRadius: "6px",
                   border: "1px solid var(--primary)",
-                  background: "white",
+                  background: "var(--surface)",
                   cursor: isUpdating ? "wait" : "pointer",
                   minWidth: "110px",
                 }}
@@ -1454,50 +1447,17 @@ const ReparationsList = () => {
               }]
             : []),
         ].map((stat, i) => (
-          <div key={i} className={`col-6 ${isAdmin ? "col-lg" : "col-lg-3"}`}>
-            <div
-              style={{
-                background: "var(--gray-50)", border: "1px solid var(--gray-200)",
-                borderRadius: "16px", padding: "18px",
-                display: "flex", alignItems: "center", gap: "14px",
-              }}
-            >
-              <div
-                style={{
-                  width: "46px", height: "46px", borderRadius: "12px",
-                  background: stat.bg, color: stat.color, display: "flex",
-                  alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0,
-                }}
-              >
-                {stat.icon}
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "11px", fontWeight: "600", color: "var(--gray-500)",
-                    textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px",
-                  }}
-                >
-                  {stat.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: stat.isText ? "16px" : "24px",
-                    fontWeight: "800",
-                    color: "var(--gray-900)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {stat.value}
-                </div>
-              </div>
-            </div>
+          <div key={i} className={`col-6 ${isAdmin ? "col-lg-4 col-xl" : "col-lg-3"}`}>
+            <StatCard icon={stat.icon} label={stat.label} value={stat.value} color={stat.color} bg={stat.bg} />
           </div>
         ))}
       </div>
 
       {/* ==================== FILTRES ==================== */}
-      <div className="card-modern mb-3 filter-card">
+      <button type="button" className="mobile-filter-toggle" onClick={() => setFiltresOuverts((o) => !o)} aria-expanded={filtresOuverts}>
+        <FaFilter /> {filtresOuverts ? "Masquer les filtres" : "Afficher les filtres"}
+      </button>
+      <div className={`card-modern mb-3 filter-card mobile-collapsible ${filtresOuverts ? "" : "collapsed"}`}>
         {/* ---- Section 1 : Périodes ---- */}
         <div className="filter-section">
           <div className="filter-section-title">
@@ -1887,7 +1847,7 @@ const ReparationsList = () => {
         .search-bar {
           position: relative;
           flex: 1 1 100%;
-          min-width: 240px;
+          min-width: min(240px, 100%);
         }
 
         .search-bar-icon {
@@ -1907,7 +1867,7 @@ const ReparationsList = () => {
           padding: 0 44px 0 44px;
           border: 1.5px solid var(--gray-200);
           border-radius: 12px;
-          background: white;
+          background: var(--surface);
           font-size: 13.5px;
           color: var(--gray-800);
           transition: border-color 150ms ease, box-shadow 150ms ease;
@@ -1988,7 +1948,7 @@ const ReparationsList = () => {
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
         .rdt_TableCol { padding: 8px 10px !important; }
-        .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
+        .rdt_TableWrapper { width: 100% !important; overflow-x: auto !important; }
         .rdt_Table { width: 100% !important; }
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

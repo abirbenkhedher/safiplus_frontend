@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DataTable from "react-data-table-component";
 
@@ -20,7 +20,7 @@ import {
   FaExclamationTriangle,
   FaWrench,
 } from "react-icons/fa";
-import { getReparation } from "../../api/reparations";
+import { getReparation, getTicketHTML } from "../../api/reparations";
 import { getStatuses } from "../../api/statuses";
 import { getAnnuaire } from "../../api/users";
 import { getCategories } from "../../api/categories";
@@ -79,7 +79,7 @@ const ReparationDetail = () => {
     loadReparation();
   }, [id]);
 
-  const loadReferenceData = async () => {
+  async function loadReferenceData() {
     try {
       const [s, u, c, o, mq, md] = await Promise.all([
         getStatuses(),
@@ -98,19 +98,19 @@ const ReparationDetail = () => {
     } catch (err) {
       console.error("Erreur ref data:", err);
     }
-  };
+  }
 
-  const loadReparation = async () => {
+  async function loadReparation() {
     try {
       setLoading(true);
       const response = await getReparation(id);
       setReparation(response.data);
-    } catch (err) {
+    } catch {
       setError("Erreur lors du chargement");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const formatDate = (date) =>
     !date ? "-" : new Date(date).toLocaleDateString("fr-FR");
@@ -265,8 +265,11 @@ const ReparationDetail = () => {
       {
         name: "Détails",
         grow: 3,
+        // ✅ Largeur minimale : sinon, sur téléphone, le message SMS s'affichait
+        //    sur une colonne de quelques lettres
+        minWidth: "300px",
         cell: (row) => {
-          let content = null;
+          let content;
 
           if (row.type === "sms") {
             const s = row.smsData;
@@ -310,7 +313,7 @@ const ReparationDetail = () => {
                   style={{
                     fontSize: "12px",
                     color: "var(--gray-800)",
-                    background: "white",
+                    background: "var(--surface)",
                     padding: "8px 10px",
                     borderRadius: "6px",
                     fontStyle: "italic",
@@ -487,7 +490,7 @@ const ReparationDetail = () => {
   );
 
   const customStyles = {
-    table: { style: { backgroundColor: "white", borderRadius: "12px" } },
+    table: { style: { backgroundColor: "var(--surface)", borderRadius: "12px" } },
     headRow: {
       style: {
         backgroundColor: "var(--gray-50)",
@@ -676,12 +679,7 @@ const ReparationDetail = () => {
                 <button
                   className="btn-modern btn-modern-outline"
                   onClick={() => {
-                    const token = localStorage.getItem("accessToken");
-                    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-                    fetch(`${apiUrl}/reparations/${reparation._id}/ticket`, {
-                      headers: { Authorization: `Bearer ${token}` },
-                    })
-                      .then((res) => res.text())
+                    getTicketHTML(reparation._id)
                       .then((html) => {
                         const win = window.open("", "_blank", "width=400,height=600");
                         win.document.write(html);
@@ -790,7 +788,7 @@ const ReparationDetail = () => {
               style={{
                 textAlign: "center",
                 padding: "8px 14px",
-                background: "white",
+                background: "var(--surface)",
                 borderRadius: "12px",
                 border: "1px solid #ef444430",
                 flexShrink: 0,
@@ -1356,7 +1354,7 @@ const ReparationDetail = () => {
                             key={i}
                             style={{
                               padding: "12px 14px",
-                              background: "white",
+                              background: "var(--surface)",
                               border: `1px solid ${config.color}40`,
                               borderLeft: `4px solid ${config.color}`,
                               borderRadius: "10px",
@@ -1812,7 +1810,7 @@ const DiagnosticDiff = ({ oldValue, newValue }) => {
         <div
           style={{
             padding: "8px 10px",
-            background: "white",
+            background: "var(--surface)",
             borderRadius: "8px",
             borderLeft: "3px solid var(--primary)",
             fontSize: "12px",
@@ -1877,7 +1875,7 @@ const ImprevuDiffItem = ({ diff }) => {
       <div
         style={{
           padding: "8px 10px",
-          background: "white",
+          background: "var(--surface)",
           borderRadius: "8px",
           borderLeft: "3px solid var(--success)",
           fontSize: "12px",
@@ -1940,7 +1938,7 @@ const ImprevuDiffItem = ({ diff }) => {
       <div
         style={{
           padding: "8px 10px",
-          background: "white",
+          background: "var(--surface)",
           borderRadius: "8px",
           borderLeft: "3px solid var(--danger)",
           fontSize: "12px",
@@ -1992,7 +1990,7 @@ const ImprevuDiffItem = ({ diff }) => {
       <div
         style={{
           padding: "10px",
-          background: "white",
+          background: "var(--surface)",
           borderRadius: "8px",
           borderLeft: "3px solid var(--warning)",
           display: "flex",

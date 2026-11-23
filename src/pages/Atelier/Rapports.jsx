@@ -57,17 +57,17 @@ const Rapports = ({ integre = false }) => {
 
       {rent && (
         <div className="row g-3 mb-4">
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaCashRegister />} tone="primary" label="CA HT" value={tnd(rent.caHT)} hint={`${rent.nbReparations} réparation(s) clôturée(s)`} /></div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaBoxOpen />} tone="danger" label="Coûts directs" value={tnd(rent.coutsDirects.total)} hint={`pièces ${tnd(rent.coutsDirects.pieces)}`} /></div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaChartLine />} tone="info" label="Marge brute" value={tnd(rent.margeBrute)} /></div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaUsers />} tone="warning" label="Rémunérations" value={tnd(rent.remunerations.total)} hint={`comm. ${tnd(rent.remunerations.commissions)} · sal. ${tnd(rent.remunerations.salaires)}`} /></div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaBuilding />} tone="gray" label="Charges générales" value={tnd(rent.chargesGenerales)} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaCashRegister />} tone="primary" label="CA HT" value={tnd(rent.caHT)} hint={`${rent.nbReparations} réparation(s) clôturée(s)`} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaBoxOpen />} tone="danger" label="Coûts directs" value={tnd(rent.coutsDirects.total)} hint={`pièces ${tnd(rent.coutsDirects.pieces)}`} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaChartLine />} tone="info" label="Marge brute" value={tnd(rent.margeBrute)} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaUsers />} tone="warning" label="Rémunérations" value={tnd(rent.remunerations.total)} hint={`comm. ${tnd(rent.remunerations.commissions)} · sal. ${tnd(rent.remunerations.salaires)}`} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaBuilding />} tone="gray" label="Charges générales" value={tnd(rent.chargesGenerales)} /></div>
           <div className="col-12 col-sm-6 col-xl-3">
             <Kpi icon={<FaBalanceScale />} tone={rent.resultatNet < 0 ? "danger" : "success"} label="Résultat net" value={tnd(rent.resultatNet)}
               valueColor={rent.resultatNet < 0 ? "var(--danger)" : "var(--success)"} />
           </div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaHourglassHalf />} tone="warning" label="Commissions à valider" value={tnd(dash.remunerations.commissionsEnAttente)} hint={`${dash.remunerations.nbCommissionsEnAttente} ligne(s)`} /></div>
-          <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaWallet />} tone="primary" label="Solde dû aux réparateurs" value={tnd(dash.remunerations.soldeDuTotal)} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaHourglassHalf />} tone="warning" label="Commissions à valider" value={tnd(dash.remunerations.commissionsEnAttente)} hint={`${dash.remunerations.nbCommissionsEnAttente} ligne(s)`} /></div>
+          <div className="col-6 col-xl-3"><Kpi icon={<FaWallet />} tone="primary" label="Solde dû aux réparateurs" value={tnd(dash.remunerations.soldeDuTotal)} /></div>
         </div>
       )}
 

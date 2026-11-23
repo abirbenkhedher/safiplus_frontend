@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Card, Table, Badge, Form, Row, Col, Spinner, Alert, 
   Button, Pagination, Modal 
 } from 'react-bootstrap';
-import { 
-  FaHistory, FaSearch, FaFilter, FaEye, FaUser, 
-  FaClock, FaTrash, FaChartBar 
+import {
+  FaHistory,
+  FaSearch,
+  FaEye,
+  FaUser,
+  FaClock,
+  FaChartBar,
 } from 'react-icons/fa';
 import { getHistory, getHistoryEntry, getHistoryStats } from '../../api/history';
 import { getAnnuaire } from '../../api/users';
@@ -54,7 +58,7 @@ const HistoryView = () => {
       const response = await getHistory(params);
       setHistory(response.data);
       setPagination(response.pagination);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement de l\'historique');
     } finally {
       setLoading(false);
@@ -109,7 +113,7 @@ const HistoryView = () => {
       const response = await getHistoryEntry(id);
       setSelectedEntry(response.data);
       setShowDetailModal(true);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement du détail');
     }
   };

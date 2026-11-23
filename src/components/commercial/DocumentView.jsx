@@ -3,7 +3,7 @@ import {
   FaPrint, FaCheck, FaEdit, FaTrash, FaBan, FaExchangeAlt, FaUndo, FaMoneyBillWave, FaThumbsUp, FaThumbsDown, FaFileInvoice,
 } from "react-icons/fa";
 import {
-  getDocument, validerDocument, deleteDocument, annulerDocument, transformerDocument, creerAvoir, statutDevis, modeLabel,
+  getDocument, validerDocument, deleteDocument, annulerDocument, transformerDocument, statutDevis, modeLabel,
   typeDocDe, MODES_REGLEMENT,
 } from "../../api/ventes";
 import { useAuth } from "../../context/AuthContext";
@@ -14,6 +14,7 @@ import { StatutDoc, PaiementBadge } from "./commun";
 import { calcLigne, montantEnLettres, remiseLabel } from "./calculs";
 import { imprimerDocument, imprimerTicket } from "./imprimer";
 import ReglementModal from "./ReglementModal";
+import AvoirRapideModal from "./AvoirRapideModal";
 
 // ============================================================
 // ✅ Détail d'un document de vente + actions selon type / statut
@@ -28,6 +29,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
   const [encaisser, setEncaisser] = useState(false);
   const [rembourser, setRembourser] = useState(false);
   const [validationAvoir, setValidationAvoir] = useState(null); // { mode } : avoir / bon de retour
+  const [avoirRapide, setAvoirRapide] = useState(null); // { tout } : retour / avoir rapide
 
   const load = () => getDocument(id).then((r) => setDoc(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
   // Le parent remonte le composant à chaque document (key = id)
@@ -51,6 +53,37 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
   const brouillon = s === "brouillon";
   const ouvrirNouveau = (d) => { if (d) onEdit?.(d); };
 
+  // ✅ Validation d'un brouillon : puis impression directe (plus besoin de repasser par la liste)
+  const validerEtImprimer = (id, label) => run(async () => {
+    const r = await validerDocument(id);
+    try { const d = (await getDocument(id)).data.data; imprimerDocument(d, params); } catch { /* impression facultative */ }
+    return r;
+  }, label);
+
+  // ✅ Devis / BC / BL → facture VALIDÉE en un clic (brouillon ouvert seulement si la validation échoue)
+  const factureDirecte = async () => {
+    const ok = await confirmer({
+      title: "Créer la facture",
+      message: "La facture est créée avec les mêmes lignes, validée (numéro définitif) et imprimée.\nPour la modifier avant, utilisez « → Facture (brouillon) ».",
+      confirmText: "Créer et valider",
+    });
+    if (!ok) return;
+    setBusy(true);
+    let brouillonCree = null;
+    try {
+      brouillonCree = (await transformerDocument(doc._id, "FACTURE")).data.data;
+      await validerDocument(brouillonCree._id);
+      const f = (await getDocument(brouillonCree._id)).data.data;
+      imprimerDocument(f, params);
+      onChanged?.();
+      onOpen?.(f._id);
+    } catch (e) {
+      setMsg({ text: errMsg(e) });
+      if (brouillonCree) { onChanged?.(); onEdit?.(brouillonCree); }
+    }
+    setBusy(false);
+  };
+
   const actions = doc && (
     <div className="d-flex flex-wrap gap-2">
       <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => imprimerDocument(doc, params)}><FaPrint /> Imprimer / PDF</button>
@@ -65,7 +98,7 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
               title: `Valider ${t.label.toLowerCase()}`, confirmText: "Valider",
               message: `Le document recevra son numéro définitif${["FACTURE", "AVOIR"].includes(doc.type) ? " et ne sera plus modifiable" : ""}.${stock ? "\nLes articles sortiront du stock." : ""}${doc.type === "AVOIR" && doc.lignes.some((l) => l.retourStock) ? "\nLes articles cochés reviendront en stock." : ""}`,
             });
-            if (ok) run(() => validerDocument(doc._id), "Document validé");
+            if (ok) validerEtImprimer(doc._id, "Document validé");
           }}><FaCheck /> Valider</button>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" disabled={busy} onClick={async () => {
             if (await confirmer({ message: "Supprimer ce brouillon ?", variant: "danger", confirmText: "Supprimer" })) {
@@ -87,17 +120,22 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
         <>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BC"), "Bon de commande créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de commande</button>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BL"), "Bon de livraison créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de livraison</button>
-          <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
+          <button type="button" className="btn-modern btn-modern-primary btn-sm" disabled={busy} onClick={factureDirecte}><FaFileInvoice /> → Facture</button>
+          <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture (brouillon)</button>
         </>
       )}
       {canWrite && doc.type === "BC" && s === "valide" && (
         <>
           <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "BL"), "Bon de livraison créé (brouillon)", ouvrirNouveau)}><FaExchangeAlt /> → Bon de livraison</button>
-          <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
+          <button type="button" className="btn-modern btn-modern-primary btn-sm" disabled={busy} onClick={factureDirecte}><FaFileInvoice /> → Facture</button>
+          <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture (brouillon)</button>
         </>
       )}
       {canWrite && doc.type === "BL" && s === "valide" && (
-        <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture</button>
+        <>
+          <button type="button" className="btn-modern btn-modern-primary btn-sm" disabled={busy} onClick={factureDirecte}><FaFileInvoice /> → Facture</button>
+          <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={() => run(() => transformerDocument(doc._id, "FACTURE"), "Facture créée (brouillon)", ouvrirNouveau)}><FaFileInvoice /> → Facture (brouillon)</button>
+        </>
       )}
       {canWrite && ["DEVIS", "BC", "BL"].includes(doc.type) && ["valide", "accepte", "refuse"].includes(s) && (
         <button type="button" className="btn-modern btn-modern-outline btn-sm" onClick={async () => {
@@ -118,12 +156,12 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
           )}
           {canWrite && Number(doc.montantAvoirs || 0) < Number(doc.netAPayer) && (
             <>
-              {doc.lignes.some((l) => l.type === "article" && l.stockSorti) && (
-                <button type="button" className="btn-modern btn-modern-outline btn-sm" title="La marchandise revient en stock et l'argent est rendu"
-                  onClick={() => run(() => creerAvoir(doc._id, "retour"), "Bon de retour créé (brouillon) : ajustez les quantités puis validez", ouvrirNouveau)}><FaUndo /> Bon de retour</button>
-              )}
-              <button type="button" className="btn-modern btn-modern-outline btn-sm" title="L'argent est rendu, la marchandise ne revient pas en stock"
-                onClick={() => run(() => creerAvoir(doc._id, "avoir"), "Avoir créé (brouillon) : ajustez les lignes puis validez", ouvrirNouveau)}><FaUndo /> Faire un avoir</button>
+              {/* ✅ Retour / avoir en un seul écran : lignes cochées, remboursement, validé tout de suite */}
+              <button type="button" className="btn-modern btn-modern-outline btn-sm" title="Cochez ce qui revient : retour en stock ou avoir, puis remboursement"
+                onClick={() => setAvoirRapide({ tout: false })}><FaUndo /> Retour / avoir</button>
+              {/* Une facture validée ne se supprime jamais : on l'annule par un avoir total */}
+              <button type="button" className="btn-modern btn-modern-outline btn-sm" title="Avoir sur toutes les lignes (la facture est annulée comptablement)"
+                onClick={() => setAvoirRapide({ tout: true })}><FaBan /> Annuler par avoir</button>
             </>
           )}
         </>
@@ -241,6 +279,15 @@ const DocumentView = ({ id, params, onClose, onChanged, onEdit, onOpen }) => {
           </>
         )}
       </FormModal>
+      {avoirRapide && doc && (
+        <AvoirRapideModal
+          doc={doc}
+          params={params}
+          tout={avoirRapide.tout}
+          onClose={() => setAvoirRapide(null)}
+          onDone={(r) => { setAvoirRapide(null); setMsg({ type: "success", text: r.message }); onChanged?.(); load(); }}
+        />
+      )}
       {encaisser && doc && (
         <ReglementModal
           client={{ id: doc.client?._id, label: doc.client?.nom }}

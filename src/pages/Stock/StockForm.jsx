@@ -7,7 +7,8 @@ import { createTypeArticle } from "../../api/typeArticles";
 import SearchSelect from "../../components/reparations/SearchSelect";
 import { useAuth } from "../../context/AuthContext";
 import { getParametresAtelier } from "../../api/atelier";
-import TvaInput, { versTTC, versHT } from "../../components/common/TvaInput";
+import TvaInput from "../../components/common/TvaInput";
+import { versTTC, versHT } from "../../utils/tva";
 
 const getDraftKey = (stockId) =>
   stockId ? `stock_draft_edit_${stockId}` : "stock_draft_new";
@@ -268,7 +269,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
     >
       <div
         style={{
-          background: "white",
+          background: "var(--surface)",
           borderRadius: "20px",
           width: "100%",
           maxWidth: "1200px",
@@ -330,7 +331,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
               height: "34px",
               borderRadius: "10px",
               border: "none",
-              background: "white",
+              background: "var(--surface)",
               color: "var(--gray-500)",
               cursor: saving ? "not-allowed" : "pointer",
               display: "flex",
@@ -397,7 +398,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                   });
                 }}
                 style={{
-                  background: "white", border: "none", color: "var(--warning)",
+                  background: "var(--surface)", border: "none", color: "var(--warning)",
                   fontSize: "11px", fontWeight: "600", cursor: "pointer",
                   padding: "4px 10px", borderRadius: "6px",
                 }}
@@ -563,7 +564,7 @@ const StockForm = ({ stock, referentiels, onClose, onSaved }) => {
                       style={{
                         width: "40px",
                         height: "40px",
-                        background: "white",
+                        background: "var(--surface)",
                         color: "var(--danger)",
                         border: "1.5px solid var(--danger)",
                         borderRadius: "10px",
@@ -1019,7 +1020,7 @@ const inputStyle = {
   fontSize: "13.5px",
   outline: "none",
   boxSizing: "border-box",
-  background: "white",
+  background: "var(--surface)",
   transition: "all 150ms ease",
 };
 

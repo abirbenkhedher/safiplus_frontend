@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import DataTableRDTC from 'react-data-table-component';
 import { FaEdit, FaTrash, FaEye, FaFileExcel, FaSearch } from 'react-icons/fa';
 
 const customStyles = {
   table: {
     style: {
-      backgroundColor: 'white',
+      backgroundColor: 'var(--surface)',
+      border: '1px solid var(--border)',
       borderRadius: '16px',
       overflow: 'hidden',
       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
@@ -58,9 +59,9 @@ const customStyles = {
 };
 
 // ✅ Tailles de page communes + option « Tous » (ajoutée par le composant)
-export const PAGE_SIZES = [20, 50, 100];
+const PAGE_SIZES = [20, 50, 100];
 // Valeur de perPage signifiant « Tous » (pagination serveur : envoyer limit=all)
-export const ALL_ROWS = 'all';
+const ALL_ROWS = 'all';
 
 const DataTable = ({
   columns,
@@ -72,7 +73,7 @@ const DataTable = ({
   viewIcon,                    // ✅ NOUVEAU : icône personnalisée pour "Voir"
   viewTitle = "Voir",          // ✅ NOUVEAU : tooltip personnalisé pour "Voir"
   actions = true,
-  actionsWidth = '120px',
+  actionsWidth,                // largeur auto selon le nombre de boutons si non fournie
   searchable = true,
   searchPlaceholder = 'Rechercher...',
   pagination = true,
@@ -106,7 +107,7 @@ const DataTable = ({
     if (!search.trim()) return data;
     const query = search.toLowerCase().trim();
     return data.filter(row => {
-      return Object.entries(row).some(([key, val]) => {
+      return Object.entries(row).some(([, val]) => {
         if (val === null || val === undefined) return false;
         if (typeof val === 'string' || typeof val === 'number') {
           return String(val).toLowerCase().includes(query);
@@ -126,7 +127,8 @@ const DataTable = ({
     if (actions && (onView || onEdit || onDelete)) {
       cols.push({
         name: 'Actions',
-        width: actionsWidth,
+        // 36px par bouton (cible tactile) + 4px d'écart + 32px de marges de cellule
+        width: actionsWidth || `${Math.max(1, [onView, onEdit, onDelete].filter(Boolean).length) * 40 + 32}px`,
         center: true,
         cell: (row) => (
           <div className="d-flex gap-1 justify-content-center">
@@ -174,14 +176,14 @@ const DataTable = ({
     onChangeRowsPerPage(isAll ? ALL_ROWS : rows, isAll ? 1 : page);
   };
 
-  const CustomLoader = () => (
+  const customLoader = (
     <div style={{ padding: '40px', textAlign: 'center' }}>
       <div className="spinner-modern" style={{ margin: '0 auto' }}></div>
       <p style={{ marginTop: '16px', color: 'var(--gray-500)', fontSize: '13px' }}>Chargement...</p>
     </div>
   );
 
-  const CustomNoData = () => (
+  const customNoData = (
     <div className="empty-state">
       <div className="empty-state-icon">📭</div>
       <div className="empty-state-title">Aucune donnée</div>
@@ -192,7 +194,7 @@ const DataTable = ({
   );
 
   return (
-    <div className="datatable-wrapper">
+    <div className={`datatable-wrapper${selectableRows ? ' has-select' : ''}`}>
       {(searchable || exportable) && (
         <div className="datatable-header">
           {searchable && !paginationServer && (
@@ -238,8 +240,8 @@ const DataTable = ({
         columns={finalColumns}
         data={filteredData}
         progressPending={loading}
-        progressComponent={<CustomLoader />}
-        noDataComponent={<CustomNoData />}
+        progressComponent={customLoader}
+        noDataComponent={customNoData}
         customStyles={customStyles}
         pagination={pagination}
         paginationServer={paginationServer}
@@ -278,20 +280,11 @@ const DataTable = ({
           gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
         }
         .datatable-search { flex: 1; max-width: 400px; }
-        .form-control-modern {
-          width: 100%; height: 42px; padding: 0 14px;
-          border: 1px solid var(--gray-200); border-radius: var(--radius-md);
-          font-size: 13.5px; transition: all var(--transition-fast); background: white;
-        }
-        .form-control-modern:focus {
-          outline: none; border-color: var(--primary);
-          box-shadow: 0 0 0 3px var(--primary-light);
-        }
         .btn-icon {
           width: 32px; height: 32px; padding: 0;
           display: inline-flex; align-items: center; justify-content: center;
           border-radius: var(--radius-sm); border: 1px solid var(--gray-200);
-          background: white; color: var(--gray-600); cursor: pointer;
+          background: var(--surface); color: var(--gray-600); cursor: pointer;
           transition: all 150ms ease;
         }
         .btn-icon:hover {
@@ -312,8 +305,8 @@ const DataTable = ({
         .datatable-wrapper .rdt_TableCol,
         .datatable-wrapper .rdt_TableCell { flex-grow: 1; }
 
-        .rdt_TableCol:first-child,
-        .rdt_TableCell:first-child {
+        .datatable-wrapper.has-select .rdt_TableCol:first-child,
+        .datatable-wrapper.has-select .rdt_TableCell:first-child {
           flex: 0 0 40px !important;
           min-width: 40px !important;
           max-width: 40px !important;

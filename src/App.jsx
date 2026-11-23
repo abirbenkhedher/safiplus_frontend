@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,52 +11,47 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 import DialogHost from "./components/common/DialogHost";
 import HomeRedirect from "./components/common/HomeRedirect";
 import Layout from "./components/layout/Layout";
-import Login from "./pages/Login/Login";
-import Dashboard from "./pages/Dashboard/Dashboard";
-import FamillesCRUD from "./pages/Familles/FamillesCRUD";
-import CategoriesCRUD from "./pages/Categories/CategoriesCRUD";
-import ObjetsCRUD from "./pages/Objets/ObjetsCRUD";
-import StatusesCRUD from "./pages/Statuses/StatusesCRUD";
-import ClientsList from "./pages/Clients/ClientsList";
-import ClientDetail from "./pages/Clients/ClientDetail";
-import ReparationsList from "./pages/Reparations/ReparationsList";
-import ReparationDetail from "./pages/Reparations/ReparationDetail";
-import UsersCRUD from "./pages/Users/UsersCRUD";
-import HistoryView from "./pages/History/HistoryView";
+import ChargementPage from "./components/common/ChargementPage";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 import "./styles/theme.css";
-import SuiviPublic from "./pages/Reparations/SuiviPublic";
-import MarquesCRUD from "./pages/marques/MarquesCRUD";
-import ModelesCRUD from "./pages/modeles/ModelesCRUD";
-import PannesCRUD from "./pages/pannes/PannesCRUD";
-import Statistiques from "./pages/Statistiques/Statistiques";
 import { setupRefreshDetection } from "./utils/filterStorage";
-import ZonesCRUD from "./pages/Zone/ZonesCRUD";
 // ✅ NOUVEAU : Stock & Dépenses
-import StockList from "./pages/Stock/StockList";
-import DepensesList from "./pages/Depenses/DepensesList";
 // ✅ MULTI-TENANT
-import BoutiquesCRUD from "./pages/Boutiques/BoutiquesCRUD";
-import OrganisationsCRUD from "./pages/Organisations/OrganisationsCRUD";
-import ChoixBoutique from "./pages/ChoixBoutique/ChoixBoutique";
 // ✅ Module atelier (cahier des charges V1.1)
-import ParametresAtelier from "./pages/Atelier/ParametresAtelier";
-import Fournisseurs from "./pages/Atelier/Fournisseurs";
-import Achats from "./pages/Atelier/Achats";
-import Remuneration from "./pages/Atelier/Remuneration";
-import MaRemuneration from "./pages/Atelier/MaRemuneration";
-import MonDashboard from "./pages/MonDashboard/MonDashboard";
-import Clotures from "./pages/Atelier/Clotures";
-import StockOperations from "./pages/Atelier/StockOperations";
 // ✅ Gestion commerciale
-import Ventes from "./pages/Commercial/Ventes";
-import Reglements from "./pages/Commercial/Reglements";
-import Comptoir from "./pages/Commercial/Comptoir";
-import Caisse from "./pages/Commercial/Caisse";
-import RapportCommercial from "./pages/Commercial/RapportCommercial";
-import DashboardCommerce from "./pages/Commercial/DashboardCommerce";
-import VueGlobale from "./pages/Commercial/VueGlobale";
+
+// ✅ Pages chargées à la demande : le premier chargement ne télécharge que la page affichée
+const Login = lazy(() => import("./pages/Login/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
+const StatusesCRUD = lazy(() => import("./pages/Statuses/StatusesCRUD"));
+const ClientsList = lazy(() => import("./pages/Clients/ClientsList"));
+const ClientDetail = lazy(() => import("./pages/Clients/ClientDetail"));
+const ReparationsList = lazy(() => import("./pages/Reparations/ReparationsList"));
+const ReparationDetail = lazy(() => import("./pages/Reparations/ReparationDetail"));
+const UsersCRUD = lazy(() => import("./pages/Users/UsersCRUD"));
+const HistoryView = lazy(() => import("./pages/History/HistoryView"));
+const SuiviPublic = lazy(() => import("./pages/Reparations/SuiviPublic"));
+const PannesCRUD = lazy(() => import("./pages/pannes/PannesCRUD"));
+const ZonesCRUD = lazy(() => import("./pages/Zone/ZonesCRUD"));
+const DepensesList = lazy(() => import("./pages/Depenses/DepensesList"));
+const BoutiquesCRUD = lazy(() => import("./pages/Boutiques/BoutiquesCRUD"));
+const OrganisationsCRUD = lazy(() => import("./pages/Organisations/OrganisationsCRUD"));
+const ChoixBoutique = lazy(() => import("./pages/ChoixBoutique/ChoixBoutique"));
+const ParametresAtelier = lazy(() => import("./pages/Atelier/ParametresAtelier"));
+const Remuneration = lazy(() => import("./pages/Atelier/Remuneration"));
+const MaRemuneration = lazy(() => import("./pages/Atelier/MaRemuneration"));
+const MonDashboard = lazy(() => import("./pages/MonDashboard/MonDashboard"));
+const Ventes = lazy(() => import("./pages/Commercial/Ventes"));
+const Reglements = lazy(() => import("./pages/Commercial/Reglements"));
+const Comptoir = lazy(() => import("./pages/Commercial/Comptoir"));
+const DashboardCommerce = lazy(() => import("./pages/Commercial/DashboardCommerce"));
+// ✅ Pages à onglets (Stock, Achats, Statistiques, Catalogue, Fin de journée)
+const StockHub = lazy(() => import("./pages/Hubs/Hubs").then((m) => ({ default: m.StockHub })));
+const AchatsHub = lazy(() => import("./pages/Hubs/Hubs").then((m) => ({ default: m.AchatsHub })));
+const StatistiquesHub = lazy(() => import("./pages/Hubs/Hubs").then((m) => ({ default: m.StatistiquesHub })));
+const CatalogueHub = lazy(() => import("./pages/Hubs/Hubs").then((m) => ({ default: m.CatalogueHub })));
+const FinDeJourneeHub = lazy(() => import("./pages/Hubs/Hubs").then((m) => ({ default: m.FinDeJourneeHub })));
 
 setupRefreshDetection();
 
@@ -64,10 +60,12 @@ function App() {
     <AuthProvider>
       <Router>
         <ReparationModalProvider>
+          <Suspense fallback={<ChargementPage />}>
           <Routes>
             {/* ✅ ROUTES PUBLIQUES */}
             <Route path="/login" element={<Login />} />
             <Route path="/suivi/:numero" element={<SuiviPublic />} />
+            <Route path="/s/:token" element={<SuiviPublic />} />
 
             {/* ✅ MULTI-TENANT : choix de la boutique après connexion */}
             <Route
@@ -104,8 +102,8 @@ function App() {
               <Route
                 path="statistiques"
                 element={
-                  <ProtectedRoute anyPermission={["statistiques", "rapports"]}>
-                    <Statistiques />
+                  <ProtectedRoute anyPermission={["statistiques", "rapports", "rapport_commercial"]}>
+                    <StatistiquesHub />
                   </ProtectedRoute>
                 }
               />
@@ -132,7 +130,7 @@ function App() {
               <Route
                 path="reparations"
                 element={
-                  <ProtectedRoute permission="reparations">
+                  <ProtectedRoute module="atelier" permission="reparations">
                     <ReparationsList />
                   </ProtectedRoute>
                 }
@@ -140,7 +138,7 @@ function App() {
               <Route
                 path="reparations/:id"
                 element={
-                  <ProtectedRoute permission="reparations">
+                  <ProtectedRoute module="atelier" permission="reparations">
                     <ReparationDetail />
                   </ProtectedRoute>
                 }
@@ -151,7 +149,7 @@ function App() {
                 path="stock"
                 element={
                   <ProtectedRoute anyPermission={["stock", "stock:read"]}>
-                    <StockList />
+                    <StockHub />
                   </ProtectedRoute>
                 }
               />
@@ -168,57 +166,30 @@ function App() {
 
               {/* Configuration */}
               <Route
-                path="familles"
+                path="catalogue"
                 element={
-                  <ProtectedRoute permission="familles">
-                    <FamillesCRUD />
+                  <ProtectedRoute anyPermission={["familles", "categories", "objets", "marques", "modeles"]}>
+                    <CatalogueHub />
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="categories"
-                element={
-                  <ProtectedRoute permission="categories">
-                    <CategoriesCRUD />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="objets"
-                element={
-                  <ProtectedRoute permission="objets">
-                    <ObjetsCRUD />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="familles" element={<Navigate to="/catalogue?onglet=familles" replace />} />
+              <Route path="categories" element={<Navigate to="/catalogue?onglet=categories" replace />} />
+              <Route path="objets" element={<Navigate to="/catalogue?onglet=objets" replace />} />
               <Route
                 path="statuses"
                 element={
-                  <ProtectedRoute permission="statuses">
+                  <ProtectedRoute module="atelier" permission="statuses">
                     <StatusesCRUD />
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="marques"
-                element={
-                  <ProtectedRoute permission="marques">
-                    <MarquesCRUD />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="modeles"
-                element={
-                  <ProtectedRoute permission="modeles">
-                    <ModelesCRUD />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="marques" element={<Navigate to="/catalogue?onglet=marques" replace />} />
+              <Route path="modeles" element={<Navigate to="/catalogue?onglet=modeles" replace />} />
               <Route
                 path="pannes"
                 element={
-                  <ProtectedRoute anyPermission={["pannes", "pannes:read"]}>
+                  <ProtectedRoute module="atelier" anyPermission={["pannes", "pannes:read"]}>
                     <PannesCRUD />
                   </ProtectedRoute>
                 }
@@ -265,21 +236,23 @@ function App() {
 
               {/* ✅ Module atelier */}
               <Route path="parametres-atelier" element={<ProtectedRoute permission="parametres_atelier"><ParametresAtelier /></ProtectedRoute>} />
-              <Route path="fournisseurs" element={<ProtectedRoute anyPermission={["fournisseurs", "achats"]}><Fournisseurs /></ProtectedRoute>} />
-              <Route path="achats" element={<ProtectedRoute anyPermission={["achats", "depenses"]}><Achats /></ProtectedRoute>} />
-              <Route path="stock-operations" element={<ProtectedRoute permission="stock"><StockOperations /></ProtectedRoute>} />
-              <Route path="remuneration" element={<ProtectedRoute anyPermission={["remuneration", "remuneration_autrui", "remuneration_regles", "commissions_valider", "paiements_reparateurs"]}><Remuneration /></ProtectedRoute>} />
+              <Route path="achats" element={<ProtectedRoute module="achats" anyPermission={["achats", "depenses", "fournisseurs"]}><AchatsHub /></ProtectedRoute>} />
+              <Route path="fournisseurs" element={<Navigate to="/achats?onglet=fournisseurs" replace />} />
+              <Route path="stock-operations" element={<Navigate to="/stock?onglet=operations" replace />} />
+              <Route path="remuneration" element={<ProtectedRoute module="atelier" anyPermission={["remuneration", "remuneration_autrui", "remuneration_regles", "commissions_valider", "paiements_reparateurs"]}><Remuneration /></ProtectedRoute>} />
               <Route path="ma-remuneration" element={<ProtectedRoute><MaRemuneration /></ProtectedRoute>} />
               {/* ✅ Tableau de bord personnel (réparateur / commercial ; l'admin choisit l'employé) */}
               <Route path="mon-tableau-de-bord" element={<ProtectedRoute permission="mon_dashboard"><MonDashboard /></ProtectedRoute>} />
-              <Route path="clotures" element={<ProtectedRoute anyPermission={["clotures", "clotures_rouvrir"]}><Clotures /></ProtectedRoute>} />
+              {/* ✅ Fin de journée : caisse puis clôture (commune aux deux espaces) */}
+              <Route path="fin-de-journee" element={<ProtectedRoute anyPermission={["caisse", "clotures", "clotures_rouvrir"]}><FinDeJourneeHub /></ProtectedRoute>} />
+              <Route path="clotures" element={<Navigate to="/fin-de-journee?onglet=clotures" replace />} />
               {/* ✅ Rapports atelier : onglet des Statistiques atelier (ancienne adresse conservée) */}
               <Route path="rapports" element={<Navigate to="/statistiques?tab=rapports" replace />} />
               {/* ✅ Gestion commerciale */}
               <Route path="commerce" element={<ProtectedRoute module="commercial" anyPermission={["rapport_commercial", "rapports", "ventes", "ventes:read"]}><DashboardCommerce /></ProtectedRoute>} />
-              <Route path="vue-globale" element={<ProtectedRoute module="commercial" anyPermission={["statistiques", "rapports", "rapport_commercial"]}><VueGlobale /></ProtectedRoute>} />
-              <Route path="caisse" element={<ProtectedRoute module="commercial" anyPermission={["caisse", "clotures_rouvrir"]}><Caisse /></ProtectedRoute>} />
-              <Route path="rapport-commercial" element={<ProtectedRoute module="commercial" anyPermission={["rapport_commercial", "rapports"]}><RapportCommercial /></ProtectedRoute>} />
+              <Route path="vue-globale" element={<Navigate to="/statistiques?onglet=global" replace />} />
+              <Route path="caisse" element={<Navigate to="/fin-de-journee?onglet=caisse" replace />} />
+              <Route path="rapport-commercial" element={<Navigate to="/statistiques?onglet=ventes" replace />} />
               <Route path="comptoir" element={<ProtectedRoute module="commercial" anyPermission={["comptoir", "ventes"]}><Comptoir /></ProtectedRoute>} />
               <Route path="ventes" element={<ProtectedRoute module="commercial" anyPermission={["ventes", "ventes:read"]}><Ventes /></ProtectedRoute>} />
               <Route path="reglements" element={<ProtectedRoute module="commercial" anyPermission={["reglements", "ventes", "ventes:read"]}><Reglements /></ProtectedRoute>} />
@@ -297,6 +270,7 @@ function App() {
             {/* ✅ Fallback */}
             <Route path="*" element={<HomeRedirect />} />
           </Routes>
+          </Suspense>
           {/* ✅ Boîtes de confirmation / saisie / information (design ConfirmDialog) */}
           <DialogHost />
         </ReparationModalProvider>

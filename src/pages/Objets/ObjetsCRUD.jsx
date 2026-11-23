@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaClipboardList, FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown } from 'react-icons/fa';
+import { useState, useEffect, useMemo } from 'react';
+import { FaPlus, FaClipboardList, FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown } from 'react-icons/fa';
 import { getObjets, createObjet, updateObjet, deleteObjet } from '../../api/objets';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -23,7 +23,7 @@ const ObjetsCRUD = () => {
       // ✅ Trier par ordre
       const sorted = [...response.data].sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
       setObjets(sorted);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des objets');
     } finally {
       setLoading(false);
@@ -226,7 +226,7 @@ const ObjetsCRUD = () => {
                     {editingItem ? 'Modifiez les informations ci-dessous' : 'Créez un nouvel objet'}
                   </p>
                 </div>
-                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'white', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'var(--surface)', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FaTimes />
                 </button>
               </div>

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { FaSlidersH, FaBoxes, FaPercent, FaHistory, FaSave, FaClone, FaFileInvoiceDollar } from "react-icons/fa";
 import { getParametresAtelier, updateParametresAtelier } from "../../api/atelier";
 import { useAuth } from "../../context/AuthContext";
-import { Page, PageHeader, Card, Alert, Field } from "../../components/atelier/ui";
+import { Page, PageHeader, Card, Alert, Field, Tabs } from "../../components/atelier/ui";
+import { useSearchParams } from "react-router-dom";
 import { errMsg, dateFr } from "../../utils/atelier";
 import { confirmer, demander } from "../../utils/dialog";
 const LABELS = {
@@ -32,6 +33,9 @@ const ParametresAtelier = () => {
   const [initialMode, setInitialMode] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  // ✅ Onglets : Atelier & stock · Ventes & documents · Autres boutiques (lien direct : ?onglet=ventes)
+  const [sp] = useSearchParams();
+  const [onglet, setOnglet] = useState(["atelier", "ventes", "boutiques"].includes(sp.get("onglet")) ? sp.get("onglet") : "atelier");
 
   const load = async () => {
     try {
@@ -86,7 +90,7 @@ const ParametresAtelier = () => {
     <Page>
       <PageHeader
         icon={<FaSlidersH />}
-        title="Paramètres de l'atelier"
+        title="Paramètres"
         subtitle={`Propres à la boutique ${currentBoutique?.nom || ""} — sans effet sur les autres boutiques`}
       >
         {canEdit && form && (
@@ -99,7 +103,12 @@ const ParametresAtelier = () => {
       {!canEdit && form && <Alert type="info" msg="Lecture seule : la permission « Paramètres de l'atelier » est nécessaire pour modifier." />}
 
       {form && (
+        <Tabs tabs={[["atelier", "Atelier & stock"], ...(hasModule("commercial") ? [["ventes", "Ventes & documents"]] : []), ["boutiques", "Autres boutiques & historique"]]}
+          value={onglet} onChange={setOnglet} />
+      )}
+      {form && (
         <div className="row g-3">
+          {onglet === "atelier" && (<>
           <div className="col-12 col-lg-6">
             <Card title="Stock et consommations" icon={<FaBoxes />} className="h-100">
               <div className="row g-3">
@@ -129,7 +138,8 @@ const ParametresAtelier = () => {
               </div>
             </Card>
           </div>
-          {hasModule("commercial") && <div className="col-12">
+          </>)}
+          {onglet === "ventes" && hasModule("commercial") && <div className="col-12">
             <Card title="Documents de vente (devis, factures, avoirs)" icon={<FaFileInvoiceDollar />}>
               <p className="at-hint" style={{ fontStyle: "normal", marginTop: 0 }}>
                 En-tête imprimé sur les documents de cette boutique. Les documents déjà validés gardent l'en-tête de leur date de validation.
@@ -173,7 +183,10 @@ const ParametresAtelier = () => {
               </div>
             </Card>
           </div>}
-          {canPropager && (
+          {onglet === "boutiques" && !canPropager && !(form.historiqueModeStock || []).length && (
+            <div className="col-12 at-muted">Rien à afficher : une seule boutique et aucun changement de mode de stock.</div>
+          )}
+          {onglet === "boutiques" && canPropager && (
             <div className="col-12">
               <Card title="Appliquer aussi à d'autres boutiques" icon={<FaClone />}>
                 <p className="at-hint" style={{ fontStyle: "normal", marginTop: 0 }}>
@@ -197,7 +210,7 @@ const ParametresAtelier = () => {
               </Card>
             </div>
           )}
-          {(form.historiqueModeStock || []).length > 0 && (
+          {onglet === "boutiques" && (form.historiqueModeStock || []).length > 0 && (
             <div className="col-12">
               <Card title="Historique des changements de mode de stock" icon={<FaHistory />}>
                 <div className="d-flex flex-column gap-2">

@@ -1,10 +1,14 @@
-import React from 'react';
 import {
-  FaPlus, FaTrash, FaCheck, FaTimes, FaClock,
-  FaExclamationTriangle, FaStethoscope, FaMoneyBillWave,
+  FaPlus,
+  FaTrash,
+  FaCheck,
+  FaTimes,
+  FaClock,
+  FaExclamationTriangle,
+  FaStethoscope,
 } from 'react-icons/fa';
 
-const DiagnosticSection = ({ diagnostic = {}, onChange, prixInitial = 0, acompte = 0 }) => {
+const DiagnosticSection = ({ diagnostic = {}, onChange }) => {
   const safeDiag = {
     constat: diagnostic.constat || '',
     imprevus: diagnostic.imprevus || [],
@@ -34,15 +38,10 @@ const DiagnosticSection = ({ diagnostic = {}, onChange, prixInitial = 0, acompte
   };
 
   // ✅ Calculs
-  const imprevusAcceptes = safeDiag.imprevus
-    .filter(i => i.accepte === true)
-    .reduce((s, i) => s + (Number(i.prixSupplementaire) || 0), 0);
 
   const imprevusEnAttente = safeDiag.imprevus
     .filter(i => i.accepte === null || i.accepte === undefined).length;
 
-  const prixTotal = (Number(prixInitial) || 0) + imprevusAcceptes;
-  const resteTotal = Math.max(0, prixTotal - (Number(acompte) || 0));
 
   return (
     <div>
@@ -135,7 +134,7 @@ const ImprevuItem = ({ index, imprevu, onUpdate, onRemove }) => {
   return (
     <div style={{
       padding: '12px',
-      background: 'white',
+      background: 'var(--surface)',
       border: '1px solid var(--gray-200)',
       borderRadius: '10px',
       display: 'flex',

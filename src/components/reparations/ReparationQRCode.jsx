@@ -29,8 +29,10 @@ const ReparationQRCode = ({ reparation }) => {
     // ✅ URL de base du frontend
     const baseUrl = window.location.origin;
 
-    // ✅ URL de la page publique de suivi
-    return `${baseUrl}/suivi/${reparation.numero}`;
+    // ✅ Lien secret de suivi (code impossible à deviner) ; sinon ancienne page par numéro (état seulement)
+    return reparation.suiviToken
+      ? `${baseUrl}/s/${reparation.suiviToken}`
+      : `${baseUrl}/suivi/${reparation.numero}`;
   }, [reparation]);
 
   // ✅ Télécharger le QR Code en PNG

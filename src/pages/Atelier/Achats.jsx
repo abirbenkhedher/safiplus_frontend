@@ -153,9 +153,9 @@ const Achats = () => {
       ) : (<>
 
       <div className="row g-3 mb-3">
-        <div className="col-12 col-md-4"><Kpi icon={<FaCheckCircle />} tone="success" label="Achats validés" value={tnd(sumBy("validee"))} hint={`${rows.filter((r) => r.statut === "validee").length} facture(s)`} /></div>
-        <div className="col-12 col-md-4"><Kpi icon={<FaHourglassHalf />} tone="warning" label="Brouillons à valider" value={nbBrouillons} hint={tnd(sumBy("brouillon"))} /></div>
-        <div className="col-12 col-md-4"><Kpi icon={<FaBan />} tone="gray" label="Annulées" value={tnd(sumBy("annulee"))} /></div>
+        <div className="col-6 col-md-4"><Kpi icon={<FaCheckCircle />} tone="success" label="Achats validés" value={tnd(sumBy("validee"))} hint={`${rows.filter((r) => r.statut === "validee").length} facture(s)`} /></div>
+        <div className="col-6 col-md-4"><Kpi icon={<FaHourglassHalf />} tone="warning" label="Brouillons à valider" value={nbBrouillons} hint={tnd(sumBy("brouillon"))} /></div>
+        <div className="col-6 col-md-4"><Kpi icon={<FaBan />} tone="gray" label="Annulées" value={tnd(sumBy("annulee"))} /></div>
       </div>
 
       <PeriodeFilter range={range} onChange={setRange}>

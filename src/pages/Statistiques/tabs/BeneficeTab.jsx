@@ -1,9 +1,19 @@
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
+import StatCard from "../../../components/common/StatCard";
 import ChartCard from "../../../components/statistiques/ChartCard";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell,
+  PieChart,
+  Pie,
 } from "recharts";
 import {
   FaMoneyBillWave, FaTools, FaTruck, FaCoins, FaChartLine, FaPercent,
@@ -369,73 +379,10 @@ const BeneficeTab = () => {
   );
 };
 
-// ============================================================
-// ✅ KPI Card — Badge variation EN HAUT À DROITE (▲ 100%)
-// ============================================================
-const KpiCard = ({ icon, label, value, subtitle, variation, color, bg, loading }) => {
-  const isPositive = variation >= 0;
+// ✅ KPI : même carte que le reste de l'application
+const KpiCard = ({ loading, value, subtitle, ...rest }) => (
+  <StatCard {...rest} value={loading ? "—" : value} hint={subtitle} />
+);
 
-  return (
-    <div style={{
-      position: "relative",
-      background: "var(--white, #fff)",
-      border: "1px solid var(--gray-200)",
-      borderRadius: "16px", padding: "18px",
-      display: "flex", alignItems: "center",
-      gap: "14px", height: "100%",
-    }}>
-      {variation !== undefined && !loading && (
-        <div style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          padding: "3px 8px",
-          borderRadius: "8px",
-          fontSize: "10.5px",
-          fontWeight: "700",
-          display: "flex",
-          alignItems: "center",
-          gap: "3px",
-          background: isPositive
-            ? "rgba(16,185,129,0.12)"
-            : "rgba(239,68,68,0.12)",
-          color: isPositive ? "#10b981" : "#ef4444",
-          lineHeight: 1,
-        }}>
-          {isPositive ? "▲" : "▼"} {Math.abs(variation)}%
-        </div>
-      )}
-
-      <div style={{
-        width: "46px", height: "46px", borderRadius: "12px",
-        background: bg, color,
-        display: "flex", alignItems: "center",
-        justifyContent: "center", fontSize: "20px", flexShrink: 0,
-      }}>
-        {icon}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0, paddingRight: "60px" }}>
-        <div style={{
-          fontSize: "11px", fontWeight: "600", color: "var(--gray-500)",
-          textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px",
-        }}>
-          {label}
-        </div>
-        <div style={{
-          fontSize: "18px", fontWeight: "800", color: "var(--gray-900)",
-          lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {loading ? "—" : value}
-        </div>
-        {subtitle && (
-          <div style={{ fontSize: "11.5px", marginTop: "3px", color: "var(--gray-500)" }}>
-            {subtitle}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default BeneficeTab;

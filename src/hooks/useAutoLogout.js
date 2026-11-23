@@ -12,8 +12,9 @@ const useAutoLogout = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const timeoutRef = useRef(null);
   const warningTimeoutRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0); // initialisé au démarrage des minuteurs
   const lastResetRef = useRef(0);
+  const resetRef = useRef(null); // dernière version de resetTimers (relance depuis l'avertissement)
 
   const shouldAutoLogout = useCallback(() => {
     return isAuthenticated && user?.role === 'COMMERCIAL';
@@ -65,13 +66,14 @@ const useAutoLogout = () => {
       });
 
       if (stay) {
-        resetTimers();
+        resetRef.current?.(); // via ref : la fonction ne peut pas s'appeler elle-même pendant sa déclaration
       }
     }, INACTIVITY_TIMEOUT - WARNING_BEFORE);
 
     // 🔴 Déconnexion effective
     timeoutRef.current = setTimeout(triggerLogout, INACTIVITY_TIMEOUT);
   }, [shouldAutoLogout, clearTimers, triggerLogout]);
+  useEffect(() => { resetRef.current = resetTimers; }, [resetTimers]);
 
   // ============================================================
   // ÉCOUTEURS D'ACTIVITÉ

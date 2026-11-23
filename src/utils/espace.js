@@ -34,9 +34,10 @@ export const PERMS_ATELIER = [
 ];
 
 // Pages propres à chaque espace (bascule automatique quand on y arrive par un lien)
-export const PAGES_COMMERCE = ["/commerce", "/comptoir", "/ventes", "/reglements", "/caisse", "/rapport-commercial"];
+// (Fin de journée, Statistiques, Stock, Achats : communs aux deux espaces)
+export const PAGES_COMMERCE = ["/commerce", "/comptoir", "/ventes", "/reglements"];
 export const PAGES_ATELIER = [
-  "/dashboard", "/mon-tableau-de-bord", "/reparations", "/statistiques", "/rapports", "/remuneration", "/ma-remuneration", "/clotures",
+  "/dashboard", "/mon-tableau-de-bord", "/reparations", "/rapports", "/remuneration", "/ma-remuneration",
   "/pannes", "/statuses",
 ];
 export const pageDe = (pathname, liste) => liste.some((p) => pathname === p || pathname.startsWith(`${p}/`));

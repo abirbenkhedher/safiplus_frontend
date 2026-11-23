@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth';
 import { clearFilters } from '../utils/filterStorage';
 import {
@@ -145,9 +145,9 @@ export const AuthProvider = ({ children }) => {
   };
   // ✅ Espaces disponibles pour cet utilisateur
   const commerceDispo = hasModule('commercial') && hasAnyPermission(PERMS_COMMERCE);
-  const atelierDispo = hasAnyPermission(PERMS_ATELIER);
+  const atelierDispo = hasModule('atelier') && hasAnyPermission(PERMS_ATELIER);
   const espaceMemorise = useEspaceMemorise();
-  const espaceActif = !commerceDispo ? 'atelier' : !atelierDispo ? 'commerce' : espaceMemorise;
+  const espaceActif = !commerceDispo ? (atelierDispo || hasModule('atelier') ? 'atelier' : 'commerce') : !atelierDispo ? 'commerce' : espaceMemorise;
   // ✅ Palette de l'espace (bleu Atelier / vert Commerce) appliquée à toute l'application
   useEffect(() => {
     document.documentElement.setAttribute('data-espace', user ? espaceActif : 'atelier');
@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
   const homeCommerce = () => {
     if (hasAnyPermission(['ventes', 'ventes:read', 'rapport_commercial'])) return '/commerce';
     if (hasPermission('comptoir')) return '/comptoir';
-    if (hasPermission('caisse')) return '/caisse';
+    if (hasPermission('caisse')) return '/fin-de-journee?onglet=caisse';
     return '/reglements';
   };
   // Accueil de l'espace Atelier (indépendant de l'espace mémorisé)

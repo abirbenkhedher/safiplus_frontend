@@ -35,7 +35,7 @@ const Clotures = () => {
         <div className="row g-3 mb-3">
           <div className="col-12 col-lg-6">
             <Card title="Clôture journalière" icon={<FaCalendarDay />} className="h-100">
-              <p className="at-muted">Calcule et valide les commissions du jour, puis fige le journal par réparateur.</p>
+              <p className="at-muted">Calcule et valide les commissions du jour, puis fige le journal par réparateur et le résumé de la caisse. La caisse du jour doit être fermée (comptage fait).</p>
               <div className="d-flex gap-2 align-items-end">
                 <div className="flex-grow-1">
                   <label className="form-label">Jour</label>
@@ -107,6 +107,23 @@ const Clotures = () => {
               { label: "Avances", right: true, render: (r) => tnd(r.avances) },
               { label: "Paiements", right: true, render: (r) => tnd(r.paiements) },
             ]} />
+            {/* ✅ Caisse(s) fermée(s) ce jour, figées au moment de la clôture */}
+            {view.totaux?.caisse?.sessions?.length > 0 && (
+              <>
+                <div className="at-card-title mt-4">Caisse</div>
+                <Table rows={view.totaux.caisse.sessions} rowKey={(s) => s.numero} cols={[
+                  { label: "Caisse", render: (s) => <b>{s.numero}</b> },
+                  { label: "Fond initial", right: true, render: (s) => tnd(s.fondInitial) },
+                  { label: "Théorique", right: true, render: (s) => tnd(s.theorique) },
+                  { label: "Compté", right: true, render: (s) => tnd(s.montantCompte) },
+                  { label: "Écart", right: true, render: (s) => <span style={{ color: Number(s.ecart) < 0 ? "#ef4444" : Number(s.ecart) > 0 ? "#f59e0b" : undefined }}>{tnd(s.ecart)}</span> },
+                  { label: "Remise en banque", right: true, render: (s) => tnd(s.remiseBanque) },
+                ]} />
+                <div className="at-muted mt-1">
+                  Total écart {tnd(view.totaux.caisse.ecart)} · remise en banque {tnd(view.totaux.caisse.remiseBanque)} · dépenses payées en espèces {tnd(view.totaux.caisse.depensesEspeces)}
+                </div>
+              </>
+            )}
             <div className="at-card-title mt-4">Historique</div>
             <div className="d-flex flex-column gap-2">
               {(view.historique || []).map((h, i) => (

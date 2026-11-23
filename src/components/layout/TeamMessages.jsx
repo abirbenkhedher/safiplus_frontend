@@ -1,20 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FaBullhorn,
   FaPaperPlane,
   FaTimes,
-  FaCheck,
   FaExclamationTriangle,
   FaTrash,
 } from 'react-icons/fa';
 import {
   getTeamMessages,
   sendTeamMessage,
-  markMessageAsRead,
   markAllMessagesAsRead,
   deleteTeamMessage,
 } from '../../api/teamMessages';
-import { useAuth } from '../../context/AuthContext';
 import { confirmer, informer } from "../../utils/dialog";
 // ✅ Temps relatif
 const timeAgo = (date) => {
@@ -27,7 +24,6 @@ const timeAgo = (date) => {
 };
 
 const TeamMessages = () => {
-  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -118,7 +114,7 @@ const TeamMessages = () => {
     try {
       await deleteTeamMessage(id);
       setMessages((prev) => prev.filter((m) => m._id !== id));
-    } catch (err) {
+    } catch {
       informer({ title: 'Erreur', message: 'Erreur lors de la suppression', variant: 'danger' });
     }
   };
@@ -167,13 +163,14 @@ const TeamMessages = () => {
       {isOpen && (
         <div
           ref={panelRef}
+          className="tm-panel"
           style={{
             position: 'absolute',
             top: 'calc(100% + 10px)',
             right: 0,
             width: '440px',
             maxWidth: 'calc(100vw - 32px)',
-            background: 'white',
+            background: 'var(--surface)',
             borderRadius: '16px',
             boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
             border: '1px solid var(--gray-200)',
@@ -241,7 +238,7 @@ const TeamMessages = () => {
                 height: '26px',
                 borderRadius: '6px',
                 border: 'none',
-                background: 'white',
+                background: 'var(--surface)',
                 color: 'var(--gray-500)',
                 cursor: 'pointer',
                 display: 'flex',
@@ -264,7 +261,7 @@ const TeamMessages = () => {
           >
             <div
               style={{
-                background: 'white',
+                background: 'var(--surface)',
                 borderRadius: '12px',
                 border: '1px solid var(--gray-200)',
                 overflow: 'hidden',
@@ -296,7 +293,7 @@ const TeamMessages = () => {
                   gap: '8px',
                   padding: '8px 10px',
                   borderTop: '1px solid var(--gray-100)',
-                  background: 'white',
+                  background: 'var(--surface)',
                 }}
               >
                 {/* Priority */}

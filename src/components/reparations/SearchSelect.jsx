@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { FaSearch, FaTimes, FaPlus } from 'react-icons/fa';
 
 /**
@@ -16,7 +16,6 @@ const SearchSelect = ({
   labelField = 'label',
   valueField = 'value',
   icon,
-  required = false,
   disabled = false,
   onCreate = null,
   createLabel = 'Créer',
@@ -208,7 +207,7 @@ const SearchSelect = ({
       {isOpen && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: 'white', border: '1px solid var(--gray-200)',
+          background: 'var(--surface)', border: '1px solid var(--gray-200)',
           borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
           maxHeight: '220px', overflowY: 'auto', zIndex: 1000,
         }}>

@@ -12,7 +12,7 @@ export const setupRefreshDetection = () => {
   window.addEventListener("beforeunload", () => {
     try {
       sessionStorage.setItem(REFRESH_FLAG, "1");
-    } catch (e) {
+    } catch {
       // silently fail
     }
   });
@@ -30,7 +30,7 @@ const consumeRefreshFlag = () => {
       return true;
     }
     return false;
-  } catch (e) {
+  } catch {
     return false;
   }
 };
@@ -53,7 +53,7 @@ export const loadFilters = (defaultFilters) => {
 
     const parsed = JSON.parse(raw);
     return { ...defaultFilters, ...parsed };
-  } catch (e) {
+  } catch {
     return defaultFilters;
   }
 };
@@ -64,7 +64,7 @@ export const loadFilters = (defaultFilters) => {
 export const saveFilters = (filters) => {
   try {
     sessionStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
-  } catch (e) {
+  } catch {
     // silently fail
   }
 };
@@ -77,7 +77,7 @@ export const clearFilters = () => {
     sessionStorage.removeItem(FILTERS_KEY);
     sessionStorage.removeItem(RETARD_MODE_KEY);
     sessionStorage.removeItem(REFRESH_FLAG);
-  } catch (e) {
+  } catch {
     // silently fail
   }
 };
@@ -92,7 +92,7 @@ export const saveRetardMode = (isRetard) => {
     } else {
       sessionStorage.removeItem(RETARD_MODE_KEY);
     }
-  } catch (e) {
+  } catch {
     // silently fail
   }
 };
@@ -100,7 +100,7 @@ export const saveRetardMode = (isRetard) => {
 export const loadRetardMode = () => {
   try {
     return sessionStorage.getItem(RETARD_MODE_KEY) === "1";
-  } catch (e) {
+  } catch {
     return false;
   }
 };

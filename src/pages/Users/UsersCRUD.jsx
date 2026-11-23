@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FaPlus,
   FaEdit,
@@ -193,14 +193,24 @@ const UsersCRUD = () => {
     rapport_commercial: { label: "Statistiques commerciales (CA, TVA) + export Excel", icon: "📊", category: "commercial" },
   };
 
+  // ✅ Permissions rangées PAR MODULE (celles d'un module non souscrit sont masquées)
   const CATEGORIES = {
-    principal: { label: "Principal", color: "var(--primary)" },
-    gestion: { label: "Gestion", icon: "💼", color: "#3b82f6" },
-    configuration: { label: "Configuration", color: "#f59e0b" },
+    gestion: { label: "Commun : clients, stock, dépenses, fin de journée", icon: "💼", color: "#3b82f6" },
+    atelier: { label: "Module Atelier : réparations, rémunérations", color: "#10b981" },
+    commercial: { label: "Module Ventes : comptoir, factures, règlements, caisse", color: "#8b5cf6" },
+    achats: { label: "Module Achats : fournisseurs, factures d'achat", color: "#0ea5e9" },
+    configuration: { label: "Configuration (catalogue)", color: "#f59e0b" },
     administration: { label: "Administration", color: "#ef4444" },
-    atelier: { label: "Atelier (achats, rémunérations, clôtures)", color: "#10b981" },
-    commercial: { label: "Gestion commerciale (ventes, règlements)", color: "#8b5cf6" },
   };
+  const CATEGORIE_DE = {
+    dashboard: "atelier", mon_dashboard: "atelier", reparations: "atelier", paiements: "atelier", statuses: "atelier", pannes: "atelier",
+    statistiques: "atelier", rapports: "atelier", remuneration: "atelier", remuneration_autrui: "atelier", remuneration_regles: "atelier",
+    commissions_valider: "atelier", paiements_reparateurs: "atelier",
+    fournisseurs: "achats", achats: "achats",
+    clotures: "gestion", clotures_rouvrir: "gestion",
+    parametres_atelier: "administration", operations_annuler: "administration",
+  };
+  const MODULE_DE_CATEGORIE = { atelier: "atelier", commercial: "commercial", achats: "achats" };
 
   const loadData = async () => {
     try {
@@ -214,7 +224,7 @@ const UsersCRUD = () => {
       setAvailableModules(modulesRes.data.grantable || modulesRes.data.modules || []);
       setCanManageAdmins(modulesRes.data.canManageAdmins !== false);
       setDefaultPermissions(modulesRes.data.defaultPermissions || {});
-    } catch (err) {
+    } catch {
       setError("Erreur lors du chargement");
     } finally {
       setLoading(false);
@@ -307,21 +317,6 @@ const UsersCRUD = () => {
     setFormData({ ...formData, permissions: updated });
   };
 
-  const toggleCategory = (category) => {
-    const modulesInCategory = availableModules.filter(
-      (m) => MODULE_CONFIG[m]?.category === category,
-    );
-    const current = formData.permissions || [];
-    const allSelected = modulesInCategory.every((m) => current.includes(m));
-
-    let updated;
-    if (allSelected) {
-      updated = current.filter((m) => !modulesInCategory.includes(m));
-    } else {
-      updated = [...new Set([...current, ...modulesInCategory])];
-    }
-    setFormData({ ...formData, permissions: updated });
-  };
 
   // ============================================================
   // ✅ SUBMIT : Email FACULTATIF
@@ -335,7 +330,7 @@ const UsersCRUD = () => {
 
     // ✅ Email facultatif — validation uniquement si rempli
     if (formData.email && formData.email.trim()) {
-      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
       if (!emailRegex.test(formData.email.trim())) {
         return setError("Format d'email invalide");
       }
@@ -452,7 +447,7 @@ const UsersCRUD = () => {
       name: "",
       selector: (row) => `${row.firstName} ${row.lastName}`,
       sortable: true,
-      cell: (row) => (
+      cell: () => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div>
             
@@ -722,9 +717,9 @@ const UsersCRUD = () => {
   ];
 
   const modulesByCategory = availableModules.reduce((acc, module) => {
-    const cat = MODULE_CONFIG[module]?.category || "autre";
-    // ✅ Module commercial non souscrit : ses permissions ne sont pas proposées
-    if (cat === "commercial" && !hasModule("commercial")) return acc;
+    const cat = CATEGORIE_DE[module.split(":")[0]] || MODULE_CONFIG[module]?.category || "autre";
+    // ✅ Module non souscrit (Atelier, Ventes, Achats) : ses permissions ne sont pas proposées
+    if (MODULE_DE_CATEGORIE[cat] && !hasModule(MODULE_DE_CATEGORIE[cat])) return acc;
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(module);
     return acc;
@@ -947,7 +942,7 @@ const UsersCRUD = () => {
                     height: "32px",
                     borderRadius: "8px",
                     border: "none",
-                    background: "white",
+                    background: "var(--surface)",
                     color: "var(--gray-500)",
                     cursor: "pointer",
                     display: "flex",
@@ -1472,8 +1467,17 @@ const UsersCRUD = () => {
                         </div>
                       )}
 
-                      {Object.entries(modulesByCategory).map(
-                        ([categoryKey, modules]) => {
+                      {/* ✅ Cases grisées pour un administrateur : c'est normal, il a déjà tout */}
+                      {formData.role === "ADMIN" && (
+                        <div className="alert-modern alert-modern-info" style={{ marginBottom: 16, fontSize: 13 }}>
+                          Administrateur = <b>accès complet</b> à tous les modules souscrits : les cases sont grisées car
+                          elles ne s'appliquent pas à ce rôle. Pour limiter les droits, choisissez le rôle Commercial ou Réparateur.
+                        </div>
+                      )}
+
+                      {Object.entries(modulesByCategory)
+                        .sort(([a], [b]) => (Object.keys(CATEGORIES).indexOf(a) + 99) % 99 - (Object.keys(CATEGORIES).indexOf(b) + 99) % 99)
+                        .map(([categoryKey, modules]) => {
                           const categoryConfig = CATEGORIES[categoryKey] || {
                             label: categoryKey,
                             color: "#6b7280",

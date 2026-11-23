@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { FaFileInvoiceDollar, FaPlus, FaTools, FaEye, FaCheckCircle, FaUndo, FaMoneyBillWave, FaExclamationTriangle } from "react-icons/fa";
-import { getDocuments, getParametresVente, getSynthese, TYPES_DOC } from "../../api/ventes";
+import { getDocuments, getDocument, getParametresVente, getSynthese, getNombreAValider, TYPES_DOC } from "../../api/ventes";
+import { imprimerDocument } from "../../components/commercial/imprimer";
 import { useAuth } from "../../context/AuthContext";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import { Page, PageHeader, Alert, Table, PeriodeFilter, IconBtn, Kpi, Tabs } from "../../components/atelier/ui";
@@ -45,7 +46,10 @@ const Ventes = () => {
   // ✅ Vue globale = consultation
   const setEdit = (v) => { if (v && blockInGlobalView()) return; setEditRaw(v); };
 
+  // ✅ Brouillons par onglet (pastille jaune, comme dans le menu)
+  const [brouillons, setBrouillons] = useState({});
   const load = () => {
+    getNombreAValider().then((r) => setBrouillons(r.data.parType || {})).catch(() => {});
     getDocuments({ type, statut: statut || undefined, paiement: paiement || undefined, from: range.from, to: range.to, search: search.trim() || undefined })
       .then((r) => setRows(r.data.data)).catch((e) => setMsg({ text: errMsg(e) }));
     getSynthese({ from: range.from, to: range.to }).then((r) => setSynthese(r.data.data)).catch(() => setSynthese(null));
@@ -54,7 +58,16 @@ const Ventes = () => {
   useEffect(() => { const t = setTimeout(load, 350); return () => clearTimeout(t); }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { getParametresVente().then((r) => setParams(r.data.data)).catch(() => {}); }, []);
 
-  const ouvrirApresEnregistrement = (d) => { setEditRaw(null); setMsg({ type: "success", text: "Brouillon enregistré" }); load(); setViewId(d._id); };
+  // ✅ Validé depuis le formulaire : imprimé tout de suite ; brouillon : ouvert pour la suite
+  const ouvrirApresEnregistrement = async (d, info = {}) => {
+    setEditRaw(null);
+    setMsg({ type: "success", text: info.valide ? `${d.numero} validé(e)` : "Brouillon enregistré" });
+    load();
+    if (info.valide) {
+      try { imprimerDocument((await getDocument(d._id)).data.data, params); } catch { /* impression facultative */ }
+    }
+    setViewId(d._id);
+  };
   const label = TYPES_DOC[type];
 
   const cols = [
@@ -103,7 +116,12 @@ const Ventes = () => {
         </div>
       )}
 
-      <Tabs tabs={ONGLETS} value={type} onChange={setType} />
+      <Tabs value={type} onChange={setType} tabs={ONGLETS.map(([k, l]) => [k, brouillons[k] > 0 ? (
+        <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {l}
+          <span className="nav-link-badge" style={{ marginLeft: 0 }} title={`${brouillons[k]} brouillon(s) à valider`}>{brouillons[k]}</span>
+        </span>
+      ) : l])} />
       <PeriodeFilter range={range} onChange={setRange}>
         <div>
           <label className="form-label">Statut</label>
@@ -126,7 +144,7 @@ const Ventes = () => {
           <input className="form-control-modern" placeholder="N°, client, désignation…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </PeriodeFilter>
-      {type === "AVOIR" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Depuis une facture ou un ticket validé : « Bon de retour » (la marchandise revient en stock et l'argent est rendu) ou « Faire un avoir » (l'argent est rendu, la marchandise ne revient pas).</div>}
+      {type === "AVOIR" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Retour d'un client au comptoir : bouton « Retour client » de la vente comptoir. Depuis une facture ou un ticket validé : « Retour / avoir » (cochez ce qui revient, choisissez le remboursement : c'est validé tout de suite).</div>}
       {type === "BC" && <div className="at-hint mb-2" style={{ fontStyle: "normal" }}>Bon de commande client : ni stock ni argent. Une fois validé, transformez-le en bon de livraison ou en facture.</div>}
 
       <Table rows={rows} cols={cols} empty={`Aucun(e) ${label.label.toLowerCase()} sur cette période`} />

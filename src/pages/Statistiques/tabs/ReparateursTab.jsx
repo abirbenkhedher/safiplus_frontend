@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState } from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
 import KpiCard from "../../../components/statistiques/KpiCard";
@@ -156,15 +156,6 @@ const ReparateursTab = () => {
   const topRetours = data?.top_retours || [];
   const pireReparateur = data?.pire_reparateur;
 
-  const totals = useMemo(() => {
-    const source = selectedRows.length > 0 ? selectedRows : reparateurs;
-    return source.reduce((acc, r) => ({
-      reparations: acc.reparations + (r.total_reparations || 0),
-      sav: acc.sav + (r.total_sav || 0),
-      ca: acc.ca + (r.ca_total || 0),
-      encaisse: acc.encaisse + (r.encaisse || 0),
-    }), { reparations: 0, sav: 0, ca: 0, encaisse: 0 });
-  }, [reparateurs, selectedRows]);
 
   // ✅ Handler d'export Excel
   const handleExport = async () => {

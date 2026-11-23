@@ -28,10 +28,10 @@ const MaRemuneration = () => {
       <Alert msg={msg} onClose={() => setMsg(null)} />
       <PeriodeFilter range={range} onChange={setRange} />
       <div className="row g-3 mb-3">
-        <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaCheckCircle />} tone="success" label="Commissions validées" value={tnd(p?.commissionsValidees || 0)} /></div>
-        <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaHourglassHalf />} tone="warning" label="En attente de validation" value={tnd(p?.commissionsEnAttente || 0)} /></div>
-        <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaCoins />} tone="primary" label="Gains bruts (période)" value={tnd(p?.gainsBruts || 0)} hint={`dont salaires ${tnd(p?.salaires || 0)}`} /></div>
-        <div className="col-12 col-sm-6 col-xl-3"><Kpi icon={<FaMoneyBillWave />} tone="danger" label="Solde restant dû" value={tnd(c?.soldeDu || 0)} hint={`avances ${tnd(c?.avances || 0)} · payé ${tnd(c?.paiements || 0)}`} /></div>
+        <div className="col-6 col-xl-3"><Kpi icon={<FaCheckCircle />} tone="success" label="Commissions validées" value={tnd(p?.commissionsValidees || 0)} /></div>
+        <div className="col-6 col-xl-3"><Kpi icon={<FaHourglassHalf />} tone="warning" label="En attente de validation" value={tnd(p?.commissionsEnAttente || 0)} /></div>
+        <div className="col-6 col-xl-3"><Kpi icon={<FaCoins />} tone="primary" label="Gains bruts (période)" value={tnd(p?.gainsBruts || 0)} hint={`dont salaires ${tnd(p?.salaires || 0)}`} /></div>
+        <div className="col-6 col-xl-3"><Kpi icon={<FaMoneyBillWave />} tone="danger" label="Solde restant dû" value={tnd(c?.soldeDu || 0)} hint={`avances ${tnd(c?.avances || 0)} · payé ${tnd(c?.paiements || 0)}`} /></div>
       </div>
       <Table
         rows={data?.commissions || []}

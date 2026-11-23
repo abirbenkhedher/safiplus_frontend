@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaTags, FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown } from 'react-icons/fa';
+import { useState, useEffect, useMemo } from 'react';
+import { FaPlus, FaTags, FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown } from 'react-icons/fa';
 import { getFamilles, createFamille, updateFamille, deleteFamille } from '../../api/familles';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -23,7 +23,7 @@ const FamillesCRUD = () => {
       // ✅ Trier par ordre par défaut
       const sorted = [...response.data].sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
       setFamilles(sorted);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des familles');
     } finally {
       setLoading(false);
@@ -226,7 +226,7 @@ const FamillesCRUD = () => {
                     {editingItem ? 'Modifiez les informations ci-dessous' : 'Créez une nouvelle famille'}
                   </p>
                 </div>
-                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'white', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'var(--surface)', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FaTimes />
                 </button>
               </div>

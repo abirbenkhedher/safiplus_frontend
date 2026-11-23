@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  FaPlus, FaEdit, FaTrash, FaSearch,
-  FaCalendarAlt, FaSortNumericDown, FaMapMarkerAlt
+  FaPlus,
+  FaSearch,
+  FaCalendarAlt,
+  FaSortNumericDown,
+  FaMapMarkerAlt,
 } from 'react-icons/fa';
 import { getZones, deleteZone } from '../../api/zones';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -40,7 +43,7 @@ const ZonesCRUD = () => {
           (a.nom || '').localeCompare(b.nom || '')
       );
       setZones(sorted);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);

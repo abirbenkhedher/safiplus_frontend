@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
+import ChargementPage from '../common/ChargementPage';
+import AbonnementBanner from './AbonnementBanner';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import useAutoLogout from '../../hooks/useAutoLogout'; // ✅ AJOUT
@@ -54,7 +56,11 @@ const Layout = () => {
 
         <main className="app-content">
           <div className="fade-in-up">
-            <Outlet />
+            <AbonnementBanner />
+            {/* Le menu et l'en-tête restent affichés pendant le chargement d'une page */}
+            <Suspense fallback={<ChargementPage />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
@@ -82,8 +88,10 @@ const Layout = () => {
           padding: 24px;
           flex: 1;
           min-width: 0;
-          /* ✅ Mots très longs (sans espace) : retour à la ligne au lieu de déborder */
-          overflow-wrap: anywhere;
+          /* ✅ Mots très longs (sans espace) : retour à la ligne au lieu de déborder.
+             « break-word » et non « anywhere » : « anywhere » laissait les tableaux réduire
+             leurs colonnes à une seule lettre (N° « F/A/-/2/0… » vertical sur téléphone). */
+          overflow-wrap: break-word;
         }
 
         /* ✅ Mode sombre */

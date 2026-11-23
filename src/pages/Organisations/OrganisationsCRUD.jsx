@@ -18,10 +18,57 @@ import { useAuth } from '../../context/AuthContext';
 // - entrer dans n'importe quelle boutique (clic sur la boutique)
 // ============================================================
 const EMPTY = {
-  nom: '', telephone: '', email: '', adresse: '', maxBoutiques: 0,
-  moduleCommercial: true, // ✅ formule : gestion commerciale incluse
+  nom: '', telephone: '', email: '', adresse: '', maxBoutiques: 0, maxUtilisateurs: 0,
+  modules: { atelier: true, commercial: true, achats: true }, // ✅ formule : modules souscrits
+  abonnement: { offre: 'atelier_commerce', dateFin: '', note: '' },
   boutique: { nom: '', code: '' },
   owner: { username: '', password: '', firstName: '', lastName: '', email: '', phone: '' },
+};
+
+// ✅ Abonnement : offres et affichage de l'état
+const OFFRES = [['essai', 'Essai'], ['atelier', 'Atelier'], ['atelier_commerce', 'Atelier + Commerce'], ['commerce', 'Boutique (sans atelier)'], ['sur_mesure', 'Sur mesure']];
+// ✅ Modules de chaque offre (modifiables ensuite, offre « sur mesure »)
+const MODULES_OFFRE = {
+  essai: { atelier: true, commercial: true, achats: true },
+  atelier: { atelier: true, commercial: false, achats: true },
+  atelier_commerce: { atelier: true, commercial: true, achats: true },
+  commerce: { atelier: false, commercial: true, achats: true },
+};
+const MODULES = [
+  ['atelier', 'Atelier', 'réparations, pannes, statuts, rémunérations, suivi client'],
+  ['commercial', 'Ventes', 'comptoir, devis & factures, règlements, caisse'],
+  ['achats', 'Achats', "fournisseurs, commandes, factures d'achat"],
+];
+const isoLocal = (d) => {
+  if (!d) return '';
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+/** Prolonge à partir de la date de fin (ou d'aujourd'hui si elle est passée / vide). */
+const prolonger = (dateFin, mois) => {
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const base = dateFin && new Date(dateFin) > auj ? new Date(dateFin) : auj;
+  base.setMonth(base.getMonth() + mois);
+  return isoLocal(base);
+};
+const ETATS = {
+  illimite: ['badge-modern-gray', 'Sans échéance'],
+  actif: ['badge-modern-success', 'Actif'],
+  bientot: ['badge-modern-warning', 'Fin proche'],
+  grace: ['badge-modern-danger', 'Expiré (grâce)'],
+  suspendu: ['badge-modern-danger', 'Lecture seule'],
+};
+const AbonnementBadge = ({ e }) => {
+  if (!e) return '—';
+  const [cls, lib] = ETATS[e.statut] || ETATS.illimite;
+  return (
+    <div style={{ lineHeight: 1.3 }}>
+      <span className={`badge-modern ${cls}`}>{lib}</span>
+      <div style={{ fontSize: '11.5px', color: 'var(--gray-500)', marginTop: 2 }}>
+        {e.offreLibelle}{e.dateFin ? ` · fin ${new Date(e.dateFin).toLocaleDateString('fr-FR')}` : ''}
+      </div>
+    </div>
+  );
 };
 
 const Message = ({ type, children }) => (
@@ -118,7 +165,13 @@ const OrganisationsCRUD = () => {
       email: row.email || '',
       adresse: row.adresse || '',
       maxBoutiques: row.maxBoutiques || 0,
-      moduleCommercial: row.modules?.commercial !== false,
+      maxUtilisateurs: row.maxUtilisateurs || 0,
+      modules: { atelier: row.modules?.atelier !== false, commercial: row.modules?.commercial !== false, achats: row.modules?.achats !== false },
+      abonnement: {
+        offre: row.abonnement?.offre || 'atelier_commerce',
+        dateFin: isoLocal(row.abonnement?.dateFin),
+        note: row.abonnement?.note || '',
+      },
     });
     setFormError('');
     setShowModal(true);
@@ -135,7 +188,13 @@ const OrganisationsCRUD = () => {
         email: form.email,
         adresse: form.adresse,
         maxBoutiques: Number(form.maxBoutiques) || 0,
-        modules: { commercial: !!form.moduleCommercial },
+        maxUtilisateurs: Number(form.maxUtilisateurs) || 0,
+        modules: { ...form.modules },
+        abonnement: {
+          offre: form.abonnement.offre,
+          dateFin: form.abonnement.dateFin || null,
+          note: form.abonnement.note,
+        },
       };
       if (editing) {
         await updateOrganisation(editing._id, base);
@@ -248,7 +307,15 @@ const OrganisationsCRUD = () => {
     {
       name: 'Utilisateurs',
       selector: (row) => row.usersCount,
+      cell: (row) => `${row.usersCount}${row.maxUtilisateurs ? ` / ${row.maxUtilisateurs}` : ''}`,
       width: '120px',
+    },
+    {
+      name: 'Abonnement',
+      minWidth: '170px',
+      sortable: true,
+      selector: (row) => (row.abonnement?.dateFin ? new Date(row.abonnement.dateFin).getTime() : Infinity),
+      cell: (row) => <AbonnementBadge e={row.etatAbonnement} />,
     },
     {
       name: 'Statut',
@@ -319,12 +386,69 @@ const OrganisationsCRUD = () => {
                   value={form.maxBoutiques}
                   onChange={(v) => set('maxBoutiques', v)}
                 />
-                <div className="form-check form-switch mb-3">
-                  <input id="mod-commercial" type="checkbox" role="switch" className="form-check-input"
-                    checked={!!form.moduleCommercial} onChange={(e) => set('moduleCommercial', e.target.checked)} />
-                  <label htmlFor="mod-commercial" className="form-check-label">
-                    Module « Gestion commerciale » (devis, factures, comptoir, caisse)
+                <Input
+                  label="Nombre max. d'utilisateurs actifs (0 = illimité)"
+                  type="number"
+                  min="0"
+                  value={form.maxUtilisateurs}
+                  onChange={(v) => set('maxUtilisateurs', v)}
+                />
+                <SectionTitle>Abonnement</SectionTitle>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="abo-offre" style={{ fontSize: '13px', fontWeight: 600 }}>Offre</label>
+                  <select id="abo-offre" className="form-control-modern" style={{ width: '100%' }} value={form.abonnement.offre}
+                    onChange={(e) => {
+                      const offre = e.target.value;
+                      set('abonnement.offre', offre);
+                      // L'offre règle les modules (modifiables ensuite)
+                      if (MODULES_OFFRE[offre]) set('modules', { ...MODULES_OFFRE[offre] });
+                    }}>
+                    {OFFRES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="abo-fin" style={{ fontSize: '13px', fontWeight: 600 }}>
+                    Date de fin (dernier jour inclus, vide = sans échéance)
                   </label>
+                  <input id="abo-fin" type="date" className="form-control-modern" style={{ width: '100%' }}
+                    value={form.abonnement.dateFin} onChange={(e) => set('abonnement.dateFin', e.target.value)} />
+                </div>
+                <div className="d-flex flex-wrap gap-2 mb-3">
+                  {[['+1 mois', 1], ['+3 mois', 3], ['+1 an', 12]].map(([l, m]) => (
+                    <button key={l} type="button" className="btn-modern btn-modern-outline" style={{ padding: '3px 10px', fontSize: '12px' }}
+                      onClick={() => set('abonnement.dateFin', prolonger(form.abonnement.dateFin, m))}>{l}</button>
+                  ))}
+                  <button type="button" className="btn-modern btn-modern-outline" style={{ padding: '3px 10px', fontSize: '12px' }}
+                    onClick={() => set('abonnement.dateFin', '')}>Sans échéance</button>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: 12 }}>
+                  Bandeau d'avertissement 7 jours avant la fin ; après la fin, 7 jours de grâce, puis lecture seule
+                  (consultation et exports possibles, aucune modification).
+                </div>
+                <Input label="Note (paiement, contrat…)" value={form.abonnement.note} onChange={(v) => set('abonnement.note', v)} />
+                {editing?.abonnement?.historique?.length > 0 && (
+                  <details className="mb-3" style={{ fontSize: '12px' }}>
+                    <summary style={{ cursor: 'pointer', color: 'var(--gray-600)' }}>Historique de l'abonnement ({editing.abonnement.historique.length})</summary>
+                    {[...editing.abonnement.historique].reverse().map((h, i) => (
+                      <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                        {new Date(h.date).toLocaleDateString('fr-FR')} · {(OFFRES.find(([v]) => v === h.offre) || [h.offre, h.offre])[1]}
+                        {' · '}{h.dateFin ? `fin ${new Date(h.dateFin).toLocaleDateString('fr-FR')}` : 'sans échéance'}{h.note ? ` · ${h.note}` : ''}
+                      </div>
+                    ))}
+                  </details>
+                )}
+                <SectionTitle>Modules</SectionTitle>
+                {MODULES.map(([k, l, d]) => (
+                  <div key={k} className="form-check form-switch mb-2">
+                    <input id={`mod-${k}`} type="checkbox" role="switch" className="form-check-input"
+                      checked={form.modules?.[k] !== false} onChange={(e) => set(`modules.${k}`, e.target.checked)} />
+                    <label htmlFor={`mod-${k}`} className="form-check-label">
+                      <b>{l}</b> <span style={{ color: 'var(--gray-500)', fontSize: 12 }}>— {d}</span>
+                    </label>
+                  </div>
+                ))}
+                <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: 12 }}>
+                  Toujours inclus : clients, stock, catalogue, dépenses, utilisateurs. Au moins Atelier ou Ventes.
                 </div>
               </div>
               {!editing && (

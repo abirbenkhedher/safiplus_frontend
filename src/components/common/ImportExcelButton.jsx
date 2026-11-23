@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   FaFileExcel,
   FaSpinner,
@@ -21,7 +21,7 @@ const ImportExcelButton = ({
   columns = [],
   notCreatedColumns = null,
   labels = {},
-  accept = ".xlsx,.xls,.csv",
+  accept = ".xlsx,.csv",
   buttonClass = "btn-modern btn-modern-outline",
   buttonStyle = { borderColor: "var(--success)", color: "var(--success)" },
   disabled = false,
@@ -53,8 +53,13 @@ const ImportExcelButton = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
-      setError("Format non supporté. Utilisez .xlsx, .xls ou .csv");
+    if (/\.xls$/i.test(file.name)) {
+      setError("Ancien format Excel (.xls) : ouvrez le fichier dans Excel et enregistrez-le en .xlsx (ou .csv).");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (!/\.(xlsx|csv)$/i.test(file.name)) {
+      setError("Format non supporté. Utilisez .xlsx ou .csv");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -391,7 +396,7 @@ const Modal = ({ onClose, title, subtitle, children }) => (
   >
     <div
       style={{
-        background: "white",
+        background: "var(--surface)",
         borderRadius: "16px",
         maxWidth: "900px",
         width: "100%",
@@ -514,6 +519,7 @@ const Section = ({ title, color, children }) => (
 );
 
 const DataGrid = ({ items, columns, showLine = true }) => (
+  <div className="table-scroll">
   <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
     <thead>
       <tr style={{ background: "#f9fafb", textAlign: "left" }}>
@@ -538,6 +544,7 @@ const DataGrid = ({ items, columns, showLine = true }) => (
       ))}
     </tbody>
   </table>
+  </div>
 );
 
 const summaryGridStyle = {

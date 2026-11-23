@@ -1,4 +1,3 @@
-import React from 'react';
 
 const LoadingSpinner = ({ fullScreen = true, text = 'Chargement...' }) => {
   if (fullScreen) {

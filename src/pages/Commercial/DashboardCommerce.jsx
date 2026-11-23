@@ -28,7 +28,7 @@ const DashboardCommerce = () => {
     ["comptoir", "/comptoir", <FaCashRegister key="c" />, "Vente comptoir", ["comptoir", "ventes"]],
     ["facture", "/ventes", <FaFileInvoiceDollar key="f" />, "Devis & factures", ["ventes", "ventes:read"]],
     ["reglement", "/reglements", <FaMoneyBillWave key="r" />, "Encaisser un client", ["reglements"]],
-    ["caisse", "/caisse", <FaLock key="k" />, "Caisse", ["caisse"]],
+    ["caisse", "/fin-de-journee?onglet=caisse", <FaLock key="k" />, "Caisse", ["caisse"]],
   ].filter(([, , , , perms]) => perms.some((p) => hasPermission(p)));
 
   return (
@@ -53,7 +53,7 @@ const DashboardCommerce = () => {
 
           <div className="row g-3 mb-3">
             <div className="col-6 col-lg-3">
-              <div role="button" onClick={() => navigate("/caisse")} style={{ cursor: "pointer" }}>
+              <div role="button" onClick={() => navigate("/fin-de-journee?onglet=caisse")} style={{ cursor: "pointer" }}>
                 {d.caisse
                   ? <Kpi icon={d.caisse.ouverte ? <FaLockOpen /> : <FaLock />} tone={d.caisse.ouverte ? "success" : "gray"} label="Caisse"
                       value={d.caisse.ouverte ? d.caisse.numero : "Fermée"} hint={d.caisse.ouverte ? `Espèces théoriques ${tnd(d.caisse.theorique)}` : "Ouvrez la caisse pour encaisser en espèces"} />

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaExclamationTriangle, FaTimes, FaCheck, FaPlus } from 'react-icons/fa';
 
 /**
@@ -199,7 +199,7 @@ const PannesMultiSelect = ({
             top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            background: 'white',
+            background: 'var(--surface)',
             border: '1.5px solid var(--gray-200)',
             borderRadius: '10px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
@@ -238,7 +238,7 @@ const PannesMultiSelect = ({
                   fontSize: '12.5px',
                   fontFamily: 'inherit',
                   outline: 'none',
-                  background: 'white',
+                  background: 'var(--surface)',
                 }}
                 onFocus={(e) => (e.target.style.borderColor = 'var(--primary)')}
                 onBlur={(e) =>
@@ -280,7 +280,7 @@ const PannesMultiSelect = ({
               style={{
                 padding: '8px 10px',
                 borderBottom: '1px solid var(--gray-100)',
-                background: 'white',
+                background: 'var(--surface)',
                 flexShrink: 0,
               }}
             >

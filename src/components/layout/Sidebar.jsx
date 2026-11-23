@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FaHome, FaUserClock, FaUsers, FaTools, FaMoneyBillWave,
-  FaTags, FaBoxes, FaCog, FaUserCog,
-  FaClipboardList, FaChevronLeft, FaChevronRight, FaChevronDown,
-  FaTrademark, FaMobileAlt, FaExclamationTriangle, FaPlus,
+  FaTags, FaCog, FaUserCog,
+  FaChevronLeft, FaChevronRight, FaChevronDown,
+  FaExclamationTriangle, FaPlus,
   FaChartLine, FaMapMarkerAlt, FaWarehouse, FaReceipt, FaStore, FaBuilding,
-  FaFileInvoice, FaTruck, FaExchangeAlt, FaWallet, FaLock, FaSlidersH,
-  FaFileInvoiceDollar, FaHandHoldingUsd, FaCashRegister, FaMoneyCheckAlt, FaChartBar, FaGlobe,
+  FaTruck, FaWallet, FaLock, FaSlidersH,
+  FaFileInvoiceDollar, FaHandHoldingUsd, FaCashRegister,
   FaSearch, FaTimes,
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useReparationModal } from '../../context/ReparationModalContext';
+import { getNombreAValider } from '../../api/ventes';
 import EspaceSwitch from './EspaceSwitch';
 import logo from '../../assets/logo.png';
 
@@ -35,21 +36,34 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [recherche, setRecherche] = useState('');
+
+  // ✅ Brouillons de vente en attente de validation (badge sur « Devis & factures »)
+  const [aValider, setAValider] = useState(0);
+  const suitVentes = espaceActif === 'commerce' && hasModule('commercial') && hasPermission('ventes') && !!activeBoutique;
+  useEffect(() => {
+    if (!suitVentes) return undefined;
+    let actif = true;
+    const charger = () => getNombreAValider().then((r) => { if (actif) setAValider(Number(r.data.data) || 0); }).catch(() => {});
+    charger();
+    const t = setInterval(charger, 2 * 60 * 1000);
+    return () => { actif = false; clearInterval(t); };
+  }, [suitVentes, activeBoutique, location.pathname]);
   const rechercheRef = useRef(null);
   const fermerSiMobile = () => { if (window.innerWidth <= 992) onClose(); };
 
+  // ✅ Menu par espace : une entrée par besoin ; les pages voisines sont des onglets
+  //    (Stock, Achats, Statistiques, Catalogue, Fin de journée). requiresModule : module souscrit.
   const menuSections = [
     {
       id: 'principal',
       items: [
-        { path: '/dashboard', icon: <FaHome />, label: 'Tableau de bord', module: 'dashboard', espace: 'atelier' },
+        { path: '/dashboard', icon: <FaHome />, label: 'Accueil atelier', module: 'dashboard', espace: 'atelier' },
         { path: '/mon-tableau-de-bord', icon: <FaUserClock />, label: 'Mon tableau de bord', module: 'mon_dashboard', employeOnly: true, espace: 'atelier' },
-        { path: '/commerce', icon: <FaHome />, label: 'Tableau de bord', anyModule: ['rapport_commercial', 'rapports', 'ventes', 'ventes:read'], espace: 'commerce' },
+        { path: '/commerce', icon: <FaHome />, label: 'Accueil commerce', anyModule: ['rapport_commercial', 'rapports', 'ventes', 'ventes:read'], espace: 'commerce' },
         { path: '/reparations', icon: <FaTools />, label: 'Réparations', module: 'reparations', espace: 'atelier' },
         { path: '/comptoir', icon: <FaCashRegister />, label: 'Vente comptoir', anyModule: ['comptoir', 'ventes'], espace: 'commerce' },
-        { path: '/ventes', icon: <FaFileInvoiceDollar />, label: 'Devis & factures', anyModule: ['ventes', 'ventes:read'], espace: 'commerce' },
+        { path: '/ventes', icon: <FaFileInvoiceDollar />, label: 'Devis & factures', anyModule: ['ventes', 'ventes:read'], espace: 'commerce', badge: 'aValider' },
         { path: '/reglements', icon: <FaHandHoldingUsd />, label: 'Règlements & créances', anyModule: ['reglements', 'ventes', 'ventes:read'], espace: 'commerce' },
-        { path: '/caisse', icon: <FaMoneyCheckAlt />, label: 'Caisse', anyModule: ['caisse', 'clotures_rouvrir'], espace: 'commerce' },
         { path: '/clients', icon: <FaUsers />, label: 'Clients', module: 'clients' },
       ],
     },
@@ -59,20 +73,18 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       collapsible: true,
       items: [
         { path: '/stock', icon: <FaWarehouse />, label: espaceActif === 'commerce' ? 'Produits' : 'Pièces & stock', anyModule: ['stock', 'stock:read'] },
-        { path: '/achats', icon: <FaFileInvoice />, label: "Factures d'achat", anyModule: ['achats', 'depenses'] },
-        { path: '/fournisseurs', icon: <FaTruck />, label: 'Fournisseurs', anyModule: ['fournisseurs', 'achats'] },
-        { path: '/stock-operations', icon: <FaExchangeAlt />, label: 'Transferts / inventaire', module: 'stock' },
+        { path: '/achats', icon: <FaTruck />, label: 'Achats & fournisseurs', anyModule: ['achats', 'depenses', 'fournisseurs'], requiresModule: 'achats' },
       ],
     },
     {
       id: 'finances',
-      title: 'Finances',
+      title: 'Argent',
       collapsible: true,
       items: [
+        { path: '/fin-de-journee', icon: <FaLock />, label: 'Fin de journée', anyModule: ['caisse', 'clotures', 'clotures_rouvrir'] },
         { path: '/depenses', icon: <FaReceipt />, label: 'Dépenses', module: 'depenses' },
         { path: '/remuneration', icon: <FaMoneyBillWave />, label: 'Rémunérations', anyModule: ['remuneration', 'remuneration_autrui', 'remuneration_regles', 'commissions_valider', 'paiements_reparateurs'], espace: 'atelier' },
         { path: '/ma-remuneration', icon: <FaWallet />, label: 'Ma rémunération', roles: ['REPARATEUR', 'COMMERCIAL'], espace: 'atelier' },
-        { path: '/clotures', icon: <FaLock />, label: 'Clôtures', anyModule: ['clotures', 'clotures_rouvrir'], espace: 'atelier' },
       ],
     },
     {
@@ -80,9 +92,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       title: 'Analyses',
       collapsible: true,
       items: [
-        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques atelier', anyModule: ['statistiques', 'rapports'], espace: 'atelier' },
-        { path: '/rapport-commercial', icon: <FaChartBar />, label: 'Statistiques commerciales', anyModule: ['rapport_commercial', 'rapports'], espace: 'commerce' },
-        { path: '/vue-globale', icon: <FaGlobe />, label: 'Vue globale', anyModule: ['statistiques', 'rapports', 'rapport_commercial'], requiresModule: 'commercial', vueGlobaleSeulement: true },
+        { path: '/statistiques', icon: <FaChartLine />, label: 'Statistiques', anyModule: ['statistiques', 'rapports', 'rapport_commercial'] },
       ],
     },
     {
@@ -91,12 +101,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
       collapsible: true,
       defaultClosed: true,
       items: [
-        // Ordre de la hiérarchie : famille → catégorie → objet → marque → modèle
-        { path: '/familles', icon: <FaTags />, label: 'Familles', module: 'familles' },
-        { path: '/categories', icon: <FaBoxes />, label: 'Catégories', module: 'categories' },
-        { path: '/objets', icon: <FaClipboardList />, label: 'Objets', module: 'objets' },
-        { path: '/marques', icon: <FaTrademark />, label: 'Marques', module: 'marques' },
-        { path: '/modeles', icon: <FaMobileAlt />, label: 'Modèles', module: 'modeles' },
+        // Catalogue : famille → catégorie → objet → marque → modèle (onglets)
+        { path: '/catalogue', icon: <FaTags />, label: 'Catalogue', anyModule: ['familles', 'categories', 'objets', 'marques', 'modeles'] },
         { path: '/pannes', icon: <FaExclamationTriangle />, label: 'Pannes', module: 'pannes', espace: 'atelier' },
         { path: '/statuses', icon: <FaCog />, label: 'Statuts', module: 'statuses', espace: 'atelier' },
         { path: '/zones', icon: <FaMapMarkerAlt />, label: 'Zones', anyModule: ['zones', 'clients'] },
@@ -117,6 +123,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   // ✅ Filtre de visibilité : espace, module, rôle, permission
   const isVisible = (item) => {
     if (item.espace === 'commerce' && !hasModule('commercial')) return false;
+    if (item.espace === 'atelier' && !hasModule('atelier')) return false;
     if (item.requiresModule && !hasModule(item.requiresModule)) return false;
     if (item.vueGlobaleSeulement && !isAllBoutiques) return false;
     if (item.espace && item.espace !== espaceActif) return false;
@@ -195,6 +202,9 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     >
       <span className="nav-link-icon">{item.icon}</span>
       <span className="nav-link-text">{item.label}</span>
+      {item.badge === 'aValider' && aValider > 0 && !isCollapsed && (
+        <span className="nav-link-badge" title={`${aValider} brouillon(s) à valider`}>{aValider > 99 ? '99+' : aValider}</span>
+      )}
       {isCollapsed && <span className="nav-link-tooltip">{item.label}</span>}
     </NavLink>
   );

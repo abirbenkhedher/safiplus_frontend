@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaStar, FaCog, FaSearch, FaSave, FaTimes, FaCheck, FaRegCircle } from 'react-icons/fa';
+import { useState, useEffect, useMemo } from 'react';
+import { FaPlus, FaStar, FaCog, FaSearch, FaSave, FaTimes } from 'react-icons/fa';
 import { getStatuses, createStatus, updateStatus, deleteStatus, setDefaultStatus } from '../../api/statuses';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import DataTable from '../../components/common/DataTable';
@@ -23,7 +23,7 @@ const StatusesCRUD = () => {
       setLoading(true);
       const response = await getStatuses();
       setStatuses(response.data);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des statuts');
     } finally {
       setLoading(false);
@@ -172,7 +172,7 @@ const StatusesCRUD = () => {
             onClick={() => handleSetDefault(row)}
             style={{
               padding: '4px 10px', fontSize: '11px', fontWeight: '600',
-              background: 'white', border: '1px solid var(--gray-300)',
+              background: 'var(--surface)', border: '1px solid var(--gray-300)',
               borderRadius: '6px', cursor: 'pointer', color: 'var(--gray-600)',
             }}
           >
@@ -272,7 +272,7 @@ const StatusesCRUD = () => {
                     {editingItem ? 'Modifiez les informations ci-dessous' : 'Créez un nouveau statut'}
                   </p>
                 </div>
-                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'white', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={handleCloseModal} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'var(--surface)', color: 'var(--gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FaTimes />
                 </button>
               </div>

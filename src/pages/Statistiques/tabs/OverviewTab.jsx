@@ -1,4 +1,3 @@
-import React from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
 import KpiCard from "../../../components/statistiques/KpiCard";

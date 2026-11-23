@@ -1,26 +1,34 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import {
-  FaTools, FaUser, FaCalendarAlt, FaMoneyBillWave, FaHourglassHalf,
-  FaCheckCircle, FaClock, FaExclamationTriangle, FaPhone, FaSearch,
+  FaTools,
+  FaCalendarAlt,
+  FaMoneyBillWave,
+  FaHourglassHalf,
+  FaCheckCircle,
+  FaClock,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+// Libellé de statut sans accents ni majuscules (« Sortie réparée » → « sortie reparee »)
+const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
 const SuiviPublic = () => {
-  const { numero } = useParams();
+  // /s/:token = lien secret (suivi complet) ; /suivi/:numero = ancien QR code (état seulement)
+  const { numero, token } = useParams();
   const [reparation, setReparation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadReparation();
-  }, [numero]);
-
-  const loadReparation = async () => {
+  async function loadReparation() {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/reparations/public/${numero}`);
+      const url = token
+        ? `${API_URL}/reparations/public/suivi/${encodeURIComponent(token)}`
+        : `${API_URL}/reparations/public/${encodeURIComponent(numero)}`;
+      const res = await fetch(url);
       const data = await res.json();
 
       if (!res.ok || !data.success) {
@@ -33,7 +41,11 @@ const SuiviPublic = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    loadReparation();
+  }, [numero, token]);
 
   const formatDate = (date) =>
     !date ? "-" : new Date(date).toLocaleDateString("fr-FR", {
@@ -63,16 +75,17 @@ const formatPannes = (pannes) => {
   return "N/A";
 };
 
+  // ✅ Comparaison sans accents ni majuscules (avant : « repare » comparé à « REPARE » → jamais vrai)
   const isTermine = (label) => {
-    if (!label) return false;
-    const l = label.toLowerCase();
-    return l.includes("REPARE") || l.includes("SORTIE REPARE") || l.includes("prêt");
+    const l = norm(label);
+    if (!l || l.includes("non")) return false;
+    // « réparé(e)(s) » mais pas « en réparation »
+    return /\brepare(e|s|es)?\b/.test(l) || l.includes("pret") || l.includes("termine");
   };
 
   const isEnCours = (label) => {
-    if (!label) return false;
-    const l = label.toLowerCase();
-    return l.includes("EN COURS") || l.includes("réparation");
+    const l = norm(label);
+    return !!l && !isTermine(label) && (l.includes("en cours") || l.includes("en reparation") || l.includes("diagnostic"));
   };
 
   if (loading) {
@@ -124,7 +137,9 @@ const formatPannes = (pannes) => {
             Réparation introuvable
           </h1>
           <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "24px" }}>
-            Le numéro <strong>{numero}</strong> n'existe pas ou a été supprimé.
+            {token
+              ? "Ce lien de suivi n'est pas valide. Demandez un nouveau lien à la boutique."
+              : <>Le numéro <strong>{numero}</strong> n'existe pas ou a été supprimé.</>}
           </p>
           <a
             href="/"
@@ -183,9 +198,20 @@ const formatPannes = (pannes) => {
             {reparation.numero}
           </h1>
           <p style={{ fontSize: "12.5px", marginTop: "8px", opacity: 0.9 }}>
-            Déposé le {formatDateTime(reparation.dateReception)}
+            {reparation.client?.nom ? `Bonjour ${reparation.client.nom} · ` : ""}Déposé le {formatDateTime(reparation.dateReception)}
           </p>
         </div>
+
+        {/* ✅ Ancien QR code (numéro) : état seulement, sans données personnelles ni montants */}
+        {reparation.restreint && (
+          <div style={{
+            background: "#eff6ff", color: "#1e40af", padding: "12px 16px", borderRadius: "14px",
+            marginBottom: "16px", fontSize: "12.5px", lineHeight: 1.5,
+          }}>
+            Pour voir le détail (panne, montants, reste à payer), utilisez le lien ou le QR code de votre
+            ticket le plus récent, ou demandez-le à la boutique.
+          </div>
+        )}
 
         {/* STATUT ACTUEL */}
         <div style={{
@@ -295,8 +321,8 @@ const formatPannes = (pannes) => {
           </div>
         </div>
 
-        {/* PANNE */}
-        <div style={{
+        {/* PANNE (lien secret uniquement) */}
+        {!reparation.restreint && <div style={{
           background: "white", padding: "20px",
           borderRadius: "20px", marginBottom: "16px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
@@ -337,7 +363,7 @@ const formatPannes = (pannes) => {
               </div>
             </>
           )}
-        </div>
+        </div>}
 
         {/* DATES */}
         <div style={{
@@ -366,8 +392,8 @@ const formatPannes = (pannes) => {
           </div>
         </div>
 
-        {/* PAIEMENT */}
-        <div style={{
+        {/* PAIEMENT (lien secret uniquement) */}
+        {!reparation.restreint && <div style={{
           background: "white", padding: "20px",
           borderRadius: "20px", marginBottom: "16px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
@@ -462,7 +488,23 @@ const formatPannes = (pannes) => {
               </strong>
             </div>
           </div>
-        </div>
+        </div>}
+
+        {/* BOUTIQUE */}
+        {reparation.boutique && (
+          <div style={{
+            background: "white", padding: "16px 20px", borderRadius: "20px", marginBottom: "16px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.05)", fontSize: "13px", color: "#374151",
+          }}>
+            <b>{reparation.boutique.nom}</b>
+            {reparation.boutique.adresse && <div style={{ color: "#6b7280" }}>{reparation.boutique.adresse}</div>}
+            {reparation.boutique.telephone && (
+              <a href={`tel:${reparation.boutique.telephone}`} style={{ color: "var(--primary)", fontWeight: 600 }}>
+                📞 {reparation.boutique.telephone}
+              </a>
+            )}
+          </div>
+        )}
         {/* FOOTER */}
         <div style={{
           textAlign: "center", padding: "20px",

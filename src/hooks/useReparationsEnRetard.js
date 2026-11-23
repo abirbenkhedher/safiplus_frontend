@@ -24,21 +24,13 @@ export const useReparationsEnRetard = () => {
       const maintenant = new Date();
       const enRetard = [];
 
+      // ✅ Le serveur applique déjà LA règle « en retard » (statut « en cours » + plus de 48 h),
+      //    la même que la liste « Réparations en retard » : on ne la recalcule plus ici.
       all.forEach((rep) => {
-        // ✅ Inclure UNIQUEMENT les réparations dont le statut contient "en cours"
-        const statusLabel = (rep.status?.label || "").toLowerCase();
-        const isEnCours =
-          statusLabel.includes("en cours") || statusLabel.includes("cours");
-
-        if (!isEnCours) return;
-
         const dateReception = rep.dateReception || rep.createdAt;
-        if (!dateReception) return;
-
-        const diffHeures =
-          (maintenant - new Date(dateReception)) / (1000 * 60 * 60);
-
-        if (diffHeures < DELAI_ALERTE_HEURES) return;
+        const diffHeures = dateReception
+          ? (maintenant - new Date(dateReception)) / (1000 * 60 * 60)
+          : DELAI_ALERTE_HEURES;
 
         const jours = Math.floor(diffHeures / 24);
         const heures = Math.floor(diffHeures % 24);

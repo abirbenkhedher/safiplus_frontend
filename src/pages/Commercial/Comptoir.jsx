@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { FaCashRegister, FaTrash, FaPlus, FaMinus, FaPrint, FaCheckCircle, FaReceipt, FaCoins, FaPen } from "react-icons/fa";
+import { FaCashRegister, FaTrash, FaPlus, FaMinus, FaPrint, FaCheckCircle, FaReceipt, FaCoins, FaPen, FaUndo, FaWallet } from "react-icons/fa";
 import {
-  getArticlesComptoir, venteComptoir, getComptoirJour, getParametresVente, nouvelleCleVente, MODES_REGLEMENT, modeLabel,
+  getArticlesComptoir, venteComptoir, getComptoirJour, getParametresVente, nouvelleCleVente, MODES_REGLEMENT, MODE_CREDIT, modeLabel, getSolde,
 } from "../../api/ventes";
+import { getStockReferentiels } from "../../api/stock";
+import ProduitForm from "../Stock/ProduitForm";
+import RetourClientModal from "../../components/commercial/RetourClientModal";
 import { getCaisseCourante } from "../../api/caisse";
 import { useAuth } from "../../context/AuthContext";
 import { isGlobalView } from "../../utils/boutiqueStorage";
 import { Page, PageHeader, Alert, Card, Table, Kpi, IconBtn } from "../../components/atelier/ui";
-import { tnd, errMsg } from "../../utils/atelier";
+import { tnd, errMsg, nomArticle } from "../../utils/atelier";
 import { ClientPicker } from "../../components/commercial/commun";
 import { calcLigne, calcTotaux, baseCommerce, prixVersBase } from "../../components/commercial/calculs";
 import { imprimerTicket, imprimerDocument } from "../../components/commercial/imprimer";
@@ -41,6 +44,11 @@ const Comptoir = () => {
   const [jour, setJour] = useState(null);
   const [autoPrint, setAutoPrint] = useState(lireAutoPrint);
   const searchRef = useRef(null);
+  const peutCreer = hasPermission("stock");
+  const [inconnu, setInconnu] = useState(null);      // code scanné sans article
+  const [creation, setCreation] = useState(null);    // { code, referentiels } : nouveau produit
+  const [retour, setRetour] = useState(false);
+  const [credit, setCredit] = useState(0);           // crédit du client choisi (avoirs, avances)
 
   const prixSaisis = baseCommerce(params);
   const prixDe = (a) => prixVersBase(a.prix, params, prixSaisis, a.tauxTVA ?? params?.tauxTVA ?? 19);
@@ -68,6 +76,16 @@ const Comptoir = () => {
   }, [terme]);
   const visibles = terme ? resultats : [];
 
+  // ✅ Crédit client : proposé comme moyen de paiement
+  useEffect(() => {
+    if (!client?.id) return undefined;
+    let actif = true;
+    getSolde(client.id).then((r) => { if (actif) setCredit(Number(r.data.data?.creditDisponible) || 0); }).catch(() => {});
+    return () => { actif = false; };
+  }, [client?.id]);
+  const creditClient = client?.id ? credit : 0;
+  const modes = [...MODES_REGLEMENT, ...(creditClient > 0 ? [MODE_CREDIT] : [])];
+
   const ajouter = (a) => {
     setPanier((p) => {
       const i = p.findIndex((l) => l.stock === a._id);
@@ -90,12 +108,26 @@ const Comptoir = () => {
       const list = r.data.data || [];
       const exact = list.find((a) => a.code && a.code.toLowerCase() === terme.toLowerCase());
       if (exact || list.length === 1) ajouter(exact || list[0]);
+      else if (!list.length) setInconnu(terme); // ✅ code inconnu : proposer de créer le produit
       else setResultats(list);
     } catch (err) { setMsg({ text: errMsg(err) }); }
   };
 
+  const creerProduit = async (code) => {
+    try {
+      const r = await getStockReferentiels();
+      setCreation({ code, referentiels: r.data.data });
+      setInconnu(null);
+    } catch (e) { setMsg({ text: errMsg(e) }); }
+  };
+  // Produit créé depuis le comptoir : ajouté directement au panier
+  const produitCree = (st) => {
+    setCreation(null);
+    if (st) ajouter({ _id: st._id, designation: nomArticle(st), code: st.code || "", quantite: st.quantite, prix: Number(st.prixVente ?? st.prixIndicatif) || 0, tauxTVA: st.tauxTVA ?? null });
+  };
+
   const reinitialiser = () => {
-    setPanier([]); setClient(null); setRecu(""); setMixte(false); setMode("ESPECES");
+    setPanier([]); setClient(null); setRecu(""); setMixte(false); setMode("ESPECES"); setInconnu(null);
     setPaiements([{ mode: "ESPECES", montant: "" }, { mode: "CARTE", montant: "" }]);
     setCle(nouvelleCleVente());
     searchRef.current?.focus();
@@ -108,6 +140,8 @@ const Comptoir = () => {
     if (client && !mixte && recu === "") { setMsg({ text: "Client choisi : saisissez le montant reçu (« Compte juste » = total, 0 = vente à crédit)." }); return; }
     if (!client && manque > 0) { setMsg({ text: `Il manque ${tnd(manque)}. Choisissez un client pour vendre à crédit.` }); return; }
     if (rendu > 0 && rendu > r3(especes)) { setMsg({ text: "Seules les espèces peuvent dépasser le total (monnaie rendue)." }); return; }
+    const parCredit = mixte ? paiements.filter((p) => p.mode === "AVOIR").reduce((s, p) => s + (Number(p.montant) || 0), 0) : (mode === "AVOIR" ? recuTotal : 0);
+    if (parCredit > creditClient + 0.0005) { setMsg({ text: `Crédit client insuffisant : ${tnd(creditClient)} disponible` }); return; }
     setBusy(true); setMsg(null);
     try {
       const body = {
@@ -135,13 +169,15 @@ const Comptoir = () => {
 
   return (
     <Page>
-      <PageHeader icon={<FaCashRegister />} title="Vente comptoir" subtitle="Accessoires et services : le stock et la caisse sont mis à jour à l'encaissement" />
+      <PageHeader icon={<FaCashRegister />} title="Vente comptoir" subtitle="Accessoires et services : le stock et la caisse sont mis à jour à l'encaissement">
+        {!lectureSeule && <button type="button" className="btn-modern btn-modern-outline" onClick={() => setRetour(true)}><FaUndo /> Retour client</button>}
+      </PageHeader>
       <Alert msg={msg?.text} type={msg?.type || "danger"} onClose={() => setMsg(null)} />
       {lectureSeule && <Alert type="warning" msg="Vue « Toutes les boutiques » : choisissez une boutique pour vendre." />}
       {!lectureSeule && caisse === null && (
         <Alert type={params?.commerce?.caisseObligatoire ? "danger" : "warning"}
           msg={params?.commerce?.caisseObligatoire
-            ? "Caisse fermée : les paiements en espèces sont refusés. Ouvrez la caisse (menu Commercial → Caisse)."
+            ? "Caisse fermée : les paiements en espèces sont refusés. Ouvrez la caisse (menu Fin de journée → Caisse)."
             : "Caisse fermée : les ventes en espèces ne seront rattachées à aucune caisse."} />
       )}
       {caisse && <div className="at-muted mb-2">Caisse <b>{caisse.numero}</b> ouverte · espèces théoriques {tnd(caisse.theorique)}</div>}
@@ -178,6 +214,15 @@ const Comptoir = () => {
                 </div>
               )}
             </div>
+            {inconnu && (
+              <div className="at-alert at-alert-warning mb-2" role="status">
+                <span>Aucun article pour le code <b>{inconnu}</b>.</span>
+                <span className="d-flex gap-2">
+                  {peutCreer && <button type="button" className="btn-modern btn-modern-primary btn-sm" onClick={() => creerProduit(inconnu)}><FaPlus /> Créer ce produit</button>}
+                  <button type="button" className="at-alert-close" onClick={() => setInconnu(null)} aria-label="Fermer">×</button>
+                </span>
+              </div>
+            )}
             {panier.length === 0 && <div className="at-muted mb-2">Panier vide : scannez ou recherchez un article.</div>}
             {panier.map((l, i) => {
               const total = calcLigne(l, prixSaisis).ttc;
@@ -213,7 +258,17 @@ const Comptoir = () => {
           <Card title="Encaissement" icon={<FaCoins />}>
             <div className="mb-3">
               <label className="form-label">Client (facultatif — obligatoire pour une vente à crédit)</label>
-              <ClientPicker value={client?.id} label={client?.label} onChange={(id, label) => setClient(id ? { id, label } : null)} />
+              <ClientPicker value={client?.id} label={client?.label} onChange={(id, label) => {
+                setClient(id ? { id, label } : null);
+                setCredit(0);
+                if (mode === "AVOIR") setMode("ESPECES");
+              }} />
+              {creditClient > 0 && (
+                <div className="at-muted mt-1" style={{ fontSize: 13 }}>
+                  <FaWallet /> Crédit disponible : <b>{tnd(creditClient)}</b>{" "}
+                  <button type="button" className="at-link" onClick={() => { setMixte(false); setMode("AVOIR"); setRecu(String(Math.min(creditClient, tot.net))); }}>Utiliser</button>
+                </div>
+              )}
             </div>
             <div className="d-flex justify-content-between align-items-baseline mb-3">
               <span className="at-stat-label">Total à payer</span>
@@ -227,11 +282,11 @@ const Comptoir = () => {
             {!mixte ? (
               <>
                 <div className="d-flex flex-wrap gap-2 mb-3">
-                  {MODES_REGLEMENT.filter(([v]) => !["AUTRE", "TRAITE"].includes(v)).map(([v, l]) => (
+                  {modes.filter(([v]) => !["AUTRE", "TRAITE"].includes(v)).map(([v, l]) => (
                     <button key={v} type="button" className={`btn-modern btn-sm ${mode === v ? "btn-modern-primary" : "btn-modern-outline"}`} onClick={() => setMode(v)}>{l}</button>
                   ))}
                 </div>
-                <label className="form-label">{mode === "ESPECES" ? "Montant reçu" : "Montant payé"}</label>
+                <label className="form-label">{mode === "ESPECES" ? "Montant reçu" : mode === "AVOIR" ? `Montant pris sur le crédit (max ${tnd(creditClient)})` : "Montant payé"}</label>
                 <input type="number" min="0" step="0.001" className="form-control-modern mb-2" placeholder={client ? "Montant obligatoire" : String(tot.net)}
                   value={recu} onChange={(e) => setRecu(e.target.value)} />
                 {mode === "ESPECES" && (
@@ -247,7 +302,7 @@ const Comptoir = () => {
               paiements.map((p, i) => (
                 <div key={i} className="d-flex gap-2 mb-2">
                   <select className="form-control-modern" value={p.mode} onChange={(e) => setPaiements((ps) => ps.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))}>
-                    {MODES_REGLEMENT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    {modes.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                   <input type="number" min="0" step="0.001" className="form-control-modern" placeholder="Montant" value={p.montant}
                     onChange={(e) => setPaiements((ps) => ps.map((x, j) => (j === i ? { ...x, montant: e.target.value } : x)))} />
@@ -294,6 +349,21 @@ const Comptoir = () => {
             { label: "Avoirs", right: true, render: (t) => (t.montantAvoirs ? tnd(t.montantAvoirs) : "—") },
           ]} />
         </>
+      )}
+      {creation && (
+        <ProduitForm
+          referentiels={creation.referentiels}
+          codeInitial={creation.code}
+          onClose={() => setCreation(null)}
+          onSaved={produitCree}
+        />
+      )}
+      {retour && (
+        <RetourClientModal
+          params={params}
+          onClose={() => setRetour(false)}
+          onDone={(r) => { setRetour(false); setMsg({ type: "success", text: r.message }); loadJour(); }}
+        />
       )}
     </Page>
   );

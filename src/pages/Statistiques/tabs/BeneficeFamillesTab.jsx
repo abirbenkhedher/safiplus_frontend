@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import { useStatistiquesContext } from "../../../context/StatistiquesContext";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
+import StatCard from "../../../components/common/StatCard";
 import ChartCard from "../../../components/statistiques/ChartCard";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
@@ -92,18 +93,18 @@ const BeneficeFamillesTab = () => {
 
   return (
     <div className="bf-tab">
-      <KpiGrid cols={3}>
+      <KpiGrid>
         {kpis.map((k) => (
-          <div key={k.label} className="bf-kpi">
-            <div className="bf-kpi-icon" style={{ color: k.color, background: `${k.color}1a` }}>{k.icon}</div>
-            <div style={{ minWidth: 0 }}>
-              <div className="bf-kpi-label">{k.label}</div>
-              <div className="bf-kpi-value" style={{ color: k.label.startsWith("Bénéfice") || k.label.startsWith("Marge") ? k.color : undefined }}>
-                {loading ? "—" : `${fmt(k.value)} DT`}
-              </div>
-              <div className="bf-kpi-sub">{k.sub}</div>
-            </div>
-          </div>
+          <StatCard
+            key={k.label}
+            icon={k.icon}
+            label={k.label}
+            color={k.color}
+            bg={`${k.color}1a`}
+            value={loading ? "—" : `${fmt(k.value)} DT`}
+            valueColor={k.label.startsWith("Bénéfice") || k.label.startsWith("Marge") ? k.color : undefined}
+            hint={k.sub}
+          />
         ))}
       </KpiGrid>
 
@@ -210,17 +211,6 @@ const BeneficeFamillesTab = () => {
       </div>
 
       <style>{`
-        .bf-kpi {
-          background: var(--white, #fff); border: 1px solid var(--gray-200);
-          border-radius: 16px; padding: 18px; display: flex; align-items: center; gap: 14px;
-        }
-        .bf-kpi-icon {
-          width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-size: 20px;
-        }
-        .bf-kpi-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px; }
-        .bf-kpi-value { font-size: 18px; font-weight: 800; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-        .bf-kpi-sub { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
         .bf-note {
           display: flex; gap: 10px; font-size: 12.5px; line-height: 1.5; color: var(--gray-600);
           background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 12px;
@@ -243,7 +233,7 @@ const BeneficeFamillesTab = () => {
         .bf-toggle { border: none; background: transparent; color: var(--gray-500); padding: 0 8px 0 0; cursor: pointer; font-size: 11px; }
         .bf-count { margin-left: 8px; font-size: 10.5px; color: var(--gray-500); font-weight: 600; }
         .bf-table tfoot td { font-weight: 800; border-top: 2px solid var(--gray-200); background: var(--gray-50); }
-        [data-theme="dark"] .bf-kpi, [data-theme="dark"] .bf-table .bf-sticky { background: #1a1d27; }
+        [data-theme="dark"] .bf-table .bf-sticky { background: #1a1d27; }
         [data-theme="dark"] .bf-table th, [data-theme="dark"] .bf-table th.bf-sticky,
         [data-theme="dark"] .bf-note, [data-theme="dark"] .bf-row-cat td,
         [data-theme="dark"] .bf-row-cat .bf-sticky, [data-theme="dark"] .bf-table tfoot td { background: #222633; }

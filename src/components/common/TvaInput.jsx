@@ -58,7 +58,3 @@ const TvaInput = ({ value, onChange, taux = [7, 19], disabled = false, locked = 
 
 export default TvaInput;
 
-/** Conversions HT ↔ TTC au millime. */
-export const r3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
-export const versTTC = (ht, t) => (ht === "" || ht === null || ht === undefined ? "" : r3(Number(ht) * (1 + (Number(t) || 0) / 100)));
-export const versHT = (ttc, t) => (ttc === "" || ttc === null || ttc === undefined ? "" : r3(Number(ttc) / (1 + (Number(t) || 0) / 100)));

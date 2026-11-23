@@ -1,6 +1,7 @@
 import { Modal } from "react-bootstrap";
 import { FaInbox } from "react-icons/fa";
 import "../../styles/atelier.css";
+import StatCard from "../common/StatCard";
 
 // ============================================================
 // ✅ Composants partagés du module atelier (design system Safi)
@@ -72,28 +73,8 @@ export const StatutBadge = ({ statut }) => {
   return <span className={`badge-modern badge-modern-${color}`}>{label}</span>;
 };
 
-const KPI_COLORS = {
-  primary: ["var(--primary)", "rgba(var(--primary-rgb), 0.1)"],
-  success: ["#10b981", "rgba(16, 185, 129, 0.1)"],
-  danger: ["#ef4444", "rgba(239, 68, 68, 0.1)"],
-  warning: ["#f59e0b", "rgba(245, 158, 11, 0.12)"],
-  info: ["#3b82f6", "rgba(59, 130, 246, 0.1)"],
-  gray: ["#6b7280", "rgba(107, 114, 128, 0.1)"],
-};
-/** Carte indicateur (même style que les KPI des pages Dépenses / Stock). */
-export const Kpi = ({ label, value, hint, icon, tone = "primary", valueColor }) => {
-  const [c, bg] = KPI_COLORS[tone] || KPI_COLORS.primary;
-  return (
-    <div className="at-kpi">
-      {icon && <div className="at-kpi-icon" style={{ color: c, background: bg }}>{icon}</div>}
-      <div style={{ minWidth: 0 }}>
-        <div className="at-kpi-label">{label}</div>
-        <div className="at-kpi-value" style={valueColor ? { color: valueColor } : undefined}>{value}</div>
-        {hint && <div className="at-kpi-hint">{hint}</div>}
-      </div>
-    </div>
-  );
-};
+/** Carte indicateur : même carte KPI que toute l'application. */
+export const Kpi = (props) => <StatCard {...props} />;
 
 export const Alert = ({ msg, type = "danger", onClose }) =>
   msg ? (
@@ -121,13 +102,14 @@ export const IconBtn = ({ title, tone = "", onClick, children, disabled }) => (
   </button>
 );
 
-export const FormModal = ({ show, title, onClose, onSubmit, submitLabel = "Enregistrer", busy, size, children }) => (
+export const FormModal = ({ show, title, onClose, onSubmit, submitLabel = "Enregistrer", busy, size, children, extraButtons = null }) => (
   <Modal show={show} onHide={onClose} centered size={size} dialogClassName="atelier-modal" scrollable>
     <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }} style={{ display: "contents" }}>
       <Modal.Header closeButton><Modal.Title>{title}</Modal.Title></Modal.Header>
       <Modal.Body>{children}</Modal.Body>
       <Modal.Footer>
         <button type="button" className="btn-modern btn-modern-outline" onClick={onClose}>Fermer</button>
+        {extraButtons}
         {onSubmit && (
           <button type="submit" className="btn-modern btn-modern-primary" disabled={busy}>
             {busy ? "Enregistrement…" : submitLabel}

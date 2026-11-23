@@ -4,7 +4,7 @@ import { entreeStock } from "../../api/stock";
 import { getParametresAtelier } from "../../api/atelier";
 import { FormModal, Field, Alert } from "../../components/atelier/ui";
 import { errMsg } from "../../utils/atelier";
-import { r3, versTTC, versHT } from "../../components/common/TvaInput";
+import { r3, versTTC, versHT } from "../../utils/tva";
 
 // ============================================================
 // ✅ Bouton « + » = ENTRÉE EN STOCK d'un produit existant

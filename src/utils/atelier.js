@@ -37,5 +37,9 @@ export const askMotif = async (question = "Motif (obligatoire) :") => {
 
 /** Libellé lisible d'une ligne de stock (article). */
 export const articleLabel = (s) =>
-  s ? [s.code, s.typeArticle?.nom, s.marque?.nom, s.modele?.nom, s.objet?.nom].filter(Boolean).join(" · ") || s._id : "—";
+  s ? [s.code, ...(s.designation ? [s.designation] : [s.typeArticle?.nom, s.marque?.nom, s.modele?.nom, s.objet?.nom])].filter(Boolean).join(" · ") || s._id : "—";
+
+/** Nom d'un article : désignation libre (produit de vente), sinon Type + Marque + Modèle. */
+export const nomArticle = (s) =>
+  s?.designation || [s?.typeArticle?.nom, s?.marque?.nom, s?.modele?.nom].filter(Boolean).join(" ") || s?.code || "Article";
 

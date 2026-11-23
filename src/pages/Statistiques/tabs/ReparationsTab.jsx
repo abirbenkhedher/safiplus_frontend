@@ -1,4 +1,3 @@
-import React from "react";
 import { useStatistiques } from "../../../hooks/useStatistiques";
 import KpiGrid from "../../../components/statistiques/KpiGrid";
 import KpiCard from "../../../components/statistiques/KpiCard";
@@ -9,6 +8,34 @@ import {
 } from "recharts";
 
 const PALETTE = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+// Mini barres horizontales "Top" (définies hors du composant : pas recréées à chaque affichage)
+const MiniTopBar = ({ title, data, color, loading }) => (
+  <ChartCard 
+    title={title} 
+    loading={loading} 
+    empty={!data || data.length === 0}
+    height={180}
+  >
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+        <XAxis type="number" hide />
+        <YAxis 
+          dataKey="nom" 
+          type="category" 
+          width={80} 
+          tick={{ fontSize: 10, fill: "var(--gray-600)" }} 
+          axisLine={false} 
+          tickLine={false} 
+        />
+        <Tooltip cursor={{ fill: 'transparent' }} />
+        <Bar dataKey="count" fill={color} radius={[0, 4, 4, 0]} barSize={14}>
+          <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: "var(--gray-500)", fontWeight: 600 }} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  </ChartCard>
+);
 
 const ReparationsTab = () => {
   const { data, loading, error, refetch } = useStatistiques("reparations");
@@ -27,34 +54,6 @@ const ReparationsTab = () => {
   const v = data?.variations || {};
   const fmt = (num) => new Intl.NumberFormat('fr-FR').format(num || 0);
 
-  // Composant réutilisable pour les mini barres horizontales "Top"
-  const MiniTopBar = ({ title, data, color }) => (
-    <ChartCard 
-      title={title} 
-      loading={loading} 
-      empty={!data || data.length === 0}
-      height={180}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
-          <XAxis type="number" hide />
-          <YAxis 
-            dataKey="nom" 
-            type="category" 
-            width={80} 
-            tick={{ fontSize: 10, fill: "var(--gray-600)" }} 
-            axisLine={false} 
-            tickLine={false} 
-          />
-          <Tooltip cursor={{ fill: 'transparent' }} />
-          <Bar dataKey="count" fill={color} radius={[0, 4, 4, 0]} barSize={14}>
-            <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: "var(--gray-500)", fontWeight: 600 }} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  );
-
   return (
     <div>
       {/* Ligne 1 : 3 KPI */}
@@ -71,10 +70,10 @@ const ReparationsTab = () => {
         gap: "16px",
         marginBottom: "20px"
       }}>
-        <MiniTopBar title="📦 Top Catégories" data={data?.top_categories} color="#3b82f6" />
-        <MiniTopBar title="📱 Top Objets" data={data?.top_objets} color="#10b981" />
-        <MiniTopBar title="🏷️ Top Marques" data={data?.top_marques} color="#f59e0b" />
-        <MiniTopBar title="📲 Top Modèles" data={data?.top_modeles} color="#8b5cf6" />
+        <MiniTopBar loading={loading} title="📦 Top Catégories" data={data?.top_categories} color="#3b82f6" />
+        <MiniTopBar loading={loading} title="📱 Top Objets" data={data?.top_objets} color="#10b981" />
+        <MiniTopBar loading={loading} title="🏷️ Top Marques" data={data?.top_marques} color="#f59e0b" />
+        <MiniTopBar loading={loading} title="📲 Top Modèles" data={data?.top_modeles} color="#8b5cf6" />
       </div>
 
       {/* Ligne 3 : 2 graphiques (type + jour) */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getDashboardStats, getDashboardCharts } from "../../api/dashboard";
 import StatsCards from "./StatsCards";
@@ -16,7 +16,7 @@ const Dashboard = () => {
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = async () => {
+  async function loadDashboardData() {
     try {
       setLoading(true);
       setError("");
@@ -31,7 +31,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -150,7 +150,7 @@ const Dashboard = () => {
             alignItems: "center",
             gap: "8px",
             padding: "8px 16px",
-            background: "white",
+            background: "var(--surface)",
             border: "1px solid var(--gray-200)",
             borderRadius: "10px",
             fontSize: "12.5px",

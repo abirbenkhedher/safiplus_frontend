@@ -25,7 +25,8 @@ const lignesCalcul = (s, c) => [
   ["− Remboursements en espèces", -(c.remboursementsEspeces || 0), ""],
   ["+ Entrées diverses", c.entrees, ""],
   ["− Sorties diverses", -(c.sorties || 0), ""],
-  ["+ Acomptes saisis dans les dossiers de réparation", c.acomptesReparations, "Considérés payés en espèces"],
+  ["+ Acomptes en espèces des dossiers de réparation", c.acomptesReparations, "Acomptes payés par carte, chèque… : dans « Autres modes »"],
+  ["− Dépenses payées en espèces", Number(c.depensesEspeces) ? -Number(c.depensesEspeces) : 0, "Dépenses saisies (ou factures d'achat validées) en espèces pendant la caisse"],
 ];
 
 /** ✅ Origine des espèces encaissées : réparations / ventes (un seul tiroir-caisse). */
@@ -145,6 +146,11 @@ const Caisse = () => {
                 {c.acomptesDetails?.length > 0 && (
                   <div className="at-hint mt-2" style={{ fontStyle: "normal" }}>
                     Acomptes dossiers : {c.acomptesDetails.map((a) => `${a.numero} ${tnd(a.montant)}`).join(" · ")}
+                  </div>
+                )}
+                {c.depensesDetails?.length > 0 && (
+                  <div className="at-hint mt-1" style={{ fontStyle: "normal" }}>
+                    Dépenses espèces : {c.depensesDetails.map((d) => `${d.numero} ${d.libelle} ${tnd(d.montant)}`).join(" · ")}
                   </div>
                 )}
               </Card>

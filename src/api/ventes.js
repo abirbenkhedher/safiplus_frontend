@@ -23,6 +23,10 @@ export const annulerDocument = (id, motif) => apiClient.post(`/ventes/${id}/annu
 export const transformerDocument = (id, type) => apiClient.post(`/ventes/${id}/transformer`, { type });
 // nature : "avoir" (argent seul) | "retour" (bon de retour : stock + argent)
 export const creerAvoir = (id, nature = "avoir") => apiClient.post(`/ventes/${id}/avoir`, { nature });
+// ✅ Créés ET validés en une fois
+export const avoirRapide = (id, body) => apiClient.post(`/ventes/${id}/avoir-rapide`, body, idem());
+export const retourRapide = (body, key) => apiClient.post("/ventes/retour", body, idem(key));
+export const getNombreAValider = () => apiClient.get("/ventes/a-valider/nombre");
 export const creerDepuis = (data) => apiClient.post("/ventes/depuis", data);
 export const getAFacturer = (client) => apiClient.get("/ventes/a-facturer", { params: { client } });
 export const getDocumentsReparation = (id) => apiClient.get(`/ventes/reparation/${id}`);
@@ -61,4 +65,6 @@ export const typeDocDe = (doc) => (doc?.type === "AVOIR" && doc?.nature === "ret
 export const MODES_REGLEMENT = [
   ["ESPECES", "Espèces"], ["CHEQUE", "Chèque"], ["TRAITE", "Traite"], ["VIREMENT", "Virement"], ["CARTE", "Carte / TPE"], ["AUTRE", "Autre"],
 ];
-export const modeLabel = (m) => (MODES_REGLEMENT.find(([v]) => v === m) || [m, m])[1];
+// ✅ AVOIR = paiement par le crédit du client (avoirs, avances) : pas d'argent qui entre
+export const MODE_CREDIT = ["AVOIR", "Crédit client"];
+export const modeLabel = (m) => ([...MODES_REGLEMENT, MODE_CREDIT].find(([v]) => v === m) || [m, m])[1];

@@ -1,4 +1,4 @@
-import { TYPES_DOC, modeLabel, typeDocDe } from "../../api/ventes";
+import { modeLabel, typeDocDe } from "../../api/ventes";
 import { calcLigne, montantEnLettres, remiseLabel } from "./calculs";
 
 // ============================================================

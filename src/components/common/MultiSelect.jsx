@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FaChevronDown, FaTimes, FaCheck } from "react-icons/fa";
 
 /**
@@ -59,11 +59,6 @@ const MultiSelect = ({
   const clearAll = (e) => {
     e.stopPropagation();
     onChange([]);
-  };
-
-  const removeOne = (val, e) => {
-    e.stopPropagation();
-    onChange(value.filter((v) => v !== val));
   };
 
   const selectedOptions = options.filter((o) => value.includes(o.value));
@@ -228,7 +223,7 @@ const MultiSelect = ({
             top: "calc(100% + 4px)",
             left: 0,
             right: 0,
-            background: "white",
+            background: "var(--surface)",
             border: "1px solid var(--gray-200)",
             borderRadius: 10,
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",

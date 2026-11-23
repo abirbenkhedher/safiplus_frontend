@@ -38,21 +38,6 @@ const StatutsTab = () => {
   const grouped = useMemo(() => data?.grouped || [], [data]);
   const savBreakdown = useMemo(() => data?.sav_breakdown || [], [data]);
 
-  // ============================================================
-  // ✅ TOTAUX (sélection ou global)
-  // ============================================================
-  const totals = useMemo(() => {
-    const source = selectedRows.length > 0 ? selectedRows : table;
-    return source.reduce(
-      (acc, r) => ({
-        nb: acc.nb + (r.nb_reparations || 0),
-        ca: acc.ca + (r.ca || 0),
-        encaisse: acc.encaisse + (r.encaisse || 0),
-        reste: acc.reste + (r.reste || 0),
-      }),
-      { nb: 0, ca: 0, encaisse: 0, reste: 0 }
-    );
-  }, [table, selectedRows]);
 
   // ============================================================
   // ✅ COLONNES

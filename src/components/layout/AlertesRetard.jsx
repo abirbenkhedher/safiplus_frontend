@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBell,
@@ -78,12 +78,12 @@ const AlertesRetard = () => {
     ? {
         // 📱 MOBILE : plein largeur, centré, ancré sous le header
         position: "fixed",
-        top: "70px",
+        top: "calc(var(--header-height) + 8px)",
         left: "8px",
         right: "8px",
         width: "auto",
-        maxHeight: "calc(100vh - 90px)",
-        background: "white",
+        maxHeight: "calc(100dvh - var(--header-height) - 16px)",
+        background: "var(--surface)",
         borderRadius: "16px",
         boxShadow: "0 12px 32px rgba(0,0,0,0.2)",
         border: "1px solid var(--gray-200)",
@@ -100,7 +100,7 @@ const AlertesRetard = () => {
         right: 0,
         width: "380px",
         maxWidth: "calc(100vw - 32px)",
-        background: "white",
+        background: "var(--surface)",
         borderRadius: "16px",
         boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
         border: "1px solid var(--gray-200)",
@@ -241,7 +241,7 @@ const AlertesRetard = () => {
                 height: "28px",
                 borderRadius: "6px",
                 border: "none",
-                background: "white",
+                background: "var(--surface)",
                 color: "#991b1b",
                 cursor: "pointer",
                 display: "flex",
@@ -275,7 +275,7 @@ const AlertesRetard = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: "12px",
-                  background: "white",
+                  background: "var(--surface)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "#fef2f2";
@@ -389,10 +389,9 @@ const AlertesRetard = () => {
   onClick={() => {
     setIsOpen(false);
     // ✅ Sauvegarde le mode retard AVANT de naviguer
-    import("../../utils/filterStorage").then(({ saveRetardMode }) => {
-      saveRetardMode(true);
-      navigate("/reparations?retard=1");
-    });
+    //    (import normal : avant, un chargement à la volée pouvait échouer en silence en production)
+    saveRetardMode(true);
+    navigate("/reparations?retard=1");
   }}
   style={{
     background: "none", border: "none", color: "var(--primary)",

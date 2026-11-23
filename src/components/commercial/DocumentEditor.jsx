@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { FaPlus, FaTrash, FaTools, FaBox, FaPen } from "react-icons/fa";
-import { createDocument, updateDocument, typeDocDe, MODES_REGLEMENT } from "../../api/ventes";
+import { createDocument, updateDocument, validerDocument, typeDocDe, MODES_REGLEMENT } from "../../api/ventes";
+import { confirmer } from "../../utils/dialog";
 import { FormModal, Field, IconBtn, Alert } from "../atelier/ui";
 import SearchSelect from "../reparations/SearchSelect";
 import TvaInput from "../common/TvaInput";
@@ -67,6 +68,10 @@ const DocumentEditor = ({ doc, params, onClose, onSaved }) => {
   const [f, setF] = useState(() => (doc ? versFormulaire(doc, params) : null));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  // ✅ Tous les hooks avant le retour anticipé (règle des hooks React)
+  const optionsArticles = useMemo(() => articles.map((a) => ({
+    value: a._id, label: `${a.code ? `${a.code} — ` : ""}${articleLabel(a)} (stock ${a.quantite ?? 0})`,
+  })), [articles]);
   if (!f) return null;
 
   const tva = Number(params?.tauxTVA ?? 19);
@@ -99,9 +104,6 @@ const DocumentEditor = ({ doc, params, onClose, onSaved }) => {
     ...x, prixSaisis: base,
     lignes: x.lignes.map((l) => ({ ...l, prixUnitaire: Number(base === "TTC" ? l.puTTC : l.puHT) || 0 })),
   }));
-  const optionsArticles = useMemo(() => articles.map((a) => ({
-    value: a._id, label: `${a.code ? `${a.code} — ` : ""}${articleLabel(a)} (stock ${a.quantite ?? 0})`,
-  })), [articles]);
   const ajouter = (type) => setF((x) => ({
     ...x,
     lignes: [...x.lignes, { type, stock: "", reparation: null, code: "", designation: "", quantite: 1, prixUnitaire: 0, puTTC: "", puHT: "", remiseType: "pct", remisePct: "", remiseMontant: "", tauxTVA: tva, retourStock: avoir }],
@@ -116,9 +118,25 @@ const DocumentEditor = ({ doc, params, onClose, onSaved }) => {
   const timbre = f.type === "FACTURE" && f.appliquerTimbre ? Number(params?.commerce?.timbreFiscal ?? 1) : 0;
   const tot = calcTotaux(f.lignes, f.prixSaisis, timbre, { type: f.remiseGlobaleType, valeur: f.remiseGlobaleValeur });
 
-  const save = async () => {
+  // ✅ valider = true : enregistré PUIS validé au même endroit (plus besoin de rouvrir le document)
+  const save = async (valider = false) => {
     if (!f.client) { setErr("Choisissez un client"); return; }
     if (!f.lignes.length) { setErr("Ajoutez au moins une ligne"); return; }
+    if (valider) {
+      const label = typeDocDe(f).label.toLowerCase();
+      const stock = ["BL", "FACTURE"].includes(f.type) && f.lignes.some((l) => l.type === "article" && !l.stockSorti);
+      const ok = await confirmer({
+        title: `Valider ${label}`, confirmText: "Valider",
+        message: [
+          `Client : ${f.clientLabel || "—"}`,
+          `Total : ${tnd(tot.net)}`,
+          "",
+          `Le document reçoit son numéro définitif${f.type === "FACTURE" ? " et ne sera plus modifiable (correction par avoir)" : ""}.`,
+          stock ? "Les articles sortent du stock." : "",
+        ].join("\n"),
+      });
+      if (!ok) return;
+    }
     setBusy(true); setErr(null);
     try {
       const body = {
@@ -136,15 +154,32 @@ const DocumentEditor = ({ doc, params, onClose, onSaved }) => {
         })),
       };
       const r = f._id ? await updateDocument(f._id, body) : await createDocument(body);
-      onSaved?.(r.data.data);
+      const d = r.data.data;
+      if (valider) {
+        try {
+          const v = await validerDocument(d._id);
+          onSaved?.(v.data.data, { valide: true });
+        } catch (e) {
+          // Brouillon bien enregistré : on reste dans le formulaire pour corriger puis revalider
+          setF((x) => ({ ...x, _id: d._id }));
+          setErr(`Brouillon enregistré, mais non validé : ${errMsg(e)}`);
+        }
+      } else {
+        onSaved?.(d, { valide: false });
+      }
     } catch (e) { setErr(errMsg(e)); }
     setBusy(false);
   };
 
-  const titre = `${f._id ? "Modifier" : "Nouveau"} ${typeDocDe(f).label.toLowerCase()} (brouillon)`;
+  const titre = `${f._id ? "Modifier" : f.type === "FACTURE" ? "Nouvelle" : "Nouveau"} ${typeDocDe(f).label.toLowerCase()}${avoir ? " (brouillon)" : ""}`;
 
   return (
-    <FormModal show size="xl" title={titre} onClose={onClose} onSubmit={save} busy={busy} submitLabel="Enregistrer le brouillon">
+    <FormModal show size="xl" title={titre} onClose={onClose} busy={busy}
+      // Avoir (ancien parcours) : brouillon puis validation avec choix du remboursement
+      onSubmit={() => save(!avoir)} submitLabel={avoir ? "Enregistrer le brouillon" : "Valider"}
+      extraButtons={!avoir && (
+        <button type="button" className="btn-modern btn-modern-outline" disabled={busy} onClick={() => save(false)}>Enregistrer en brouillon</button>
+      )}>
       <Alert msg={err} onClose={() => setErr(null)} />
       <div className="row g-3 mb-3">
         <Field label="Client" col="col-12 col-md-6">

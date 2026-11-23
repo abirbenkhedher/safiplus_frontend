@@ -20,6 +20,7 @@ import EntreeStockModal from "./EntreeStockModal";
 import StockHistory from "./StockHistory";
 import { blockInGlobalView } from "../../utils/boutiqueStorage";
 import { informer } from "../../utils/dialog";
+import StatCard from "../../components/common/StatCard";
 // ============================================================
 // ✅ Filtres par défaut (tous des tableaux)
 // ============================================================
@@ -46,6 +47,7 @@ const StockList = () => {
   // ✅ "stock:read" = consultation seule (pas d'ajout / modification)
   const canWrite = hasPermission('stock');
 
+  const [filtresOuverts, setFiltresOuverts] = useState(false); // téléphone : critères repliés
   const [stocks, setStocks] = useState([]);
   const [stats, setStats] = useState(null);
   const [referentiels, setReferentiels] = useState({
@@ -351,10 +353,12 @@ const StockList = () => {
       },
       {
         name: "Type d'article",
-        selector: (row) => row.typeArticle?.nom || "",
+        selector: (row) => row.designation || row.typeArticle?.nom || "",
         sortable: true,
-        minWidth: "140px",
+        minWidth: "160px",
         cell: (row) => (
+          <div>
+          {row.designation && <div style={{ fontWeight: 700, fontSize: "12.5px", color: "var(--gray-800)", marginBottom: 3 }}>{row.designation}</div>}
           <span
             style={{
               display: "inline-block",
@@ -369,6 +373,7 @@ const StockList = () => {
           >
             {row.typeArticle?.nom || "—"}
           </span>
+          </div>
         ),
       },
       {
@@ -687,7 +692,7 @@ const StockList = () => {
       {/* KPI — 3 cartes */}
       {stats && (
         <div className="row g-3 mb-4">
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-6 col-lg-4">
             <KpiCard
               icon={<FaBoxes />}
               label="Lignes"
@@ -696,7 +701,7 @@ const StockList = () => {
               bg="rgba(var(--primary-rgb), 0.1)"
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-6 col-lg-4">
             <KpiCard
               icon={<FaExclamationTriangle />}
               label="En alerte"
@@ -705,7 +710,7 @@ const StockList = () => {
               bg="rgba(245,158,11,0.1)"
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-4">
+          <div className="col-12 col-lg-4">
             <KpiCard
               icon={<FaTimesCircle />}
               label="Rupture"
@@ -764,7 +769,11 @@ const StockList = () => {
           )}
         </div>
 
-        <div className="filters-line filters-line-2">
+        <button type="button" className="mobile-filter-toggle" style={{ marginTop: 12, marginBottom: 0 }} onClick={() => setFiltresOuverts((o) => !o)} aria-expanded={filtresOuverts}>
+          <FaFilter /> {filtresOuverts ? "Masquer les critères" : "Plus de critères"}
+          {activeCount > 0 && <span className="count">{activeCount}</span>}
+        </button>
+        <div className={`filters-line filters-line-2 mobile-collapsible ${filtresOuverts ? "" : "collapsed"}`}>
           <div className="filter-item">
             <MultiSelect
               label="Catégorie"
@@ -929,7 +938,7 @@ const StockList = () => {
           }}
           onConfirm={handleDelete}
           title="Supprimer la ligne de stock ?"
-          message={`Voulez-vous supprimer "${toDelete.typeArticle?.nom || ""} ${toDelete.marque?.nom || ""} ${toDelete.modele?.nom || ""}" (qté: ${toDelete.quantite}) ? Cette action est irréversible.`}
+          message={`Voulez-vous supprimer "${toDelete.designation ? toDelete.designation + " " : ""}${toDelete.typeArticle?.nom || ""} ${toDelete.marque?.nom || ""} ${toDelete.modele?.nom || ""}" (qté: ${toDelete.quantite}) ? Cette action est irréversible.`}
           confirmText="Supprimer"
         />
       )}
@@ -968,7 +977,7 @@ const StockList = () => {
         }
         .filter-item-search {
           flex: 1 1 320px;
-          min-width: 220px;
+          min-width: min(220px, 100%);
         }
         .filter-item-clear {
           flex: 0 0 auto;
@@ -1044,7 +1053,7 @@ const StockList = () => {
         .rdt_TableRow { min-height: 52px !important; }
         .rdt_TableCell { padding: 8px 10px !important; font-size: 12.5px !important; }
         .rdt_TableCol { padding: 8px 10px !important; }
-        .rdt_TableWrapper { width: 100% !important; overflow-x: hidden !important; }
+        .rdt_TableWrapper { width: 100% !important; overflow-x: auto !important; }
         .rdt_Table { width: 100% !important; }
       `}</style>
     </div>
@@ -1054,63 +1063,9 @@ const StockList = () => {
 // ============================================================
 // Sous-composants & styles
 // ============================================================
-const KpiCard = ({ icon, label, value, color, bg, isText }) => (
-  <div
-    style={{
-      background: "var(--gray-50)",
-      border: "1px solid var(--gray-200)",
-      borderRadius: "16px",
-      padding: "18px",
-      display: "flex",
-      alignItems: "center",
-      gap: "14px",
-      height: "100%",
-    }}
-  >
-    <div
-      style={{
-        width: "46px",
-        height: "46px",
-        borderRadius: "12px",
-        background: bg,
-        color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "20px",
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: "600",
-          color: "var(--gray-500)",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: "2px",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: isText ? "16px" : "22px",
-          fontWeight: "800",
-          color: "var(--gray-900)",
-          lineHeight: 1.1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  </div>
+// eslint-disable-next-line no-unused-vars
+const KpiCard = ({ isText, ...rest }) => (
+  <StatCard {...rest} />
 );
 
 const btnIncrSmall = {

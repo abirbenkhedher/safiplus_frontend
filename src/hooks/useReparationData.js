@@ -9,6 +9,7 @@ import { getAnnuaire } from '../api/users';
 import { getFamilles } from '../api/familles';
 import { getZones } from '../api/zones';
 import { REF_CACHE_KEY, REF_CACHE_TTL } from '../constants/reparations';
+import { useAuth } from '../context/AuthContext';
 
 // ------------------------------------------------------------
 // ✅ Helper : extrait un tableau quel que soit le format de réponse
@@ -41,6 +42,11 @@ const sortByOrdreOnly = (arr) => {
 };
 
 export const useReparationData = () => {
+  // ✅ Données propres au compte et à la boutique : chargées seulement une fois connecté
+  //    (avant : chargées aussi sur la page de connexion, et cache partagé entre comptes/boutiques)
+  const { user, activeBoutique } = useAuth();
+  const userId = user?._id || null;
+  const cacheKey = `${REF_CACHE_KEY}:${userId}:${activeBoutique || "all"}`;
   const [data, setData] = useState({
     categories: [],
     objets: [],
@@ -60,20 +66,20 @@ export const useReparationData = () => {
   // ------------------------------------------------------------
   const updateCache = useCallback((partialData) => {
     try {
-      const cached = localStorage.getItem(REF_CACHE_KEY);
+      const cached = localStorage.getItem(cacheKey);
       if (!cached) return;
 
       const parsed = JSON.parse(cached);
       const merged = { ...parsed.data, ...partialData };
 
       localStorage.setItem(
-        REF_CACHE_KEY,
+        cacheKey,
         JSON.stringify({ data: merged, timestamp: Date.now() })
       );
-    } catch (e) {
-      localStorage.removeItem(REF_CACHE_KEY);
+    } catch {
+      localStorage.removeItem(cacheKey);
     }
-  }, []);
+  }, [cacheKey]);
 
   // ------------------------------------------------------------
   // ✅ Chargement global (avec cache)
@@ -81,7 +87,7 @@ export const useReparationData = () => {
   const loadData = useCallback(async (forceRefresh = false) => {
     try {
       if (!forceRefresh) {
-        const cached = localStorage.getItem(REF_CACHE_KEY);
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
           try {
             const { data: cachedData, timestamp } = JSON.parse(cached);
@@ -106,8 +112,8 @@ export const useReparationData = () => {
               setLoading(false);
               return;
             }
-          } catch (e) {
-            localStorage.removeItem(REF_CACHE_KEY);
+          } catch {
+            localStorage.removeItem(cacheKey);
           }
         }
       }
@@ -151,7 +157,7 @@ export const useReparationData = () => {
       setData(freshData);
 
       localStorage.setItem(
-        REF_CACHE_KEY,
+        cacheKey,
         JSON.stringify({ data: freshData, timestamp: Date.now() })
       );
 
@@ -161,19 +167,20 @@ export const useReparationData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cacheKey]);
 
   useEffect(() => {
+    if (!userId) return; // pas connecté (page de connexion) : rien à charger
     loadData();
-  }, [loadData]);
+  }, [loadData, userId]);
 
   // ------------------------------------------------------------
   // ✅ Refresh GLOBAL
   // ------------------------------------------------------------
   const refresh = useCallback(() => {
-    localStorage.removeItem(REF_CACHE_KEY);
+    localStorage.removeItem(cacheKey);
     return loadData(true);
-  }, [loadData]);
+  }, [loadData, cacheKey]);
 
   // ------------------------------------------------------------
   // ✅ Reload ciblés — tous corrigés avec la même robustesse

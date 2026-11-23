@@ -81,7 +81,7 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
     >
       <div
         style={{
-          background: "#fff", borderRadius: "12px", padding: "24px",
+          background: "var(--surface)", borderRadius: "12px", padding: "24px",
           width: "95%", maxWidth: "520px", maxHeight: "90vh", overflowY: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -246,7 +246,7 @@ const DepenseForm = ({ depense, onClose, onSaved }) => {
               type="button"
               onClick={onClose}
               style={{
-                padding: "10px 18px", border: "1px solid #d1d5db", background: "#fff",
+                padding: "10px 18px", border: "1px solid #d1d5db", background: "var(--surface)",
                 borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "13px",
               }}
             >

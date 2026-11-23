@@ -1,5 +1,10 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { FaMoneyBillWave, FaPlusCircle } from 'react-icons/fa';
+
+// Mode du versement d'acompte (une modification de l'acompte = un nouveau versement)
+const MODES_ACOMPTE = [
+  ['ESPECES', 'Espèces'], ['CARTE', 'Carte / TPE'], ['CHEQUE', 'Chèque'], ['VIREMENT', 'Virement'], ['AUTRE', 'Autre'],
+];
 
 // ============================================================
 // ✅ Calcul auto du type de paiement (basé sur PRIX TOTAL)
@@ -134,6 +139,21 @@ const PaymentSection = ({ formData, onChange }) => {
             fontWeight: 600,
           }}>
             ⚠️ L'acompte dépasse le prix total ({prixTotal.toFixed(2)} DT)
+          </div>
+        )}
+        {/* ✅ Mode de paiement du versement : seules les espèces entrent dans la caisse */}
+        {acompte > 0 && (
+          <div className="d-flex align-items-center gap-2 mt-2">
+            <label htmlFor="mode-acompte" style={{ fontSize: '11.5px', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>Payé par</label>
+            <select
+              id="mode-acompte"
+              className="form-control-modern"
+              style={{ padding: '4px 8px', fontSize: '12.5px' }}
+              value={formData.modePaiementAcompte || 'ESPECES'}
+              onChange={(e) => onChange((prev) => ({ ...prev, modePaiementAcompte: e.target.value }))}
+            >
+              {MODES_ACOMPTE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
           </div>
         )}
       </div>

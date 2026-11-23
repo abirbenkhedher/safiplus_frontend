@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createReglement, getFacturesImpayees, getSolde, MODES_REGLEMENT } from "../../api/ventes";
+import { createReglement, getFacturesImpayees, getSolde, MODES_REGLEMENT, MODE_CREDIT } from "../../api/ventes";
 import { FormModal, Field, Alert } from "../atelier/ui";
 import { tnd, dateFr, errMsg, isoDay } from "../../utils/atelier";
 import { ClientPicker } from "./commun";
@@ -123,6 +123,8 @@ const ReglementModal = ({ client: clientInit, factureId, remboursement = false, 
         <Field label="Mode" col="col-6 col-md-4">
           <select className="form-control-modern" value={f.mode} onChange={(e) => set("mode", e.target.value)}>
             {MODES_REGLEMENT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {/* ✅ Payer avec le crédit du client (avoirs, avances) : aucune entrée d'argent */}
+            {!remboursement && Number(solde?.creditDisponible) > 0 && <option value={MODE_CREDIT[0]}>{MODE_CREDIT[1]} (disponible {tnd(solde.creditDisponible)})</option>}
           </select>
         </Field>
         <Field label="Date" col="col-6 col-md-4"><input type="date" className="form-control-modern" value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>

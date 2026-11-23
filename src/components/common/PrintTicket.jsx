@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FaPrint, FaFilePdf } from 'react-icons/fa';
-import { downloadPDF } from '../../api/reparations';
+import { downloadPDF, getTicketHTML } from '../../api/reparations';
 import { informer } from "../../utils/dialog";
 const PrintTicket = ({ reparationId, numero }) => {
   const [printing, setPrinting] = useState(false);
@@ -14,21 +14,8 @@ const PrintTicket = ({ reparationId, numero }) => {
     setPrinting(true);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-      // ✅ Récupérer le HTML du ticket
-      const response = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération du ticket');
-      }
-
-      const html = await response.text();
+      // ✅ Récupérer le HTML du ticket (session renouvelée automatiquement si besoin)
+      const html = await getTicketHTML(reparationId);
 
       // ✅ Ouvrir une fenêtre d'impression
       const printWindow = window.open('', '_blank', 'width=400,height=700');

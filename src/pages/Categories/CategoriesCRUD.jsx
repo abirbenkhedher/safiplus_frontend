@@ -1,9 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import {
-  FaPlus, FaEdit, FaTrash, FaBoxes, FaTags,
-  FaSearch, FaSave, FaTimes, FaCalendarAlt, FaSortNumericDown,
-  FaTools, FaCheckCircle, FaUserCog,
+  FaPlus,
+  FaBoxes,
+  FaTags,
+  FaSearch,
+  FaSave,
+  FaTimes,
+  FaCalendarAlt,
+  FaSortNumericDown,
+  FaCheckCircle,
+  FaUserCog,
 } from 'react-icons/fa';
 import { getCategories, createCategorie, updateCategorie, deleteCategorie } from '../../api/categories';
 import { getFamilles } from '../../api/familles';
@@ -58,7 +65,7 @@ const CategoriesCRUD = () => {
         ROLES_AUTORISES.includes((u.role || '').toUpperCase().trim())
       );
       setReparateursDisponibles(filteredUsers);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -505,7 +512,7 @@ const CategoriesCRUD = () => {
                 height: '32px',
                 borderRadius: '8px',
                 border: 'none',
-                background: 'white',
+                background: 'var(--surface)',
                 color: 'var(--gray-500)',
                 cursor: 'pointer',
                 display: 'flex',
@@ -672,7 +679,7 @@ const CategoriesCRUD = () => {
                     border: '1px solid var(--gray-200)',
                     borderRadius: '10px',
                     padding: '8px',
-                    background: 'white',
+                    background: 'var(--surface)',
                   }}
                 >
                   {reparateursFiltres.length > 0 ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FaSave,
   FaTimes,
@@ -320,7 +320,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                 height: "36px",
                 borderRadius: "10px",
                 border: "none",
-                background: "white",
+                background: "var(--surface)",
                 color: "var(--gray-500)",
                 cursor: "pointer",
                 display: "flex",
@@ -416,7 +416,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
                     <div
                       style={{
                         padding: "10px 14px",
-                        background: "white",
+                        background: "var(--surface)",
                         borderRadius: "8px",
                         marginBottom: "12px",
                         border: "1px solid rgba(245, 158, 11, 0.3)",
@@ -851,7 +851,7 @@ const ClientFormModal = ({ show, onClose, onSuccess, client = null }) => {
           width: 20px;
           left: 3px;
           bottom: 3px;
-          background-color: white;
+          background-color: var(--surface);
           transition: 300ms;
           border-radius: 50%;
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);

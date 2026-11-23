@@ -12,7 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 const REFRESH_MS = 5 * 60 * 1000;
 
 const libelle = (s) =>
-  [s.code, s.typeArticle?.nom, s.categorie?.nom, s.marque?.nom, s.modele?.nom]
+  [s.code, ...(s.designation ? [s.designation] : [s.typeArticle?.nom, s.categorie?.nom, s.marque?.nom, s.modele?.nom])]
     .filter(Boolean)
     .join(" ") || "Pièce sans nom";
 
@@ -168,11 +168,11 @@ const styles = `
   .as-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9998; }
   .as-panel {
     position: absolute; top: calc(100% + 10px); right: 0; width: 380px; max-width: calc(100vw - 32px);
-    max-height: 520px; background: #fff; border-radius: 16px; border: 1px solid var(--gray-200, #e5e7eb);
+    max-height: 520px; background: var(--surface); border-radius: 16px; border: 1px solid var(--gray-200, #e5e7eb);
     box-shadow: 0 12px 32px rgba(0,0,0,0.15); overflow: hidden; z-index: 9999;
     display: flex; flex-direction: column;
   }
-  .as-panel.mobile { position: fixed; top: 70px; left: 8px; right: 8px; width: auto; max-height: calc(100vh - 90px); }
+  .as-panel.mobile { position: fixed; top: calc(var(--header-height) + 8px); left: 8px; right: 8px; width: auto; max-height: calc(100dvh - var(--header-height) - 16px); }
   .as-head {
     padding: 16px 18px; background: linear-gradient(135deg, #fef3c7, #fffbeb);
     border-bottom: 1px solid #fde68a; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -190,7 +190,7 @@ const styles = `
   .as-list { flex: 1; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
   .as-item {
     padding: 12px 18px; border-bottom: 1px solid var(--gray-100, #f3f4f6); cursor: pointer;
-    display: flex; align-items: center; gap: 12px; background: #fff; transition: background 150ms ease;
+    display: flex; align-items: center; gap: 12px; background: var(--surface); transition: background 150ms ease;
   }
   .as-item:hover { background: #fffbeb; }
   .as-dot {

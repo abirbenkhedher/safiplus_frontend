@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaUser, FaLock, FaEye, FaEyeSlash, 
@@ -84,7 +84,7 @@ const Login = () => {
       } else {
         setGlobalError(result.message || 'Nom d\'utilisateur ou mot de passe incorrect');
       }
-    } catch (err) {
+    } catch {
       setLoading(false);
       setGlobalError('Erreur de connexion au serveur. Veuillez réessayer.');
     }

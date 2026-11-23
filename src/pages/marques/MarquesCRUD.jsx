@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   FaPlus, FaSearch, FaCalendarAlt, FaSortNumericDown,
   FaTrademark, FaClipboardList
@@ -43,7 +43,7 @@ const MarquesCRUD = () => {
 
       setMarques([...rawM].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)));
       setObjets(rawO);
-    } catch (err) {
+    } catch {
       setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);

@@ -1,14 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  FaTimes, FaUser, FaTools, FaMoneyBillWave, FaClipboardList,
-  FaSave, FaPrint, FaHourglassHalf, FaCommentAlt,
-  FaStethoscope, FaChevronDown,
+  FaTimes,
+  FaUser,
+  FaTools,
+  FaMoneyBillWave,
+  FaClipboardList,
+  FaSave,
+  FaPrint,
+  FaHourglassHalf,
+  FaCommentAlt,
+  FaStethoscope,
+  FaChevronDown,
   FaExclamationTriangle,
-  FaCheck, FaBoxOpen,
-  FaCalendarAlt, FaLock,
+  FaCheck,
+  FaBoxOpen,
+  FaLock,
 } from "react-icons/fa";
-import { createReparation, updateReparation } from "../../api/reparations";
+import { createReparation, updateReparation, getTicketHTML } from "../../api/reparations";
 import { useReparationData } from "../../hooks/useReparationData";
 import { DRAFT_KEY } from "../../constants/reparations";
 import { getStock, consommerStock, annulerConsommation } from "../../api/stock";
@@ -28,7 +37,7 @@ import { normalizeStatusLabel, isStatutCloture } from "../../utils/statutReparat
 // ============================================================
 const INITIAL_FORM = {
   client: "", categorie: "", objet: "", marque: "", modele: "",
-  problemeDeclare: "", panneType: [], note: "", prix: 0, acompte: 0,
+  problemeDeclare: "", panneType: [], note: "", prix: 0, acompte: 0, modePaiementAcompte: "ESPECES",
   status: "", reparateur: "", reparateurSAV: "", paymentType: "unpaid",
   observations: [{ text: "", date: new Date().toISOString() }],
   diagnosticImprevus: {
@@ -114,7 +123,7 @@ const inputStyle = {
   fontFamily: "inherit",
   outline: "none",
   boxSizing: "border-box",
-  background: "white",
+  background: "var(--surface)",
   transition: "all 180ms ease",
   minHeight: "42px",
   lineHeight: "1.4",
@@ -402,6 +411,7 @@ const ReparationModal = ({
         note: reparation.note || "",
         prix: reparation.prix || 0,
         acompte: reparation.acompte || 0,
+        modePaiementAcompte: "ESPECES", // mode du prochain versement (modification de l'acompte)
         status: reparation.status?._id || "",
         reparateur: reparation.reparateur?._id || "",
         reparateurSAV: reparation.reparateurSAV?._id || "",
@@ -546,12 +556,7 @@ const ReparationModal = ({
 
   const printTicket = useCallback(async (reparationId) => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const res = await fetch(`${apiUrl}/reparations/${reparationId}/ticket`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const html = await res.text();
+      const html = await getTicketHTML(reparationId);
       const win = window.open("", "_blank", "width=400,height=600");
       win.document.write(html);
       win.document.close();
@@ -853,7 +858,7 @@ const ReparationModal = ({
           className="reparation-modal-container"
           style={{
             maxWidth: "1200px", width: "100%", margin: "0 auto",
-            background: "white", borderRadius: "20px",
+            background: "var(--surface)", borderRadius: "20px",
             boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
             maxHeight: "96vh", display: "flex", flexDirection: "column",
             overflow: "hidden",
@@ -895,7 +900,7 @@ const ReparationModal = ({
               title="Fermer"
               style={{
                 width: "34px", height: "34px", borderRadius: "10px",
-                border: "none", background: "white", color: "var(--gray-500)",
+                border: "none", background: "var(--surface)", color: "var(--gray-500)",
                 cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center",
                 justifyContent: "center", fontSize: "15px",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
@@ -1038,7 +1043,7 @@ const ReparationModal = ({
                       setFormData({ ...INITIAL_FORM, client: initialClientId || "" });
                     }}
                     style={{
-                      background: "white", border: "none", color: "var(--warning)",
+                      background: "var(--surface)", border: "none", color: "var(--warning)",
                       fontSize: "11px", fontWeight: 600, cursor: "pointer",
                       padding: "4px 10px", borderRadius: "6px",
                     }}
@@ -1308,7 +1313,7 @@ const ReparationModal = ({
                                 style={{
                                   fontSize: "9px",
                                   padding: "1px 6px",
-                                  background: "white",
+                                  background: "var(--surface)",
                                   borderRadius: "6px",
                                   color: p.statut === "restaure" ? "var(--success)" : "var(--gray-500)",
                                   fontWeight: "700",
@@ -1327,7 +1332,7 @@ const ReparationModal = ({
                                   width: "24px",
                                   height: "24px",
                                   border: "1px solid var(--danger)",
-                                  background: "white",
+                                  background: "var(--surface)",
                                   color: "var(--danger)",
                                   borderRadius: "6px",
                                   cursor: saving ? "wait" : "pointer",

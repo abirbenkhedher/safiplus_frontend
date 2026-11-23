@@ -1,4 +1,3 @@
-import React from "react";
 
 const SkeletonLoader = ({ height = 300, width = "100%", borderRadius = "12px" }) => {
   return (

@@ -48,6 +48,15 @@ const TYPE_LABELS = {
     color: "#0369a1",
     bg: "#e0f2fe",
   },
+  // ✅ Module atelier
+  ENTREE_ACHAT: { label: "Entrée (facture d'achat)", icon: "📥", color: "#065f46", bg: "#d1fae5" },
+  ANNULATION_ACHAT: { label: "Annulation d'achat", icon: "↩️", color: "#991b1b", bg: "#fee2e2" },
+  TRANSFERT_SORTIE: { label: "Transfert vers une autre boutique", icon: "📤", color: "#92400e", bg: "#fef3c7" },
+  TRANSFERT_ENTREE: { label: "Transfert reçu", icon: "📦", color: "#065f46", bg: "#d1fae5" },
+  INVENTAIRE: { label: "Inventaire (correction)", icon: "📋", color: "#0369a1", bg: "#e0f2fe" },
+  // ✅ Gestion commerciale
+  SORTIE_VENTE: { label: "Vente", icon: "🛒", color: "#9a3412", bg: "#ffedd5" },
+  RETOUR_VENTE: { label: "Retour client (avoir / annulation)", icon: "🔄", color: "#065f46", bg: "#d1fae5" },
 };
 
 const StockHistory = ({ stock, onClose }) => {
@@ -68,7 +77,7 @@ const StockHistory = ({ stock, onClose }) => {
   }, [stock._id]);
 
   // ✅ Nom complet de la ligne de stock
-  const label =
+  const label = stock.designation ||
     `${stock.typeArticle?.nom || ""} ${stock.marque?.nom || ""} ${
       stock.modele?.nom || ""
     }`.trim() ||
@@ -91,7 +100,7 @@ const StockHistory = ({ stock, onClose }) => {
     >
       <div
         style={{
-          background: "white",
+          background: "var(--surface)",
           borderRadius: "16px",
           width: "100%",
           maxWidth: "680px",

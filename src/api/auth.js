@@ -6,7 +6,8 @@ export const login = async (username, password) => {
 };
 
 export const logout = async () => {
-  const response = await apiClient.post('/auth/logout');
+  // ✅ Ferme uniquement la session de cet appareil
+  const response = await apiClient.post('/auth/logout', { refreshToken: localStorage.getItem('refreshToken') || undefined });
   return response.data;
 };
 

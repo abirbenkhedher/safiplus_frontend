@@ -1,4 +1,3 @@
-import React from "react";
 import {
   FaTools,
   FaSpinner,
@@ -8,6 +7,7 @@ import {
   FaWallet,
   FaHandHoldingUsd,
 } from "react-icons/fa";
+import StatCard from "../../components/common/StatCard";
 
 const StatsCards = ({ stats, userRole }) => {
   if (!stats) return null;
@@ -114,83 +114,7 @@ const StatsCards = ({ stats, userRole }) => {
   const showFinance = userRole === "ADMIN";
 
   const CardItem = ({ card }) => (
-    <div
-      style={{
-        background: "white",
-        border: "1px solid var(--gray-200)",
-        borderRadius: "16px",
-        padding: "20px",
-        display: "flex",
-        alignItems: "center",
-        gap: "16px",
-        transition: "all 200ms ease",
-        cursor: "default",
-        height: "100%",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-4px)";
-        e.currentTarget.style.boxShadow = "var(--shadow-lg)";
-        e.currentTarget.style.borderColor = card.color;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = "none";
-        e.currentTarget.style.borderColor = "var(--gray-200)";
-      }}
-    >
-      <div
-        style={{
-          width: "56px",
-          height: "56px",
-          borderRadius: "14px",
-          background: card.bg,
-          color: card.color,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "24px",
-          flexShrink: 0,
-        }}
-      >
-        {card.icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: "600",
-            color: "var(--gray-500)",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-            marginBottom: "4px",
-          }}
-        >
-          {card.title}
-        </div>
-        <div
-          style={{
-            fontSize: "26px",
-            fontWeight: "800",
-            color: "var(--gray-900)",
-            lineHeight: 1.1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {card.value}
-        </div>
-        <div
-          style={{
-            fontSize: "11.5px",
-            color: "var(--gray-500)",
-            marginTop: "4px",
-          }}
-        >
-          {card.subtitle}
-        </div>
-      </div>
-    </div>
+    <StatCard icon={card.icon} label={card.title} value={card.value} hint={card.subtitle} color={card.color} bg={card.bg} />
   );
 
   return (
@@ -198,7 +122,7 @@ const StatsCards = ({ stats, userRole }) => {
       {/* ✅ 4 cartes réparations (visibles pour tous) */}
       <div className="row g-3 mb-3">
         {mainCards.map((card, i) => (
-          <div key={i} className="col-12 col-sm-6 col-lg-3">
+          <div key={i} className="col-6 col-lg-3">
             <CardItem card={card} />
           </div>
         ))}
@@ -208,7 +132,7 @@ const StatsCards = ({ stats, userRole }) => {
       {showFinance && (
         <div className="row g-3 mb-4">
           {financeCards.map((card, i) => (
-            <div key={i} className="col-12 col-sm-6 col-lg-4">
+            <div key={i} className="col-6 col-lg-4">
               <CardItem card={card} />
             </div>
           ))}

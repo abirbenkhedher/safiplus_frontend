@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -12,7 +12,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 
 const COLORS = [
@@ -396,7 +395,7 @@ const Charts = ({ stats, chartsData }) => {
                         key={index}
                         style={{
                           padding: "10px 14px",
-                          background: "white",
+                          background: "var(--surface)",
                           borderRadius: "10px",
                           display: "flex",
                           alignItems: "center",
@@ -521,7 +520,7 @@ const Charts = ({ stats, chartsData }) => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ count, percent }) =>
+                      label={({ percent }) =>
                         `${(percent * 100).toFixed(0)}%`
                       }
                       outerRadius={90}
@@ -567,7 +566,7 @@ const Charts = ({ stats, chartsData }) => {
                       <div
                         key={index}
                         style={{
-                          background: "white",
+                          background: "var(--surface)",
                           padding: "14px 18px",
                           borderRadius: "12px",
                           display: "flex",
@@ -821,7 +820,7 @@ const Charts = ({ stats, chartsData }) => {
                         key={index}
                         style={{
                           padding: "10px 14px",
-                          background: "white",
+                          background: "var(--surface)",
                           borderRadius: "10px",
                           display: "flex",
                           alignItems: "center",

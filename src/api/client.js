@@ -14,6 +14,39 @@ const apiClient = axios.create({
   },
 });
 
+// ============================================================
+// ✅ Renouvellement de session (jeton d'accès de 15 min)
+//    Une seule demande à la fois : si plusieurs requêtes échouent en même temps,
+//    elles attendent toutes le même renouvellement.
+// ============================================================
+let renouvellement = null;
+
+export const renouvelerSession = () => {
+  if (!renouvellement) {
+    renouvellement = (async () => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) throw new Error('Pas de session à renouveler');
+      const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: nouveau } = response.data.data;
+      localStorage.setItem('accessToken', accessToken);
+      if (nouveau) localStorage.setItem('refreshToken', nouveau);
+      return accessToken;
+    })().finally(() => { renouvellement = null; });
+  }
+  return renouvellement;
+};
+
+const deconnecter = (cible) => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  // Rediriger seulement si on n'est pas déjà sur une page publique / de connexion
+  const currentPath = window.location.pathname;
+  const isOnPublicPage = currentPath.startsWith('/suivi/') || currentPath.startsWith('/s/');
+  if (!isOnPublicPage && currentPath !== '/login' && currentPath !== '/') {
+    window.location.href = cible;
+  }
+};
+
 // Intercepteur pour ajouter le token
 apiClient.interceptors.request.use(
   (config) => {
@@ -48,7 +81,13 @@ apiClient.interceptors.response.use(
     // ✅ NOUVELLE LIGNE : Routes publiques (ne PAS rediriger)
     const isPublicRoute = requestUrl.includes('/reparations/public/');
 
-    // Si erreur 401 et PAS une route d'auth NI publique → on tente le refresh
+    // 🔴 Déconnexion pour inactivité décidée par le serveur : pas de renouvellement
+    if (error.response?.status === 401 && error.response?.data?.code === 'INACTIVITY_TIMEOUT') {
+      deconnecter('/login?reason=inactivity');
+      return Promise.reject(error);
+    }
+
+    // Si erreur 401 et PAS une route d'auth NI publique → on renouvelle la session puis on rejoue la requête
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -58,33 +97,13 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
-
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-
+        const accessToken = await renouvelerSession();
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh échoué → logout
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-
-        // Rediriger seulement si on n'est pas déjà sur une page publique
-        const currentPath = window.location.pathname;
-        const isOnPublicPage = currentPath.startsWith('/suivi/');
-
-        if (!isOnPublicPage && currentPath !== '/login' && currentPath !== '/') {
-          window.location.href = '/login';
-        }
+        // Renouvellement impossible (session fermée, expirée, inactivité) → reconnexion
+        const inactif = refreshError?.response?.data?.code === 'INACTIVITY_TIMEOUT';
+        deconnecter(inactif ? '/login?reason=inactivity' : '/login');
         return Promise.reject(refreshError);
       }
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   FaTimes, FaSave, FaMobileAlt, FaTrademark, FaSortNumericDown,
@@ -103,13 +103,14 @@ const QuickCreateModeleModal = ({
     >
       <div
         style={{
-          background: "white",
+          background: "var(--surface)",
           borderRadius: 16,
           padding: 0,
           maxWidth: 440,
           width: "100%",
           boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
-          overflow: "hidden",
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto",
         }}
       >
         {/* HEADER */}
@@ -172,7 +173,7 @@ const QuickCreateModeleModal = ({
               width: 30,
               height: 30,
               border: "none",
-              background: "white",
+              background: "var(--surface)",
               borderRadius: 8,
               cursor: "pointer",
               display: "flex",

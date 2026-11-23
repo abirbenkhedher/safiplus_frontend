@@ -169,6 +169,15 @@
 .at-table tbody tr:hover td { background: var(--gray-50); }
 .at-table .text-end { text-align: right; }
 .at-table .at-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* ✅ Téléphone : le tableau garde une largeur lisible et défile horizontalement
+   dans sa carte, au lieu d'écraser les colonnes. Numéros et dates ne se coupent pas. */
+.at-table td > b:first-child,
+.at-table td > div > b:first-child { white-space: nowrap; }
+@media (max-width: 768px) {
+  .at-table:has(thead th:nth-child(4)) { min-width: 560px; }
+  .at-table:has(thead th:nth-child(6)) { min-width: 680px; }
+  .at-table tbody td { padding: 10px 12px; }
+}
 .at-empty {
   text-align: center;
   padding: 40px 16px !important;
